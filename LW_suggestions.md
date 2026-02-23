@@ -102,7 +102,9 @@ Suggested screens (keep minimal versions first):
 - Dismiss should hide that challenge for the dismissal duration
 - No-results state should push toward “Join a challenge”
 - Explore shows **public runs only** (plus optionally “your own runs” in a separate section).
+- The experience of going through public challenge runs should work like: swiping left dismisses the challenge and swiping right joins the challenge. Of course, if we tap the x it also dismisses the challenge and tapping join joins it.
 - Do not leak private runs via counts, previews, or search results.
+- When we join a public challenge, the run that is created is by default set to public. But if we go to settings, we can change the default to private (this will only affect future runs).
 
 ### Check-in
 - One-tap check-in

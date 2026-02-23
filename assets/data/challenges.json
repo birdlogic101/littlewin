@@ -1,0 +1,109 @@
+{
+  "challenges": [
+    {
+      "id": "ch-01",
+      "slug": "10-minute-workout",
+      "title": "10-Minute Workout",
+      "description": "A short daily workout to keep your body moving. No gym required — 10 minutes at home counts.",
+      "image": "assets/pictures/challenge_10-minute-workout.jpg"
+    },
+    {
+      "id": "ch-02",
+      "slug": "16-hour-fasting",
+      "title": "16-Hour Fasting",
+      "description": "Skip breakfast, eat in an 8-hour window. One of the most researched longevity habits.",
+      "image": "assets/pictures/challenge_16-hour-fasting.jpg"
+    },
+    {
+      "id": "ch-03",
+      "slug": "1-minute-cold-shower",
+      "title": "1-Minute Cold Shower",
+      "description": "Finish your shower with 60 seconds of cold water. Builds mental resilience, one day at a time.",
+      "image": "assets/pictures/challenge_1-minute-cold-shower.jpg"
+    },
+    {
+      "id": "ch-04",
+      "slug": "zero-doomscroll",
+      "title": "Zero Doomscroll",
+      "description": "No mindless social media scrolling. Replace the habit with something intentional.",
+      "image": "assets/pictures/challenge_zero-doomscroll.jpg"
+    },
+    {
+      "id": "ch-05",
+      "slug": "16-hour-offscreen",
+      "title": "16-Hour Offscreen",
+      "description": "Keep screens off for 16 hours of the day. Reclaim your attention and your evenings.",
+      "image": "assets/pictures/challenge_16-hour-offscreen.jpg"
+    },
+    {
+      "id": "ch-06",
+      "slug": "no-coffee",
+      "title": "No Coffee",
+      "description": "Skip the caffeine hit. Explore what your natural energy levels feel like.",
+      "image": "assets/pictures/challenge_no-coffee.jpg"
+    },
+    {
+      "id": "ch-07",
+      "slug": "no-eating-out",
+      "title": "No Eating Out",
+      "description": "Cook every meal yourself. Save money, eat better, rediscover the kitchen.",
+      "image": "assets/pictures/challenge_no-eating-out.jpg"
+    },
+    {
+      "id": "ch-08",
+      "slug": "no-added-sugar",
+      "title": "No Added Sugar",
+      "description": "Cut all added sugars from your diet. Read labels, reset your palate.",
+      "image": "assets/pictures/challenge_no-added-sugar.jpg"
+    },
+    {
+      "id": "ch-09",
+      "slug": "ketogenic-diet",
+      "title": "Ketogenic Diet",
+      "description": "High fat, low carb, every day. A metabolic reset that demands daily commitment.",
+      "image": "assets/pictures/challenge_ketogenic-diet.jpg"
+    },
+    {
+      "id": "ch-10",
+      "slug": "20-minute-walk",
+      "title": "20-Minute Walk",
+      "description": "Step outside and walk for 20 minutes. The simplest habit with outsized benefits.",
+      "image": "assets/pictures/challenge_20-minute-walk.jpg"
+    },
+    {
+      "id": "ch-11",
+      "slug": "10000-steps",
+      "title": "10,000 Steps",
+      "description": "Hit your daily step goal with intention. Every walk counts toward the streak.",
+      "image": "assets/pictures/challenge_10000-steps.jpg"
+    },
+    {
+      "id": "ch-12",
+      "slug": "zero-alcohol",
+      "title": "Zero Alcohol",
+      "description": "No drinks. Full clarity, better sleep, real savings — one day at a time.",
+      "image": "assets/pictures/challenge_zero-alcohol.jpg"
+    },
+    {
+      "id": "ch-13",
+      "slug": "10-minute-stretch",
+      "title": "10-Minute Stretch",
+      "description": "Dedicate 10 minutes to stretching every day. Your future self will thank you.",
+      "image": "assets/pictures/challenge_10-minute-stretch.jpg"
+    },
+    {
+      "id": "ch-14",
+      "slug": "5-minute-breathwork",
+      "title": "5-Minute Breathwork",
+      "description": "Five minutes of intentional breathing. Box breath, 4-7-8, or whatever grounds you.",
+      "image": "assets/pictures/challenge_5-minute-breathwork.jpg"
+    },
+    {
+      "id": "ch-15",
+      "slug": "1-page-journaling",
+      "title": "1-Page Journaling",
+      "description": "Write one page every day. Stream of consciousness, gratitude, or goals — just write.",
+      "image": "assets/pictures/challenge_1-page-journaling.jpg"
+    }
+  ]
+}

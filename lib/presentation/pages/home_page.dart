@@ -1,33 +1,264 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/explore/explore_bloc.dart';
+import '../bloc/explore/explore_state.dart';
+import '../bloc/checkin/checkin_bloc.dart';
+import '../bloc/records/records_bloc.dart';
+import '../bloc/people/people_bloc.dart';
+import '../widgets/lw_app_bar.dart';
+import '../widgets/lw_icon.dart';
+import 'explore/explore_screen.dart';
+import 'checkin/checkin_screen.dart';
+import 'records/records_screen.dart';
+import 'people/people_screen.dart';
+import '../../core/theme/design_system.dart';
+import '../../data/repositories/runs_repository.dart';
+import '../../data/repositories/completed_runs_repository.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+/// Root shell of the app.
+///
+/// - Creates and owns the two shared repositories ([RunsRepository] and
+///   [CompletedRunsRepository]) so all blocs share the same data.
+/// - Implements [WidgetsBindingObserver] to detect UTC day rollovers on
+///   foreground resume and trigger [RunsRepository.processCompletions].
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  int _currentIndex = 0;
+
+  final _runsRepository = RunsRepository();
+  final _completedRunsRepository = CompletedRunsRepository();
+
+  /// The UTC day string seen on last foreground event / cold start.
+  late String _lastSeenUtcDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastSeenUtcDay = _todayUtc();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _runsRepository.dispose();
+    _completedRunsRepository.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkDayRollover();
+    }
+  }
+
+  void _checkDayRollover() {
+    final today = _todayUtc();
+    if (today != _lastSeenUtcDay) {
+      _lastSeenUtcDay = today;
+      _runsRepository.processCompletions(today, _completedRunsRepository);
+    }
+  }
+
+  static String _todayUtc() {
+    final now = DateTime.now().toUtc();
+    return '${now.year}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  void _switchTab(int index) => setState(() => _currentIndex = index);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Littlewin'),
+    final lw = LWThemeExtension.of(context);
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ExploreBloc>(
+          create: (_) => ExploreBloc(runsRepository: _runsRepository),
+        ),
+        BlocProvider<CheckinBloc>(
+          create: (_) => CheckinBloc(runsRepository: _runsRepository),
+        ),
+        BlocProvider<RecordsBloc>(
+          create: (_) => RecordsBloc(
+              completedRunsRepository: _completedRunsRepository),
+        ),
+        BlocProvider<PeopleBloc>(create: (_) => PeopleBloc()),
+      ],
+      child: BlocListener<ExploreBloc, ExploreState>(
+        listenWhen: (prev, curr) {
+          if (curr is! ExploreLoaded) return false;
+          if (prev is! ExploreLoaded) return curr.lastJoinedAt != null;
+          return curr.lastJoinedAt != prev.lastJoinedAt &&
+              curr.lastJoinedAt != null;
+        },
+        listener: (context, state) => _switchTab(1),
+        child: Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: LwAppBar(
+            showCreate: false,
+            notificationCount: 0,
+            onMenuTap: () {},
+            onNotificationsTap: () {},
+          ),
+          body: IndexedStack(
+            index: _currentIndex,
+            children: const [
+              ExploreScreen(),
+              CheckinScreen(),
+              RecordsScreen(),
+              PeopleScreen(),
+            ],
+          ),
+          bottomNavigationBar: _LwBottomNav(
+            currentIndex: _currentIndex,
+            onTap: _switchTab,
+            navColor: lw.navBackground,
+            activeColor: lw.navIconActive,
+            inactiveColor: lw.navIconInactive,
+          ),
+        ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    );
+  }
+}
+
+// ── Bottom nav ────────────────────────────────────────────────────────────────
+
+class _LwBottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final Color navColor;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  const _LwBottomNav({
+    required this.currentIndex,
+    required this.onTap,
+    required this.navColor,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: LWComponents.bottomNav.height +
+          MediaQuery.of(context).padding.bottom,
+      decoration: BoxDecoration(
+        color: navColor,
+        border: Border(
+          top: BorderSide(
+            color: LWThemeExtension.of(context).borderSubtle,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            const Text('Welcome to Littlewin!'),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // Temporary verify Supabase connection logic
-                // This would normally check current session
-                final session = Supabase.instance.client.auth.currentSession;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(session != null ? 'Logged In' : 'Not Logged In')),
-                );
-              },
-              child: const Text('Check Auth Status'),
+            _NavItem(
+              svgName: 'nav_home',
+              label: 'Explore',
+              isActive: currentIndex == 0,
+              activeColor: activeColor,
+              inactiveColor: inactiveColor,
+              onTap: () => onTap(0),
+            ),
+            _NavItem(
+              svgName: 'nav_checkin',
+              label: 'Check-in',
+              isActive: currentIndex == 1,
+              activeColor: activeColor,
+              inactiveColor: inactiveColor,
+              onTap: () => onTap(1),
+            ),
+            _NavItem(
+              svgName: 'nav_scores',
+              label: 'Records',
+              isActive: currentIndex == 2,
+              activeColor: activeColor,
+              inactiveColor: inactiveColor,
+              onTap: () => onTap(2),
+            ),
+            _NavItem(
+              svgName: 'nav_people',
+              label: 'People',
+              isActive: currentIndex == 3,
+              activeColor: activeColor,
+              inactiveColor: inactiveColor,
+              onTap: () => onTap(3),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final String svgName;
+  final String label;
+  final bool isActive;
+  final Color activeColor;
+  final Color inactiveColor;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.svgName,
+    required this.label,
+    required this.isActive,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      selected: isActive,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 60,
+          height: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              LwIcon(
+                svgName,
+                size: LWComponents.bottomNav.iconSize,
+                color: isActive ? activeColor : inactiveColor,
+              ),
+              if (isActive)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Container(
+                    width: LWComponents.bottomNav.dotSize,
+                    height: LWComponents.bottomNav.dotSize,
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
