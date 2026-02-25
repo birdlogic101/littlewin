@@ -14,6 +14,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     on<CheckinFetchRequested>(_onFetch);
     on<CheckinPerformed>(_onCheckin);
     on<CheckinRunsUpdated>(_onRunsUpdated);
+    on<DayRolloverDetected>(_onDayRollover);
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -25,6 +26,13 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     emit(const CheckinState.loading());
     try {
       await Future.delayed(const Duration(milliseconds: 400));
+
+      // Guard: if the UTC day rolled over while the app was in the background
+      // (or killed + restored), any run with hasCheckedInToday=true but
+      // lastCheckinDay != today must be reset — otherwise the UI would show
+      // already-done runs as pending on the wrong day.
+      _runsRepository.clearStaleCheckinFlags(_todayUtc());
+
       emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
 
       await _runsSub?.cancel();
@@ -43,6 +51,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     emit(CheckinState.loaded(runs: event.runs));
   }
 
+  /// Called by [AppShell] after it runs [RunsRepository.processCompletions].
+  /// Re-emits the now-updated active run list (missed runs have been removed,
+  /// still-active runs have hasCheckedInToday reset).
+  Future<void> _onDayRollover(
+    DayRolloverDetected event,
+    Emitter<CheckinState> emit,
+  ) async {
+    emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
+  }
+
   Future<void> _onCheckin(
     CheckinPerformed event,
     Emitter<CheckinState> emit,
@@ -55,33 +73,24 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         .firstOrNull;
     if (run == null || run.hasCheckedInToday) return;
 
-    // Compute today's UTC date string.
-    final now = DateTime.now().toUtc();
-    final todayUtc =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    final updated = run.copyWith(
-      hasCheckedInToday: true,
-      currentStreak: run.currentStreak + 1,
-      lastCheckinDay: todayUtc, // ← required for processCompletions logic
-    );
-
-    // Optimistic UI update — emit immediately.
-    final updatedRuns = _runsRepository.activeRuns.map((r) {
-      return r.runId == event.runId ? updated : r;
-    }).toList();
-    emit(CheckinState.loaded(runs: updatedRuns));
-
-    // Persist to shared repository (stream fires → CheckinRunsUpdated,
-    // equatable suppresses a redundant rebuild since data is the same).
-    _runsRepository.updateRun(updated);
-
-    // TODO: call server-side check-in use-case
+    // Delegate to repository: handles optimistic in-memory update + Supabase
+    // persistence. The stream subscription in _onFetch will emit the updated
+    // run list, keeping the UI in sync.
+    await _runsRepository.checkin(event.runId);
   }
 
   @override
   Future<void> close() {
     _runsSub?.cancel();
     return super.close();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  static String _todayUtc() {
+    final now = DateTime.now().toUtc();
+    return '${now.year}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
   }
 }

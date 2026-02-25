@@ -1,4 +1,4 @@
-package com.example.littlewin
+package com.littlewin.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,17 +1,22 @@
 import 'dart:async';
 import '../../domain/entities/completed_run_entity.dart';
+import '../datasources/run_remote_datasource.dart';
 
 /// Shared in-memory store for the user's completed runs.
 ///
-/// Seeded with historical mock records. [RecordsBloc] subscribes to [stream]
-/// and [RunsRepository.processCompletions] feeds new completions into it.
-///
-/// Replace with a real Supabase-backed repository when the backend is wired.
+/// Seeded with historical mock records on first run. On startup, call
+/// [initialize] to replace/add real records from Supabase.
+/// [RunsRepository.processCompletions] feeds new completions into it
+/// as the user misses check-in deadlines.
 class CompletedRunsRepository {
-  CompletedRunsRepository({List<CompletedRunEntity>? initial})
-      : _runs = List<CompletedRunEntity>.from(initial ?? _defaultRuns());
+  CompletedRunsRepository({
+    List<CompletedRunEntity>? initial,
+    RunRemoteDataSource? datasource,
+  })  : _runs = List<CompletedRunEntity>.from(initial ?? _defaultRuns()),
+        _datasource = datasource;
 
   final List<CompletedRunEntity> _runs;
+  final RunRemoteDataSource? _datasource;
   final _controller =
       StreamController<List<CompletedRunEntity>>.broadcast();
 
@@ -20,6 +25,25 @@ class CompletedRunsRepository {
 
   /// Emits a new snapshot whenever a run is added.
   Stream<List<CompletedRunEntity>> get stream => _controller.stream;
+
+  // ── Initialization ─────────────────────────────────────────────────────────
+
+  /// Loads the current user's completed runs from Supabase.
+  /// Deduplicates against any records already added by [processCompletions].
+  Future<void> initialize() async {
+    if (_datasource == null) return;
+    try {
+      final remoteRuns = await _datasource.fetchMyCompletedRuns();
+      for (final run in remoteRuns) {
+        addRun(run); // deduplicates by runId
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[CompletedRunsRepository] initialize error (non-fatal): $e');
+    }
+  }
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
 
   /// Add a newly completed run (deduplicates by [runId]).
   void addRun(CompletedRunEntity run) {

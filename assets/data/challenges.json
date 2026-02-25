@@ -11,7 +11,7 @@
       "id": "ch-02",
       "slug": "16-hour-fasting",
       "title": "16-Hour Fasting",
-      "description": "Skip breakfast, eat in an 8-hour window. One of the most researched longevity habits.",
+      "description": "Skip breakfast or dinner, eat in an 8-hour window. One of the most researched longevity habits.",
       "image": "assets/pictures/challenge_16-hour-fasting.jpg"
     },
     {
@@ -60,7 +60,7 @@
       "id": "ch-09",
       "slug": "ketogenic-diet",
       "title": "Ketogenic Diet",
-      "description": "High fat, low carb, every day. A metabolic reset that demands daily commitment.",
+      "description": "High fat, low carb, every day. A true metabolic reset.",
       "image": "assets/pictures/challenge_ketogenic-diet.jpg"
     },
     {
@@ -104,6 +104,62 @@
       "title": "1-Page Journaling",
       "description": "Write one page every day. Stream of consciousness, gratitude, or goals — just write.",
       "image": "assets/pictures/challenge_1-page-journaling.jpg"
+    },
+    {
+      "id": "ch-16",
+      "slug": "4x4-norwegian-protocol",
+      "title": "4x4 Norwegian Protocol",
+      "description": "Do 4 sets of 4 minutes of intense exercise, with 4 minutes of rest in between.",
+      "image": "assets/pictures/challenge_4x4-norwegian-protocol.jpg"
+    },
+    {
+      "id": "ch-17",
+      "slug": "90-minute-deep-work",
+      "title": "90-Minute Deep Work",
+      "description": "Dedicate 90 minutes to your most difficult task with zero distractions. Align with your brain's natural ultradian rhythms.",
+      "image": "assets/pictures/challenge_90-minute-deep-work.jpg"
+    },
+    {
+      "id": "ch-18",
+      "slug": "30-minute-skill-sprint",
+      "title": "30-Minute Skill Sprint",
+      "description": "Spend 30 minutes actively practicing a high-value skill. No reading about it — just hands-on execution.",
+      "image": "assets/pictures/challenge_30-minute-skill-sprint.jpg"
+    },
+    {
+      "id": "ch-19",
+      "slug": "3-minute-dead-hang",
+      "title": "3-Minute Dead Hang",
+      "description": "Accumulate 3 minutes of hanging from a pull-up bar throughout the day. Decompresses the spine, strengthens grip, and fixes 'desk posture'.",
+      "image": "assets/pictures/challenge_3-minute-dead-hang.jpg"
+    },
+    {
+      "id": "ch-20",
+      "slug": "rejection-therapy-1-1",
+      "title": "Rejection 1-1",
+      "description": "Ask one person for something every day where the expected answer is 'No.' Desensitize yourself to social fear and unlock 'The Ask' muscle.",
+      "image": "assets/pictures/challenge_rejection-therapy.jpg"
+    },
+    {
+      "id": "ch-21",
+      "slug": "the-silent-night-protocol",
+      "title": "Silent Night Protocol",
+      "description": "Use mouth tape every night to force nasal breathing while you sleep. Dramatically improves oxygen uptake, stops snoring, and resets your jawline.",
+      "image": "assets/pictures/challenge_silent-night.jpg"
+    },
+    {
+      "id": "ch-22",
+      "slug": "glucostat-10-10-10",
+      "title": "Glucostat 10-10-10",
+      "description": "Walk for exactly 10 minutes after your 3 main meals. This 'muscle sponge' effect flattens glucose spikes and prevents the afternoon energy slump.",
+      "image": "assets/pictures/challenge_glucostat-10.jpg"
+    },
+    {
+      "id": "ch-23",
+      "slug": "mammalian-dive-reset",
+      "title": "Mammalian Dive Reset",
+      "description": "Submerge your face in a bowl of ice water for 30 seconds when stressed. It triggers the Mammalian Dive Reflex, instantly slowing your heart rate and resetting your nervous system.",
+      "image": "assets/pictures/challenge_mammalian-dive.jpg"
     }
   ]
 }

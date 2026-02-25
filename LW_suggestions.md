@@ -104,7 +104,17 @@ Suggested screens (keep minimal versions first):
 - Explore shows **public runs only** (plus optionally “your own runs” in a separate section).
 - The experience of going through public challenge runs should work like: swiping left dismisses the challenge and swiping right joins the challenge. Of course, if we tap the x it also dismisses the challenge and tapping join joins it.
 - Do not leak private runs via counts, previews, or search results.
-- When we join a public challenge, the run that is created is by default set to public. But if we go to settings, we can change the default to private (this will only affect future runs).
+- When we join a public challenge, the run that is created is by default set to public.
+
+### Create a challenge
+- Only premium users can create challenges.
+- They can input the following:
+  - Title (required)
+  - Description (optional)
+  - Visibility toggle: by default it is set to public, but this can be toggled off. If it is toggled off, the challenge is private. Private challenges are only visible to the creator.
+- When a user creates a challenge:
+  - The image of the challenge is automatically set to challenge_default.jpg
+  - The challenge is automatically joined by the creator. This creates a new run for the creator.
 
 ### Check-in
 - One-tap check-in

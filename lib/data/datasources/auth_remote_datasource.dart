@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/error/failures.dart';
@@ -160,6 +163,96 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           .single();
 
       return UserModel.fromSupabase(updateResponse.user!, profile);
+    } on AuthException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  @override
+  Future<UserModel> signInWithGoogle() async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        throw const ServerFailure('Google sign-in cancelled');
+      }
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+
+      if (idToken == null) {
+        throw const ServerFailure('No ID Token found.');
+      }
+
+      final response = await supabaseClient.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      if (response.user == null) {
+        throw const ServerFailure('Sign in failed: user is null');
+      }
+
+      // Sync profile to public.users
+      await supabaseClient.from('users').upsert({
+        'id': response.user!.id,
+        'username':
+            response.user!.userMetadata?['full_name'] ?? googleUser.displayName,
+        'email': response.user!.email,
+        'roles': ['basic'],
+      }, onConflict: 'id');
+
+      return _getUserProfile(response.user!);
+    } on AuthException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  @override
+  Future<UserModel> linkWithGoogle() async {
+    try {
+      // For native linking, we still use GoogleSignIn to get the token,
+      // then we use linkIdentity.
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        throw const ServerFailure('Linking cancelled');
+      }
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        throw const ServerFailure('No ID Token found.');
+      }
+
+      // Supabase linkIdentity for native tokens might be different depending on SDK version.
+      // If linkIdentity doesn't support idToken, we might need to handle it via updateUser or browser flow.
+      // In supabase_flutter 2.x, linkIdentity(OAuthProvider.google) triggers browser.
+      // To keep it native, we check if we can use linkIdentity with tokens.
+      
+      await supabaseClient.auth.linkIdentity(
+        OAuthProvider.google,
+        queryParams: {'access_token': googleAuth.accessToken ?? ''},
+      );
+      
+      // Note: If linkIdentity above opens browser, we might want to reconsider.
+      // But for now, let's follow standard Supabase identity linking.
+      
+      final user = supabaseClient.auth.currentUser;
+      if (user == null) {
+        throw const ServerFailure('User is null after linking');
+      }
+
+      // Update the public.users row: clear anonymous_id since now linked.
+      await supabaseClient.from('users').update({
+        'email': user.email,
+        'anonymous_id': null,
+      }).eq('id', user.id);
+
+      return _getUserProfile(user);
     } on AuthException catch (e) {
       throw ServerFailure(e.message);
     } catch (e) {

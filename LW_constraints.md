@@ -79,7 +79,7 @@ PostgreSQL tables + fields + constraints are authoritative.
   - `slug` varchar(60) UNIQUE
   - `created_at` timestamp
   - `created_by` UUID NULL
-  - `visibility` varchar(20) = 'public'
+  - `visibility` varchar(20)[] = ('public', 'private')
   - `current_participant_count` int default 0
   - `total_runs_count` int default 0
   - `top_streak` int default 0
@@ -90,7 +90,7 @@ PostgreSQL tables + fields + constraints are authoritative.
   - `id` UUID PK
   - `challenge_id` UUID FK
   - `user_id` UUID FK
-  - `visibility` varchar(20) (public/private)
+  - `visibility` varchar(20)[] = ('public', 'private')
   - `start_date` date (UTC day; the first eligible check-in day)
   - `current_streak` int default 0
   - `final_score` int NULL

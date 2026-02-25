@@ -26,6 +26,10 @@ abstract class AuthRepository {
 
   Future<Either<Failure, void>> signOut();
 
+  Future<Either<Failure, UserEntity>> signInWithGoogle();
+
+  Future<Either<Failure, UserEntity>> linkWithGoogle();
+
   Future<Either<Failure, UserEntity>> getCurrentUser();
 
   Stream<UserEntity?> get userStream;

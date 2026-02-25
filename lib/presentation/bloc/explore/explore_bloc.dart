@@ -90,7 +90,7 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
         imageUrl: exploreRun.imageUrl,
       );
 
-      _runsRepository.addRun(activeRun);
+      await _runsRepository.addRun(activeRun);
     }
 
     // Remove from Explore feed & signal join happened

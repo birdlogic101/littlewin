@@ -31,3 +31,11 @@ class CheckinRunsUpdated extends CheckinEvent {
   @override
   List<Object?> get props => [runs];
 }
+
+/// Fired by [AppShell] after [RunsRepository.processCompletions] runs.
+///
+/// Instructs [CheckinBloc] to re-fetch the current run list from the
+/// repository (which may now have fewer runs and reset daily flags).
+class DayRolloverDetected extends CheckinEvent {
+  const DayRolloverDetected();
+}

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../bloc/explore/explore_bloc.dart';
 import '../bloc/explore/explore_state.dart';
 import '../bloc/checkin/checkin_bloc.dart';
+import '../bloc/checkin/checkin_event.dart';
 import '../bloc/records/records_bloc.dart';
 import '../bloc/people/people_bloc.dart';
 import '../widgets/lw_app_bar.dart';
@@ -11,9 +13,11 @@ import 'explore/explore_screen.dart';
 import 'checkin/checkin_screen.dart';
 import 'records/records_screen.dart';
 import 'people/people_screen.dart';
+import '../widgets/profile_drawer.dart';
 import '../../core/theme/design_system.dart';
 import '../../data/repositories/runs_repository.dart';
 import '../../data/repositories/completed_runs_repository.dart';
+import '../../data/datasources/run_remote_datasource.dart';
 
 /// Root shell of the app.
 ///
@@ -31,8 +35,13 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
-  final _runsRepository = RunsRepository();
-  final _completedRunsRepository = CompletedRunsRepository();
+  // TODO(future): move repository initialization into AuthBloc once the
+  // auth analyzer errors in auth_remote_datasource.dart are resolved.
+  // For now, AppShell owns initialization to route around those issues.
+  late final RunRemoteDataSource _runDatasource;
+  late final RunsRepository _runsRepository;
+  late final CompletedRunsRepository _completedRunsRepository;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// The UTC day string seen on last foreground event / cold start.
   late String _lastSeenUtcDay;
@@ -41,7 +50,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _lastSeenUtcDay = _todayUtc();
+
+    // Wire Supabase datasource into the shared repositories.
+    // SupabaseClient is a singleton — safe to access directly here.
+    _runDatasource = RunRemoteDataSource(Supabase.instance.client);
+    _runsRepository = RunsRepository(datasource: _runDatasource);
+    _completedRunsRepository =
+        CompletedRunsRepository(datasource: _runDatasource);
+
     WidgetsBinding.instance.addObserver(this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 1. Server-side settlement first (handles inactive users).
+      //    Fire-and-forget; non-fatal errors are swallowed in datasource.
+      await _runDatasource.settleRuns(_lastSeenUtcDay);
+
+      // 2. Load real run data from Supabase into in-memory repos.
+      //    processCompletions is called inside initialize() after the fetch.
+      await Future.wait([
+        _runsRepository.initialize(_completedRunsRepository),
+        _completedRunsRepository.initialize(),
+      ]);
+    });
   }
 
   @override
@@ -64,6 +94,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (today != _lastSeenUtcDay) {
       _lastSeenUtcDay = today;
       _runsRepository.processCompletions(today, _completedRunsRepository);
+      // Tell CheckinBloc to reload the run list now that completions are done.
+      if (context.mounted) {
+        context.read<CheckinBloc>().add(const DayRolloverDetected());
+      }
     }
   }
 
@@ -103,11 +137,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         },
         listener: (context, state) => _switchTab(1),
         child: Scaffold(
+          key: _scaffoldKey,
           extendBodyBehindAppBar: true,
+          drawer: const ProfileDrawer(),
           appBar: LwAppBar(
             showCreate: false,
             notificationCount: 0,
-            onMenuTap: () {},
+            onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
             onNotificationsTap: () {},
           ),
           body: IndexedStack(

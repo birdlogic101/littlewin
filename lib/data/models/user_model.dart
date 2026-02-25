@@ -8,6 +8,7 @@ class UserModel extends UserEntity {
     required super.username,
     super.avatarId,
     super.isPremium,
+    super.isAnonymous,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -17,6 +18,7 @@ class UserModel extends UserEntity {
       username: json['username'] ?? '',
       avatarId: json['avatar_id'] as int?,
       isPremium: (json['roles'] as List<dynamic>?)?.contains('premium') ?? false,
+      isAnonymous: json['anonymous_id'] != null,
     );
   }
 
@@ -26,7 +28,9 @@ class UserModel extends UserEntity {
       email: user.email ?? '',
       username: profile?['username'] ?? '',
       avatarId: profile?['avatar_id'] as int?,
-      isPremium: (profile?['roles'] as List<dynamic>?)?.contains('premium') ?? false,
+      isPremium:
+          (profile?['roles'] as List<dynamic>?)?.contains('premium') ?? false,
+      isAnonymous: profile?['anonymous_id'] != null,
     );
   }
 
