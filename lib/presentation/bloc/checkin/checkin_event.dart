@@ -39,3 +39,9 @@ class CheckinRunsUpdated extends CheckinEvent {
 class DayRolloverDetected extends CheckinEvent {
   const DayRolloverDetected();
 }
+
+/// Fired by [CheckinScreen] after [BetWonModal] has been shown and dismissed.
+/// Clears [CheckinLoaded.pendingResolution] so the modal doesn't reappear.
+class CheckinResolutionCleared extends CheckinEvent {
+  const CheckinResolutionCleared();
+}

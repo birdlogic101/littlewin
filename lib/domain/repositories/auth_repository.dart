@@ -32,6 +32,10 @@ abstract class AuthRepository {
 
   Future<Either<Failure, UserEntity>> getCurrentUser();
 
+  Future<Either<Failure, UserEntity>> updateUsername(String username);
+
+  Future<Either<Failure, UserEntity>> upgradeToPremium();
+
   Stream<UserEntity?> get userStream;
 }
 

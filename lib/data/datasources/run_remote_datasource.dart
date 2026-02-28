@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/active_run_entity.dart';
 import '../../domain/entities/completed_run_entity.dart';
+import '../../domain/entities/bet_resolution_entity.dart';
+import '../../domain/entities/stake_entity.dart';
 
 /// Remote data source for all run-related Supabase operations.
 ///
@@ -137,31 +139,53 @@ class RunRemoteDataSource {
     return row['id'] as String;
   }
 
-  /// Records a check-in for today on [runId] and increments the streak.
+  /// Records a check-in for today on [runId] via the server-side RPC.
   ///
-  /// Idempotent: the `unique(run_id, check_in_day_utc)` constraint on the
-  /// checkins table means a duplicate insert is silently ignored.
-  Future<void> recordCheckin({
+  /// Returns a [BetResolutionEntity] if the new streak triggered any won bets,
+  /// or `null` if no bets were triggered.
+  ///
+  /// The RPC handles streak increment, checkin insert, bet settlement, and
+  /// notification creation atomically in a single round-trip.
+  Future<BetResolutionEntity?> recordCheckin({
     required String runId,
-    required int newStreak,
+    required String challengeTitle,
   }) async {
-    final today = _todayUtc();
+    final result = await _client.rpc('perform_checkin', params: {
+      'p_run_id': runId,
+    });
 
-    // Insert (or ignore duplicate) check-in row
-    await _client.from('checkins').upsert(
-      {
-        'run_id': runId,
-        'check_in_day_utc': today,
-      },
-      onConflict: 'run_id,check_in_day_utc',
-      ignoreDuplicates: true,
+    // RPC returns: { new_streak: int, triggered_bets: [...] }
+    final json = result as Map<String, dynamic>;
+    final triggeredBets =
+        (json['triggered_bets'] as List<dynamic>? ?? []);
+
+    if (triggeredBets.isEmpty) return null;
+
+    final wonBets = triggeredBets.map<WonBetEntry>((b) {
+      final catStr = b['stake_category'] as String? ?? 'plan';
+      final category = switch (catStr) {
+        'gift' => StakeCategory.gift,
+        'custom' => StakeCategory.custom,
+        _ => StakeCategory.plan,
+      };
+      return WonBetEntry(
+        betId: b['id'] as String,
+        bettorId: b['bettor_id'] as String,
+        bettorUsername: b['bettor_username'] as String?,
+        bettorAvatarUrl: b['bettor_avatar_url'] as String?,
+        stakeTitle: b['stake_title'] as String?,
+        stakeCategory: category,
+        stakeEmoji: b['stake_emoji'] as String?,
+        isSelfBet: b['is_self_bet'] as bool? ?? false,
+      );
+    }).toList();
+
+    return BetResolutionEntity(
+      runId: runId,
+      challengeTitle: challengeTitle,
+      newStreak: json['new_streak'] as int,
+      wonBets: wonBets,
     );
-
-    // Update the run's streak counter
-    await _client.from('runs').update({
-      'current_streak': newStreak,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', runId);
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────

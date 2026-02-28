@@ -134,5 +134,28 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<UserEntity?> get userStream => remoteDataSource.userStream;
-}
 
+  @override
+  Future<Either<Failure, UserEntity>> updateUsername(String username) async {
+    try {
+      final user = await remoteDataSource.updateUsername(username);
+      return Right(user);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserEntity>> upgradeToPremium() async {
+    try {
+      final user = await remoteDataSource.upgradeToPremium();
+      return Right(user);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+}

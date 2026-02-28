@@ -37,3 +37,14 @@ class AuthSignUpRequested extends AuthEvent {
 class AuthGoogleSignInRequested extends AuthEvent {}
 
 class AuthSignOutRequested extends AuthEvent {}
+
+class AuthUpdateUsernameRequested extends AuthEvent {
+  final String username;
+
+  const AuthUpdateUsernameRequested(this.username);
+
+  @override
+  List<Object> get props => [username];
+}
+
+class AuthUpgradeToPremiumRequested extends AuthEvent {}

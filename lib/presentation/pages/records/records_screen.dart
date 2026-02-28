@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/records/records_bloc.dart';
 import '../../bloc/records/records_event.dart';
 import '../../bloc/records/records_state.dart';
+import '../../widgets/lw_page_header.dart';
 import '../../widgets/run_record_card.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/challenge_record.dart';
@@ -41,12 +42,23 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
                 return CustomScrollView(
                   slivers: [
-                    // ── Header ─────────────────────────────────────────────
+                    // ── Page header
                     SliverToBoxAdapter(
-                      child: _RecordsHeader(totalGroups: groups.length),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const LwPageHeader(title: 'Records'),
+                          // Filter chip row
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              LWSpacing.xl, 0, LWSpacing.xl, LWSpacing.md),
+                            child: _FilterChip(),
+                          ),
+                        ],
+                      ),
                     ),
 
-                    // ── Challenge group cards ───────────────────────────────
+                    // ── Challenge group cards
                     SliverList.builder(
                       itemCount: groups.length,
                       itemBuilder: (context, index) {
@@ -54,12 +66,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         return RunRecordCard(
                           key: ValueKey(g.challengeId),
                           record: g,
-                          onShare: () {
-                            // TODO: share sheet
-                          },
-                          onRetry: () {
-                            // TODO: navigate to Explore / join flow for this challenge
-                          },
+                          onShare: () {},
+                          onRetry: () {},
                         );
                       },
                     ),
@@ -75,72 +83,36 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ── Filter chip ──────────────────────────────────────────────────────────────
 
-class _RecordsHeader extends StatelessWidget {
-  final int totalGroups;
-  const _RecordsHeader({required this.totalGroups});
-
+class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        LWSpacing.xl,
-        LWSpacing.xxl,
-        LWSpacing.xl,
-        LWSpacing.sm,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LWSpacing.md,
+        vertical: LWSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: lw.backgroundCard,
+        borderRadius: BorderRadius.circular(LWRadius.pill),
+        border: Border.all(color: lw.borderSubtle),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Title ──────────────────────────────────────────────────
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Records',
-                  style:
-                      LWTypography.title4.copyWith(color: lw.contentPrimary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$totalGroups challenge${totalGroups == 1 ? '' : 's'} completed',
-                  style: LWTypography.smallNormalRegular
-                      .copyWith(color: lw.contentSecondary),
-                ),
-              ],
-            ),
+          Icon(Icons.filter_alt_rounded,
+              size: 14, color: lw.contentSecondary),
+          const SizedBox(width: 4),
+          Text(
+            'All',
+            style: LWTypography.smallNormalRegular
+                .copyWith(color: lw.contentPrimary),
           ),
-
-          // ── "All" filter chip (visual only for now) ─────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: LWSpacing.md,
-              vertical: LWSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: lw.backgroundCard,
-              borderRadius: BorderRadius.circular(LWRadius.pill),
-              border: Border.all(color: lw.borderSubtle),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.filter_alt_rounded,
-                    size: 14, color: lw.contentSecondary),
-                const SizedBox(width: 4),
-                Text(
-                  'All',
-                  style: LWTypography.smallNormalRegular
-                      .copyWith(color: lw.contentPrimary),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.expand_more_rounded,
-                    size: 14, color: lw.contentSecondary),
-              ],
-            ),
-          ),
+          const SizedBox(width: 4),
+          Icon(Icons.expand_more_rounded,
+              size: 14, color: lw.contentSecondary),
         ],
       ),
     );

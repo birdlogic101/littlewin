@@ -7,12 +7,21 @@ abstract class PeopleEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Fetch the initial user list (followed users + suggestions).
+/// Load both followed and followers lists from repository.
 class PeopleFetchRequested extends PeopleEvent {
   const PeopleFetchRequested();
 }
 
-/// Re-filter the list based on the search query.
+/// Switch between the Followed and Followers tabs.
+class PeopleTabChanged extends PeopleEvent {
+  final PeopleTab tab;
+  const PeopleTabChanged(this.tab);
+
+  @override
+  List<Object?> get props => [tab];
+}
+
+/// Re-filter the active tab list client-side by [query].
 class PeopleSearchChanged extends PeopleEvent {
   final String query;
   const PeopleSearchChanged({required this.query});
@@ -21,7 +30,7 @@ class PeopleSearchChanged extends PeopleEvent {
   List<Object?> get props => [query];
 }
 
-/// Toggle follow/unfollow for a specific user.
+/// Toggle follow/unfollow for a user (from either tab or search sheet).
 class PeopleFollowToggled extends PeopleEvent {
   final String userId;
   const PeopleFollowToggled({required this.userId});
@@ -29,3 +38,5 @@ class PeopleFollowToggled extends PeopleEvent {
   @override
   List<Object?> get props => [userId];
 }
+
+enum PeopleTab { followed, followers }

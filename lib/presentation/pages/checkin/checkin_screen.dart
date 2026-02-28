@@ -3,9 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/checkin/checkin_bloc.dart';
 import '../../bloc/checkin/checkin_event.dart';
 import '../../bloc/checkin/checkin_state.dart';
+import '../../widgets/lw_page_header.dart';
 import '../../widgets/run_active_card.dart';
+import '../../widgets/run_bets_sheet.dart';
+import '../../widgets/bet_won_modal.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/active_run_entity.dart';
+import '../../../data/repositories/bet_repository.dart';
 
 /// The Check-in tab — shows the user's active runs with one-tap check-in.
 ///
@@ -16,7 +20,8 @@ import '../../../domain/entities/active_run_entity.dart';
 /// Pending list (so the user sees the confirmation), then gracefully
 /// disappears into Done after [_exitDuration].
 class CheckinScreen extends StatefulWidget {
-  const CheckinScreen({super.key});
+  final BetRepository betRepository;
+  const CheckinScreen({super.key, required this.betRepository});
 
   @override
   State<CheckinScreen> createState() => _CheckinScreenState();
@@ -80,7 +85,17 @@ class _CheckinScreenState extends State<CheckinScreen> {
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
 
-    return BlocBuilder<CheckinBloc, CheckinState>(
+    return BlocConsumer<CheckinBloc, CheckinState>(
+      // Show BetWonModal whenever a check-in triggers won bets.
+      listenWhen: (prev, curr) =>
+          curr is CheckinLoaded && curr.pendingResolution != null,
+      listener: (ctx, state) async {
+        if (state is! CheckinLoaded || state.pendingResolution == null) return;
+        final resolution = state.pendingResolution!;
+        // Clear the resolution flag before awaiting so it won't re-trigger.
+        ctx.read<CheckinBloc>().add(const CheckinResolutionCleared());
+        await BetWonModal.show(ctx, resolution: resolution);
+      },
       builder: (context, state) {
         return ColoredBox(
           color: lw.backgroundApp,
@@ -93,6 +108,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 exiting: _exiting,
                 onSegmentChanged: (v) => setState(() => _showPending = v),
                 onCheckin: (run) => _handleCheckin(context, run),
+                betRepository: widget.betRepository,
               ),
           },
         );
@@ -109,6 +125,7 @@ class _LoadedView extends StatelessWidget {
   final Set<String> exiting;
   final ValueChanged<bool> onSegmentChanged;
   final ValueChanged<ActiveRunEntity> onCheckin;
+  final BetRepository betRepository;
 
   const _LoadedView({
     required this.runs,
@@ -116,6 +133,7 @@ class _LoadedView extends StatelessWidget {
     required this.exiting,
     required this.onSegmentChanged,
     required this.onCheckin,
+    required this.betRepository,
   });
 
   @override
@@ -131,9 +149,16 @@ class _LoadedView extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: _CheckinHeader(
-            showPending: showPending,
-            onSegmentChanged: onSegmentChanged,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LwPageHeader(title: 'Check in'),
+              _SegmentedToggle(
+                showPending: showPending,
+                onChanged: onSegmentChanged,
+              ),
+              const SizedBox(height: LWSpacing.sm),
+            ],
           ),
         ),
         if (filtered.isEmpty)
@@ -158,6 +183,14 @@ class _LoadedView extends StatelessWidget {
                   run: run,
                   forceDone: isDoneState,
                   onCheckin: isDoneState ? null : () => onCheckin(run),
+                  onBetTap: () => RunBetsSheet.show(
+                    context,
+                    runId: run.runId,
+                    currentStreak: run.currentStreak,
+                    username: 'you',
+                    isSelfBet: true,
+                    betRepository: betRepository,
+                  ),
                 ),
               );
             },
@@ -222,64 +255,6 @@ class _AnimatedCardState extends State<_AnimatedCard>
       child: SizeTransition(
         sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(_size),
         child: widget.child,
-      ),
-    );
-  }
-}
-
-// ── Header with date + Pending/Done toggle ────────────────────────────────────
-
-class _CheckinHeader extends StatelessWidget {
-  final bool showPending;
-  final ValueChanged<bool> onSegmentChanged;
-
-  const _CheckinHeader({
-    required this.showPending,
-    required this.onSegmentChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    final now = DateTime.now().toUtc();
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final dateLabel =
-        '${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        LWSpacing.xl,
-        LWSpacing.xxl,
-        LWSpacing.xl,
-        LWSpacing.sm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                dateLabel,
-                style: LWTypography.title4.copyWith(color: lw.contentPrimary),
-              ),
-              const SizedBox(width: LWSpacing.xs),
-              Text(
-                '· UTC',
-                style: LWTypography.smallNormalRegular
-                    .copyWith(color: lw.contentSecondary),
-              ),
-            ],
-          ),
-          const SizedBox(height: LWSpacing.lg),
-          _SegmentedToggle(
-            showPending: showPending,
-            onChanged: onSegmentChanged,
-          ),
-        ],
       ),
     );
   }

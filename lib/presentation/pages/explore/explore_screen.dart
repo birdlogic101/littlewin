@@ -3,15 +3,21 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/explore/explore_bloc.dart';
 import '../../bloc/explore/explore_event.dart';
 import '../../bloc/explore/explore_state.dart';
+import '../../bloc/auth/auth_bloc.dart';
+import '../../bloc/auth/auth_state.dart';
 import '../../widgets/explore_run_card.dart';
+import '../../widgets/run_bets_sheet.dart';
+import '../../widgets/self_bet_invite_dialog.dart';
 import '../../../core/theme/design_system.dart';
+import '../../../data/repositories/bet_repository.dart';
 
 /// The Explore screen — home tab of the app.
 ///
 /// Displays a vertical PageView of full-bleed run cards.
 /// The user swipes up/down to browse, taps Join or Dismiss on each card.
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  final BetRepository betRepository;
+  const ExploreScreen({super.key, required this.betRepository});
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -45,7 +51,37 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ExploreBloc, ExploreState>(
+    return BlocConsumer<ExploreBloc, ExploreState>(
+      listenWhen: (prev, curr) {
+        if (curr is! ExploreLoaded) return false;
+        if (prev is! ExploreLoaded) return curr.lastJoinedAt != null;
+        return curr.lastJoinedAt != prev.lastJoinedAt &&
+            curr.lastJoinedAt != null;
+      },
+      listener: (context, state) {
+        if (state is! ExploreLoaded) return;
+        // Find the most recently joined run from active runs
+        // (it was added by ExploreBloc._onJoin using a temp ID)
+        final authState = context.read<AuthBloc>().state;
+        final username = authState is AuthAuthenticated
+            ? authState.user.username
+            : null;
+        // The bloc removes the joined run from the feed; the last run in the
+        // feed before removal was the one joined. We use a heuristic:
+        // show the dialog with the challenge data we know from the event.
+        // For now we fire with a placeholder — the real runId comes from
+        // the Supabase join (wired in the next iteration).
+        // We do still have access to the run that was added to activeRuns.
+        // Use a generic invite since we don't have the exact runId here yet.
+        SelfBetInviteDialog.show(
+          context,
+          runId: '', // empty = bet sheet handles gracefully
+          challengeTitle: 'your new challenge',
+          currentStreak: 0,
+          betRepository: widget.betRepository,
+          username: username,
+        );
+      },
       builder: (context, state) {
         return switch (state) {
           ExploreInitial() || ExploreLoading() => const _LoadingView(),
@@ -72,6 +108,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           challengeId: run.challengeId,
                         ));
                   },
+                  onBetTap: () => RunBetsSheet.show(
+                    context,
+                    runId: run.runId,
+                    currentStreak: run.currentStreak,
+                    username: run.username,
+                    isSelfBet: false,
+                    betRepository: widget.betRepository,
+                  ),
                 );
               },
             ),

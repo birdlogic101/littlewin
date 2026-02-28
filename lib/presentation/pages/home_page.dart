@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/auth/auth_state.dart';
 import '../bloc/explore/explore_bloc.dart';
 import '../bloc/explore/explore_state.dart';
 import '../bloc/checkin/checkin_bloc.dart';
@@ -17,7 +19,12 @@ import '../widgets/profile_drawer.dart';
 import '../../core/theme/design_system.dart';
 import '../../data/repositories/runs_repository.dart';
 import '../../data/repositories/completed_runs_repository.dart';
+import '../../data/repositories/bet_repository.dart';
+import '../../data/repositories/people_repository.dart';
 import '../../data/datasources/run_remote_datasource.dart';
+import '../../data/datasources/bet_remote_datasource.dart';
+import '../../data/datasources/people_remote_datasource.dart';
+import '../widgets/create_challenge_sheet.dart';
 
 /// Root shell of the app.
 ///
@@ -41,6 +48,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   late final RunRemoteDataSource _runDatasource;
   late final RunsRepository _runsRepository;
   late final CompletedRunsRepository _completedRunsRepository;
+  late final BetRepository _betRepository;
+  late final PeopleRepository _peopleRepository;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// The UTC day string seen on last foreground event / cold start.
@@ -57,6 +66,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _runsRepository = RunsRepository(datasource: _runDatasource);
     _completedRunsRepository =
         CompletedRunsRepository(datasource: _runDatasource);
+    _betRepository = BetRepository(
+      datasource: BetRemoteDataSource(Supabase.instance.client),
+    );
+    _peopleRepository = PeopleRepository(
+      datasource: PeopleRemoteDataSource(Supabase.instance.client),
+    );
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -126,7 +141,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           create: (_) => RecordsBloc(
               completedRunsRepository: _completedRunsRepository),
         ),
-        BlocProvider<PeopleBloc>(create: (_) => PeopleBloc()),
+        BlocProvider<PeopleBloc>(
+          create: (_) => PeopleBloc(repository: _peopleRepository),
+        ),
       ],
       child: BlocListener<ExploreBloc, ExploreState>(
         listenWhen: (prev, curr) {
@@ -140,19 +157,37 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           key: _scaffoldKey,
           extendBodyBehindAppBar: true,
           drawer: const ProfileDrawer(),
-          appBar: LwAppBar(
-            showCreate: false,
-            notificationCount: 0,
-            onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-            onNotificationsTap: () {},
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, authState) {
+                final isPremium = authState is AuthAuthenticated
+                    ? authState.user.isPremium
+                    : false;
+                return LwAppBar(
+                  // Always show the + button; premium users get create flow,
+                  // non-premium get the upgrade dialog.
+                  showCreate: true,
+                  notificationCount: 0,
+                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  onNotificationsTap: () {},
+                  onCreateTap: isPremium
+                      ? () => CreateChallengeSheet.show(
+                            context,
+                            betRepository: _betRepository,
+                          )
+                      : () => ProfileDrawer.showUpgradeDialog(context),
+                );
+              },
+            ),
           ),
           body: IndexedStack(
             index: _currentIndex,
-            children: const [
-              ExploreScreen(),
-              CheckinScreen(),
-              RecordsScreen(),
-              PeopleScreen(),
+            children: [
+              ExploreScreen(betRepository: _betRepository),
+              CheckinScreen(betRepository: _betRepository),
+              const RecordsScreen(),
+              PeopleScreen(peopleRepository: _peopleRepository),
             ],
           ),
           bottomNavigationBar: _LwBottomNav(

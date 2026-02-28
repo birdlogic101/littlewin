@@ -1,9 +1,8 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/error/failures.dart';
+import '../../core/utils/username_generator.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
@@ -31,6 +30,14 @@ abstract class AuthRemoteDataSource {
   Future<void> signOut();
 
   Future<UserModel?> getCurrentUser();
+
+  Future<UserModel> updateUsername(String username);
+
+  Future<UserModel> upgradeToPremium();
+
+  Future<UserModel> signInWithGoogle();
+
+  Future<UserModel> linkWithGoogle();
 
   Stream<UserModel?> get userStream;
 }
@@ -107,11 +114,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
       final anonId = response.user!.id;
 
-      // Insert a minimal row in public.users; anonymous_id tracks the session.
-      // username is left empty — will be set on merge/upgrade.
+      // Generate an absurd-but-memorable username for the anonymous user.
+      // They can change it later from their profile.
+      final generatedUsername = UsernameGenerator.generate();
+
       await supabaseClient.from('users').upsert({
         'id': anonId,
-        'username': 'anon_$anonId'.substring(0, 20), // temp unique username
+        'username': generatedUsername,
         'anonymous_id': anonId,
         'roles': ['basic'],
       }, onConflict: 'id');
@@ -264,6 +273,42 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> signOut() async {
     try {
       await supabaseClient.auth.signOut();
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  @override
+  Future<UserModel> upgradeToPremium() async {
+    try {
+      final user = supabaseClient.auth.currentUser;
+      if (user == null) throw const ServerFailure('Not authenticated');
+
+      // Add 'premium' to the user's roles array.
+      await supabaseClient.rpc('grant_premium', params: {'uid': user.id});
+
+      return _getUserProfile(user);
+    } on AuthException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+
+  @override
+  Future<UserModel> updateUsername(String username) async {
+    try {
+      final user = supabaseClient.auth.currentUser;
+      if (user == null) throw const ServerFailure('Not authenticated');
+
+      await supabaseClient
+          .from('users')
+          .update({'username': username})
+          .eq('id', user.id);
+
+      return _getUserProfile(user);
+    } on AuthException catch (e) {
+      throw ServerFailure(e.message);
     } catch (e) {
       throw ServerFailure(e.toString());
     }

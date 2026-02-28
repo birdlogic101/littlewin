@@ -15,6 +15,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     on<CheckinPerformed>(_onCheckin);
     on<CheckinRunsUpdated>(_onRunsUpdated);
     on<DayRolloverDetected>(_onDayRollover);
+    on<CheckinResolutionCleared>(_onResolutionCleared);
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -73,10 +74,28 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         .firstOrNull;
     if (run == null || run.hasCheckedInToday) return;
 
-    // Delegate to repository: handles optimistic in-memory update + Supabase
-    // persistence. The stream subscription in _onFetch will emit the updated
-    // run list, keeping the UI in sync.
-    await _runsRepository.checkin(event.runId);
+    // Delegate to repository: handles optimistic update + Supabase RPC.
+    // The stream subscription will update the run list; we separately
+    // capture the resolution to show the modal if bets were triggered.
+    final resolution = await _runsRepository.checkin(event.runId);
+
+    if (resolution != null && !isClosed) {
+      // Emit with pendingResolution so CheckinScreen BlocListener can
+      // show the BetWonModal. The run list comes from the stream update.
+      emit(CheckinState.loaded(
+        runs: _runsRepository.activeRuns,
+        pendingResolution: resolution,
+      ));
+    }
+  }
+
+  Future<void> _onResolutionCleared(
+    CheckinResolutionCleared event,
+    Emitter<CheckinState> emit,
+  ) async {
+    final current = state;
+    if (current is! CheckinLoaded) return;
+    emit(CheckinState.loaded(runs: current.runs));
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../domain/entities/active_run_entity.dart';
 import '../../domain/entities/completed_run_entity.dart';
+import '../../domain/entities/bet_resolution_entity.dart';
 import '../datasources/run_remote_datasource.dart';
 import 'completed_runs_repository.dart';
 
@@ -95,15 +96,18 @@ class RunsRepository {
 
   /// Records a check-in for [runId] on today's UTC day.
   ///
-  /// Updates the in-memory entity immediately (optimistic), then persists
-  /// to Supabase asynchronously. Idempotent — duplicate check-ins are ignored
-  /// by the unique constraint on `checkins(run_id, check_in_day_utc)`.
-  Future<void> checkin(String runId) async {
+  /// Updates the in-memory entity immediately (optimistic), then delegates
+  /// to the server-side RPC which handles streak increment, bet settlement,
+  /// and notification creation atomically.
+  ///
+  /// Returns a [BetResolutionEntity] if the new streak triggered won bets,
+  /// otherwise returns `null`.
+  Future<BetResolutionEntity?> checkin(String runId) async {
     final idx = _runs.indexWhere((r) => r.runId == runId);
-    if (idx == -1) return;
+    if (idx == -1) return null;
 
-    final today = _todayUtc();
     final run = _runs[idx];
+    final today = _todayUtc();
 
     // Optimistic update
     final newStreak = run.currentStreak + 1;
@@ -114,16 +118,20 @@ class RunsRepository {
     );
     _controller.add(List.unmodifiable(_runs));
 
-    // Persist to Supabase
+    // Persist to Supabase via RPC
     if (_datasource != null) {
       try {
-        await _datasource.recordCheckin(runId: runId, newStreak: newStreak);
+        return await _datasource.recordCheckin(
+          runId: runId,
+          challengeTitle: run.challengeTitle,
+        );
       } catch (e) {
         // ignore: avoid_print
         print('[RunsRepository] recordCheckin error (non-fatal): $e');
         // Keep the optimistic update; retry on next sync
       }
     }
+    return null;
   }
 
   // ── Day rollover ───────────────────────────────────────────────────────────

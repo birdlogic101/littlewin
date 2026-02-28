@@ -2,17 +2,30 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/people_user_entity.dart';
 import '../../core/theme/design_system.dart';
 
+enum UserCardMode {
+  /// Used in the Followed / Followers tab lists.
+  /// Shows: avatar | username + "🔥 N ongoing" | chevron
+  listRow,
+
+  /// Used in the AddPerson search sheet.
+  /// Shows: avatar | username | Follow / Unfollow button
+  searchResult,
+}
+
 /// A user row card used in the People tab.
-///
-/// Displays avatar, username, and a Follow / Unfollow toggle button.
 class UserCard extends StatelessWidget {
   final PeopleUserEntity user;
-  final VoidCallback onFollowToggle;
+  final UserCardMode mode;
+
+  /// Called when the Follow/Unfollow button is tapped (searchResult mode)
+  /// or when the row itself is tapped (listRow mode — no-op for now).
+  final VoidCallback? onFollowToggle;
 
   const UserCard({
     super.key,
     required this.user,
-    required this.onFollowToggle,
+    required this.mode,
+    this.onFollowToggle,
   });
 
   @override
@@ -35,29 +48,49 @@ class UserCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // ── Avatar ────────────────────────────────────────────────────
+          // ── Avatar ───────────────────────────────────────────────────
           _UserAvatar(avatarId: user.avatarId),
-
           const SizedBox(width: LWSpacing.md),
 
-          // ── Username ──────────────────────────────────────────────────
+          // ── Username + optional sub-label ────────────────────────────
           Expanded(
-            child: Text(
-              user.username,
-              style: LWTypography.regularNormalBold
-                  .copyWith(color: lw.contentPrimary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  user.username,
+                  style: LWTypography.regularNormalBold
+                      .copyWith(color: lw.contentPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (mode == UserCardMode.listRow && user.ongoingRunCount > 0) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Text('🔥', style: TextStyle(fontSize: 12)),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${user.ongoingRunCount} ongoing',
+                        style: LWTypography.smallNormalRegular
+                            .copyWith(color: lw.contentSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
 
           const SizedBox(width: LWSpacing.md),
 
-          // ── Follow / Unfollow button ───────────────────────────────────
-          _FollowButton(
-            isFollowing: user.isFollowing,
-            onTap: onFollowToggle,
-          ),
+          // ── Trailing action ───────────────────────────────────────────
+          if (mode == UserCardMode.searchResult)
+            _FollowButton(isFollowing: user.isFollowing, onTap: onFollowToggle)
+          else
+            Icon(Icons.chevron_right_rounded,
+                color: lw.contentSecondary, size: 20),
         ],
       ),
     );
@@ -109,9 +142,9 @@ class _AvatarPlaceholder extends StatelessWidget {
 
 class _FollowButton extends StatelessWidget {
   final bool isFollowing;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
-  const _FollowButton({required this.isFollowing, required this.onTap});
+  const _FollowButton({required this.isFollowing, this.onTap});
 
   @override
   Widget build(BuildContext context) {

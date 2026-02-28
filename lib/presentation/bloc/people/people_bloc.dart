@@ -1,17 +1,22 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'people_event.dart';
 import 'people_state.dart';
+import '../../../data/repositories/people_repository.dart';
 import '../../../domain/entities/people_user_entity.dart';
 
 class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
-  /// Full unfiltered user list (source of truth for client-side search).
-  List<PeopleUserEntity> _allUsers = [];
+  final PeopleRepository _repository;
 
-  PeopleBloc() : super(const PeopleState.initial()) {
+  PeopleBloc({required PeopleRepository repository})
+      : _repository = repository,
+        super(const PeopleState.initial()) {
     on<PeopleFetchRequested>(_onFetch);
+    on<PeopleTabChanged>(_onTabChanged);
     on<PeopleSearchChanged>(_onSearch);
     on<PeopleFollowToggled>(_onFollowToggled);
   }
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
   Future<void> _onFetch(
     PeopleFetchRequested event,
@@ -19,85 +24,74 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
   ) async {
     emit(const PeopleState.loading());
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _allUsers = _mockUsers();
-      emit(PeopleState.loaded(users: _allUsers, query: ''));
+      final current =
+          state is PeopleLoaded ? (state as PeopleLoaded) : null;
+      final activeTab = current?.activeTab ?? PeopleTab.followed;
+
+      final results = await Future.wait([
+        _repository.getFollowed(),
+        _repository.getFollowers(),
+      ]);
+
+      emit(PeopleState.loaded(
+        followedUsers: results[0],
+        followersUsers: results[1],
+        activeTab: activeTab,
+        query: '',
+      ));
     } catch (e) {
       emit(PeopleState.failure(message: e.toString()));
     }
   }
 
-  void _onSearch(PeopleSearchChanged event, Emitter<PeopleState> emit) {
-    final q = event.query.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? _allUsers
-        : _allUsers
-            .where((u) => u.username.toLowerCase().contains(q))
-            .toList();
-    emit(PeopleState.loaded(users: filtered, query: event.query));
+  void _onTabChanged(PeopleTabChanged event, Emitter<PeopleState> emit) {
+    final current = state;
+    if (current is! PeopleLoaded) return;
+    emit(current.copyWith(activeTab: event.tab, query: ''));
   }
 
-  void _onFollowToggled(
+  void _onSearch(PeopleSearchChanged event, Emitter<PeopleState> emit) {
+    final current = state;
+    if (current is! PeopleLoaded) return;
+    emit(current.copyWith(query: event.query));
+  }
+
+  Future<void> _onFollowToggled(
     PeopleFollowToggled event,
     Emitter<PeopleState> emit,
-  ) {
-    // Optimistic toggle in both the filtered view and the master list.
-    _allUsers = _allUsers.map((u) {
-      if (u.userId != event.userId) return u;
-      return u.copyWith(isFollowing: !u.isFollowing);
-    }).toList();
-
+  ) async {
     final current = state;
     if (current is! PeopleLoaded) return;
 
-    final updatedFiltered = current.users.map((u) {
-      if (u.userId != event.userId) return u;
-      return u.copyWith(isFollowing: !u.isFollowing);
-    }).toList();
+    final target = current.followedUsers
+        .where((u) => u.userId == event.userId)
+        .firstOrNull;
+    final isCurrentlyFollowing = target?.isFollowing ??
+        current.followersUsers
+            .where((u) => u.userId == event.userId)
+            .firstOrNull
+            ?.isFollowing ??
+        false;
 
-    emit(PeopleState.loaded(users: updatedFiltered, query: current.query));
+    // Optimistic toggle on both lists
+    PeopleUserEntity toggle(PeopleUserEntity u) =>
+        u.userId == event.userId
+            ? u.copyWith(isFollowing: !u.isFollowing)
+            : u;
 
-    // TODO: call follow/unfollow use-case (fire-and-forget, revert on failure)
+    emit(current.copyWith(
+      followedUsers: current.followedUsers.map(toggle).toList(),
+      followersUsers: current.followersUsers.map(toggle).toList(),
+    ));
+
+    // Persist (fire-and-forget; revert on failure not implemented for MLP)
+    if (isCurrentlyFollowing) {
+      await _repository.unfollow(event.userId);
+    } else {
+      await _repository.follow(event.userId);
+    }
+
+    // Refresh to get accurate run counts
+    add(const PeopleFetchRequested());
   }
-
-  // ── Stub data ──────────────────────────────────────────────────────────────
-
-  List<PeopleUserEntity> _mockUsers() => [
-        const PeopleUserEntity(
-          userId: 'user-1',
-          username: 'elwilliam',
-          avatarId: 1,
-          isFollowing: true,
-        ),
-        const PeopleUserEntity(
-          userId: 'user-2',
-          username: 'marta.runs',
-          avatarId: 3,
-          isFollowing: false,
-        ),
-        const PeopleUserEntity(
-          userId: 'user-3',
-          username: 'jakobf',
-          avatarId: 5,
-          isFollowing: true,
-        ),
-        const PeopleUserEntity(
-          userId: 'user-4',
-          username: 'sophiecal',
-          avatarId: 7,
-          isFollowing: false,
-        ),
-        const PeopleUserEntity(
-          userId: 'user-5',
-          username: 'tomas_k',
-          avatarId: 2,
-          isFollowing: false,
-        ),
-        const PeopleUserEntity(
-          userId: 'user-6',
-          username: 'nadia.fit',
-          avatarId: 9,
-          isFollowing: false,
-        ),
-      ];
 }

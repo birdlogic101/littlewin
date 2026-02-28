@@ -9,6 +9,8 @@ import '../../../domain/usecases/sign_in.dart';
 import '../../../domain/usecases/sign_in_with_google.dart';
 import '../../../domain/usecases/sign_out.dart';
 import '../../../domain/usecases/sign_up.dart';
+import '../../../domain/usecases/update_username.dart';
+import '../../../domain/usecases/upgrade_to_premium.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
@@ -21,6 +23,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AnonymousLogin _anonymousLogin;
   final SignInWithGoogle _signInWithGoogle;
   final LinkWithGoogle _linkWithGoogle;
+  final UpdateUsername _updateUsername;
+  final UpgradeToPremium _upgradeToPremium;
 
   AuthBloc({
     required SignIn signIn,
@@ -30,6 +34,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required AnonymousLogin anonymousLogin,
     required SignInWithGoogle signInWithGoogle,
     required LinkWithGoogle linkWithGoogle,
+    required UpdateUsername updateUsername,
+    required UpgradeToPremium upgradeToPremium,
   })  : _signIn = signIn,
         _signUp = signUp,
         _signOut = signOut,
@@ -37,12 +43,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         _anonymousLogin = anonymousLogin,
         _signInWithGoogle = signInWithGoogle,
         _linkWithGoogle = linkWithGoogle,
+        _updateUsername = updateUsername,
+        _upgradeToPremium = upgradeToPremium,
         super(AuthInitial()) {
     on<AuthAppStarted>(_onAppStarted);
     on<AuthSignInRequested>(_onSignInRequested);
     on<AuthSignUpRequested>(_onSignUpRequested);
     on<AuthGoogleSignInRequested>(_onGoogleSignInRequested);
     on<AuthSignOutRequested>(_onSignOutRequested);
+    on<AuthUpdateUsernameRequested>(_onUpdateUsernameRequested);
+    on<AuthUpgradeToPremiumRequested>(_onUpgradeToPremiumRequested);
   }
 
   Future<void> _onAppStarted(
@@ -133,5 +143,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     await _signOut(NoParams());
     emit(AuthUnauthenticated());
+  }
+
+  Future<void> _onUpdateUsernameRequested(
+    AuthUpdateUsernameRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final result = await _updateUsername(UpdateUsernameParams(event.username));
+    result.fold(
+      (failure) => emit(AuthFailureState(failure.message)),
+      (user) => emit(AuthAuthenticated(user)),
+    );
+  }
+
+  Future<void> _onUpgradeToPremiumRequested(
+    AuthUpgradeToPremiumRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final result = await _upgradeToPremium(NoParams());
+    result.fold(
+      (failure) => emit(AuthFailureState(failure.message)),
+      (user) => emit(AuthAuthenticated(user)),
+    );
   }
 }

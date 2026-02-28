@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/explore_run_entity.dart';
-import '../widgets/streak_ring.dart';
+import '../widgets/png_streak_ring.dart';
 import '../widgets/lw_icon.dart';
 import '../../core/theme/design_system.dart';
 
@@ -17,11 +17,15 @@ class ExploreRunCard extends StatefulWidget {
   final VoidCallback onDismiss;
   final VoidCallback onJoin;
 
+  /// Called when the bet (star) icon is tapped. Opens RunBetsSheet.
+  final VoidCallback? onBetTap;
+
   const ExploreRunCard({
     super.key,
     required this.run,
     required this.onDismiss,
     required this.onJoin,
+    this.onBetTap,
   });
 
   @override
@@ -126,10 +130,10 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                           username: widget.run.username,
                           avatarId: widget.run.avatarId),
                       const Spacer(),
-                      StreakRing(
+                      PngStreakRing(
                         streak: widget.run.currentStreak,
-                        diameter: 84,
-                        trackWidth: 6,
+                        size: 84,
+                        numberColor: Colors.white,
                       ),
                     ],
                   ),
@@ -142,6 +146,7 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                     title: widget.run.challengeTitle,
                     onDismiss: widget.onDismiss,
                     onJoin: widget.onJoin,
+                    onBetTap: widget.onBetTap,
                   ),
                 ),
               ],
@@ -375,10 +380,12 @@ class _BottomContent extends StatelessWidget {
   final String title;
   final VoidCallback onDismiss;
   final VoidCallback onJoin;
+  final VoidCallback? onBetTap;
   const _BottomContent({
     required this.title,
     required this.onDismiss,
     required this.onJoin,
+    this.onBetTap,
   });
 
   @override
@@ -434,7 +441,7 @@ class _BottomContent extends StatelessWidget {
               const SizedBox(width: LWSpacing.lg),
               _CircleAction(
                 semanticLabel: 'Place a bet',
-                onTap: () {},
+                onTap: onBetTap ?? () {},
                 child: LwIcon('misc_bet', size: 20, color: Colors.white),
               ),
             ],

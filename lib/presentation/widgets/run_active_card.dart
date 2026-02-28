@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/active_run_entity.dart';
-import 'streak_ring.dart';
+import 'png_streak_ring.dart';
+import 'lw_icon.dart';
 import '../../core/theme/design_system.dart';
 
 /// A list-item card representing one of the user's active runs.
 ///
 /// Displays the challenge background (gradient fallback when no image),
-/// challenge title, current streak ring, and a one-tap check-in button.
-/// When [run.hasCheckedInToday] is true the button shows a success state.
+/// challenge title, star bet button (with count), streak ring, and a
+/// one-tap check-in button.
+/// When [run.hasCheckedInToday] is true the check-in button shows a done state.
 class RunActiveCard extends StatelessWidget {
   final ActiveRunEntity run;
 
@@ -19,11 +21,19 @@ class RunActiveCard extends StatelessWidget {
   /// Called when the check-in button is tapped. Pass null to disable.
   final VoidCallback? onCheckin;
 
+  /// Number of bets currently placed on this run. Shown below the title.
+  final int betCount;
+
+  /// Called when the user taps the star / bet count row.
+  final VoidCallback? onBetTap;
+
   const RunActiveCard({
     super.key,
     required this.run,
     this.forceDone = false,
     this.onCheckin,
+    this.betCount = 0,
+    this.onBetTap,
   });
 
   @override
@@ -100,21 +110,32 @@ class RunActiveCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.local_fire_department_rounded,
-                            color: LWColors.energyBase,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${run.currentStreak} day streak',
-                            style: LWTypography.smallNormalRegular.copyWith(
-                              color: Colors.white70,
+                      // Star bet row
+                      GestureDetector(
+                        onTap: onBetTap,
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          children: [
+                            LwIcon(
+                              'misc_bet',
+                              size: 13,
+                              color: betCount > 0
+                                  ? const Color(0xFFFFAB40)
+                                  : Colors.white54,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              betCount > 0
+                                  ? '$betCount bet${betCount == 1 ? '' : 's'}'
+                                  : 'No bets yet',
+                              style: LWTypography.smallNormalRegular.copyWith(
+                                color: betCount > 0
+                                    ? Colors.white70
+                                    : Colors.white38,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -126,10 +147,9 @@ class RunActiveCard extends StatelessWidget {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    StreakRing(
+                    PngStreakRing(
                       streak: run.currentStreak,
-                      diameter: LWComponents.streakRing.diameterMd,
-                      trackWidth: LWComponents.streakRing.trackWidth,
+                      size: LWComponents.streakRing.diameterMd,
                     ),
                   ],
                 ),
@@ -234,21 +254,19 @@ class _CheckinButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
-          width: 52,
-          height: 52,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: done
                 ? LWColors.positiveBase.withValues(alpha: 0.90)
-                : Colors.white.withValues(alpha: 0.92),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: (done ? LWColors.positiveBase : Colors.white)
-                    .withValues(alpha: 0.30),
-                blurRadius: 8,
-                spreadRadius: 1,
-              ),
-            ],
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(LWRadius.sm),
+            border: done
+                ? null
+                : Border.all(
+                    color: Colors.white.withValues(alpha: 0.70),
+                    width: 2,
+                  ),
           ),
           alignment: Alignment.center,
           child: AnimatedSwitcher(
@@ -258,14 +276,9 @@ class _CheckinButton extends StatelessWidget {
                     Icons.check_rounded,
                     key: const ValueKey('done'),
                     color: Colors.white,
-                    size: 26,
+                    size: 22,
                   )
-                : Icon(
-                    Icons.add_rounded,
-                    key: const ValueKey('todo'),
-                    color: LWColors.inkDarkest,
-                    size: 26,
-                  ),
+                : const SizedBox.shrink(key: ValueKey('todo')),
           ),
         ),
       ),

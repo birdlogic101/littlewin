@@ -44,6 +44,10 @@ class ActiveRunEntity extends Equatable {
     this.imageUrl,
   });
 
+  // Sentinel used by [copyWith] so callers can explicitly pass `null`
+  // to clear optional fields (the default `??` pattern cannot do this).
+  static const Object _unset = Object();
+
   ActiveRunEntity copyWith({
     String? runId,
     String? challengeId,
@@ -52,7 +56,8 @@ class ActiveRunEntity extends Equatable {
     int? currentStreak,
     String? startDate,
     bool? hasCheckedInToday,
-    String? lastCheckinDay,
+    // Use [_unset] as default so we can distinguish "not provided" from null.
+    Object? lastCheckinDay = _unset,
     String? imageAsset,
     String? imageUrl,
   }) {
@@ -64,7 +69,9 @@ class ActiveRunEntity extends Equatable {
       currentStreak: currentStreak ?? this.currentStreak,
       startDate: startDate ?? this.startDate,
       hasCheckedInToday: hasCheckedInToday ?? this.hasCheckedInToday,
-      lastCheckinDay: lastCheckinDay ?? this.lastCheckinDay,
+      lastCheckinDay: identical(lastCheckinDay, _unset)
+          ? this.lastCheckinDay
+          : lastCheckinDay as String?,
       imageAsset: imageAsset ?? this.imageAsset,
       imageUrl: imageUrl ?? this.imageUrl,
     );

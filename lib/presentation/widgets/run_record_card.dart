@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/challenge_record.dart';
-import '../widgets/streak_ring.dart';
+import 'png_streak_ring.dart';
 import '../../core/theme/design_system.dart';
 
 /// A card representing a challenge group in the Records screen.
@@ -42,10 +42,9 @@ class RunRecordCard extends StatelessWidget {
       child: Row(
         children: [
           // ── Score ring ───────────────────────────────────────────────────
-          StreakRing(
+          PngStreakRing(
             streak: record.bestScore,
-            diameter: 64,
-            trackWidth: 5,
+            size: 64,
           ),
           const SizedBox(width: LWSpacing.lg),
 

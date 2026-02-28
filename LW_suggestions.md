@@ -98,10 +98,11 @@ Suggested screens (keep minimal versions first):
 - Default to anonymous start; prompt to sign in after first meaningful action
 
 ### Explore
+- What we see: public runs from other users. We do not see our own runs.
+  - In priority, we see runs that are ongoing.
+  - If there are no more ongoing runs, we see runs that are completed.
+  - If a user dismisses a run, the user will not see other runs from that same challenge for a certain amount of time (for example 14 days).
 - Fetch in small batches (target 5)
-- Dismiss should hide that challenge for the dismissal duration
-- No-results state should push toward “Join a challenge”
-- Explore shows **public runs only** (plus optionally “your own runs” in a separate section).
 - The experience of going through public challenge runs should work like: swiping left dismisses the challenge and swiping right joins the challenge. Of course, if we tap the x it also dismisses the challenge and tapping join joins it.
 - Do not leak private runs via counts, previews, or search results.
 - When we join a public challenge, the run that is created is by default set to public.
@@ -122,7 +123,13 @@ Suggested screens (keep minimal versions first):
 - Reminder concept: daily reminder near end-of-day (implementation can vary)
 
 ### Bets
-- Two taps: open modal → place bet
+- From the explore screen, if we tap on the bet button (the one with the star icon) on a run card, it opens the bet modal. This is a bet on the run of the person who's doing the run that is displayed.
+- From the check-in screen, if we tap on the bet button (the one with the star icon) on a run card, it opens the bet modal. This is a self-bet.
+- When a user places a bet, they can select the streak at which the bet should be completed. The default value shown is +7 days from current streak value. The maximum value is the streak of 999 days in total.
+- When a user places a bet, they can select a stake item. By default, the "plan" chip tag is selected with the preset items being: "Coffee Cup", "Brunch Invite", "Restaurant Dinner", "Drinks Round", "Cinema Night". We also have a chip tag "gift" which can be selected and this one features the preset items: "Chocolate Box", "Wine Bottle", "Spa Access", "Massage Session", and "Surprise Box". The third chip is a plus icon which is a button to create a custom stake (premium feature).
+- Bet resolution: when a user checks in and the streak value reached triggers the success of a bet placed on that run, a modal is displayed showing the success of the bet and the list of stakes won (including from which bettors they are from).
+  - The bettor also receives a notification of the result of the bet, inviting them to fulfill their bet.
+  - If a bet is completed (due to a missed check-in), the bettors that had bet on a superior streak are also notified of the final streak of the bet. In this case, obviously they do not have to fulfill their bet because the runner did not achieve the streak they bet on.
 
 ## Suggested Backend Implementation Approach
 ### What should be server-authoritative
