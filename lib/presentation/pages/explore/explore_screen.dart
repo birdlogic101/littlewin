@@ -3,11 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/explore/explore_bloc.dart';
 import '../../bloc/explore/explore_event.dart';
 import '../../bloc/explore/explore_state.dart';
-import '../../bloc/auth/auth_bloc.dart';
-import '../../bloc/auth/auth_state.dart';
 import '../../widgets/explore_run_card.dart';
 import '../../widgets/run_bets_sheet.dart';
-import '../../widgets/self_bet_invite_dialog.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../data/repositories/bet_repository.dart';
 
@@ -52,43 +49,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<ExploreBloc, ExploreState>(
-      listenWhen: (prev, curr) {
-        if (curr is! ExploreLoaded) return false;
-        if (prev is! ExploreLoaded) return curr.lastJoinedAt != null;
-        return curr.lastJoinedAt != prev.lastJoinedAt &&
-            curr.lastJoinedAt != null;
-      },
+      // Only react to listener when joinError changes.
+      listenWhen: (prev, next) =>
+          next is ExploreLoaded && next.joinError != null,
       listener: (context, state) {
-        if (state is! ExploreLoaded) return;
-        // Find the most recently joined run from active runs
-        // (it was added by ExploreBloc._onJoin using a temp ID)
-        final authState = context.read<AuthBloc>().state;
-        final username = authState is AuthAuthenticated
-            ? authState.user.username
-            : null;
-        // The bloc removes the joined run from the feed; the last run in the
-        // feed before removal was the one joined. We use a heuristic:
-        // show the dialog with the challenge data we know from the event.
-        // For now we fire with a placeholder — the real runId comes from
-        // the Supabase join (wired in the next iteration).
-        // We do still have access to the run that was added to activeRuns.
-        // Use a generic invite since we don't have the exact runId here yet.
-        SelfBetInviteDialog.show(
-          context,
-          runId: '', // empty = bet sheet handles gracefully
-          challengeTitle: 'your new challenge',
-          currentStreak: 0,
-          betRepository: widget.betRepository,
-          username: username,
-        );
+        if (state is ExploreLoaded && state.joinError != null) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(state.joinError!),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          // Clear the error so it doesn't re-fire on the next rebuild.
+          context.read<ExploreBloc>().add(const ExploreClearJoinError());
+        }
       },
       builder: (context, state) {
         return switch (state) {
           ExploreInitial() || ExploreLoading() => const _LoadingView(),
           ExploreFailure(:final message) => _ErrorView(message: message),
-          ExploreLoaded(:final runs) when runs.isEmpty => const _EmptyView(),
-          ExploreLoaded(:final runs) => PageView.builder(
-              controller: _pageController,
+          ExploreLoaded(:final runs) => runs.isEmpty
+              ? const _EmptyView()
+              : PageView.builder(
+                  controller: _pageController
+                ..addListener(() {
+                  if (!_pageController.hasClients) return;
+                  final threshold = runs.length - 2;
+                  if (_pageController.page! >= threshold) {
+                    context
+                        .read<ExploreBloc>()
+                        .add(const ExploreLoadMoreRequested());
+                  }
+                }),
               scrollDirection: Axis.vertical,
               itemCount: runs.length,
               itemBuilder: (context, index) {
@@ -107,6 +102,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           runId: run.runId,
                           challengeId: run.challengeId,
                         ));
+                    _nextCard();
                   },
                   onBetTap: () => RunBetsSheet.show(
                     context,
@@ -115,6 +111,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     username: run.username,
                     isSelfBet: false,
                     betRepository: widget.betRepository,
+                    onBetPlaced: () => context
+                        .read<ExploreBloc>()
+                        .add(ExploreRunBetPlaced(runId: run.runId)),
                   ),
                 );
               },

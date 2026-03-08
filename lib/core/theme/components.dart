@@ -12,9 +12,12 @@ import 'tokens/elevation.dart';
 ///
 /// Usage (import only `design_system.dart`, never this file directly):
 /// ```dart
-/// padding: LWComponents.button.contentPadding
+/// padding: LWComponents.button.padding(LWButtonSize.medium)
 /// diameter: LWComponents.streakRing.diameterMd
 /// ```
+enum LWButtonVariant { primary, secondary, ghost, action }
+enum LWButtonSize { large, medium, small }
+
 abstract class LWComponents {
   LWComponents._();
 
@@ -28,6 +31,7 @@ abstract class LWComponents {
   static const streakRing = _StreakRing();
   static const betChip = _BetChip();
   static const modal = _Modal();
+  static const appBar = _AppBar();
 }
 
 // ── Button ────────────────────────────────────────────────────────────────
@@ -35,24 +39,29 @@ abstract class LWComponents {
 class _Button {
   const _Button();
 
-  /// Minimum tappable height (48dp rule).
-  double get height => 48.0;
+  double height(LWButtonSize size) => switch (size) {
+        LWButtonSize.large => 56.0,
+        LWButtonSize.medium => 48.0,
+        LWButtonSize.small => 36.0,
+      };
 
-  /// Horizontal content padding inside the button.
-  EdgeInsets get contentPadding => const EdgeInsets.symmetric(
-        horizontal: LWSpacing.xxl,
-        vertical: LWSpacing.lg,
-      );
+  EdgeInsets padding(LWButtonSize size) => switch (size) {
+        LWButtonSize.large => const EdgeInsets.symmetric(
+            horizontal: LWSpacing.xxl, vertical: LWSpacing.lg),
+        LWButtonSize.medium => const EdgeInsets.symmetric(
+            horizontal: LWSpacing.xl, vertical: LWSpacing.md),
+        LWButtonSize.small => const EdgeInsets.symmetric(
+            horizontal: LWSpacing.lg, vertical: LWSpacing.sm),
+      };
 
-  /// Corner radius for the standard pill-shaped button.
   double get radius => LWRadius.pill;
-
-  /// Corner radius for a compact/square button (e.g. icon button).
   double get radiusCompact => LWRadius.sm;
 
-  TextStyle get labelStyle => LWTypography.regularNormalBold;
-
-  TextStyle get labelSmallStyle => LWTypography.smallNormalMedium;
+  TextStyle labelStyle(LWButtonSize size) => switch (size) {
+        LWButtonSize.large => LWTypography.regularNormalBold,
+        LWButtonSize.medium => LWTypography.regularNormalBold,
+        LWButtonSize.small => LWTypography.smallNormalMedium,
+      };
 }
 
 // ── Card ─────────────────────────────────────────────────────────────────
@@ -219,4 +228,13 @@ class _Modal {
         LWSpacing.xl,
         LWSpacing.xxl,
       );
+}
+
+// ── App Bar ──────────────────────────────────────────────────────────────
+
+class _AppBar {
+  const _AppBar();
+
+  double get iconSize => 24.0;
+  double get iconSizeSmall => 20.0;
 }

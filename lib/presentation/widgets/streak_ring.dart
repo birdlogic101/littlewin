@@ -99,7 +99,7 @@ class _RingPainter extends CustomPainter {
 
     // Track (full circle)
     final trackPaint = Paint()
-      ..color = trackColor.withValues(alpha: 0.35)
+      ..color = trackColor.withOpacity(0.35)
       ..strokeWidth = trackWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

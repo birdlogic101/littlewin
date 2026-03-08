@@ -1,9 +1,13 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
 import 'people_event.dart';
 import 'people_state.dart';
 import '../../../data/repositories/people_repository.dart';
 import '../../../domain/entities/people_user_entity.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/di/injection.dart';
 
+@injectable
 class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
   final PeopleRepository _repository;
 
@@ -60,38 +64,66 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
     PeopleFollowToggled event,
     Emitter<PeopleState> emit,
   ) async {
-    final current = state;
-    if (current is! PeopleLoaded) return;
+    final currentState = state;
+    
+    // We need some context to do optimistic updates, but we should always trigger the repo call.
+    // If we're loading, we might still have a "previous" loaded state if we use a different pattern,
+    // but here we'll just try to work with PeopleLoaded if it exists.
+    
+    bool isCurrentlyFollowing = false;
+    
+    if (currentState is PeopleLoaded) {
+      final target = currentState.followedUsers
+          .where((u) => u.userId == event.userId)
+          .firstOrNull;
+      isCurrentlyFollowing = target?.isFollowing ??
+          currentState.followersUsers
+              .where((u) => u.userId == event.userId)
+              .firstOrNull
+              ?.isFollowing ??
+          false;
 
-    final target = current.followedUsers
-        .where((u) => u.userId == event.userId)
-        .firstOrNull;
-    final isCurrentlyFollowing = target?.isFollowing ??
-        current.followersUsers
-            .where((u) => u.userId == event.userId)
-            .firstOrNull
-            ?.isFollowing ??
-        false;
+      // Optimistic toggle on both lists
+      PeopleUserEntity toggle(PeopleUserEntity u) =>
+          u.userId == event.userId
+              ? u.copyWith(isFollowing: !u.isFollowing)
+              : u;
 
-    // Optimistic toggle on both lists
-    PeopleUserEntity toggle(PeopleUserEntity u) =>
-        u.userId == event.userId
-            ? u.copyWith(isFollowing: !u.isFollowing)
-            : u;
+      List<PeopleUserEntity> newFollowed = currentState.followedUsers.map(toggle).toList();
+      List<PeopleUserEntity> newFollowers = currentState.followersUsers.map(toggle).toList();
 
-    emit(current.copyWith(
-      followedUsers: current.followedUsers.map(toggle).toList(),
-      followersUsers: current.followersUsers.map(toggle).toList(),
-    ));
+      // If we are following a NEW person (not in our lists yet), and the object was provided
+      if (!isCurrentlyFollowing && event.user != null) {
+        final alreadyInFollowed = newFollowed.any((u) => u.userId == event.userId);
+        if (!alreadyInFollowed) {
+          newFollowed.insert(0, event.user!.copyWith(isFollowing: true));
+        }
+      }
 
-    // Persist (fire-and-forget; revert on failure not implemented for MLP)
-    if (isCurrentlyFollowing) {
-      await _repository.unfollow(event.userId);
+      emit(currentState.copyWith(
+        followedUsers: newFollowed,
+        followersUsers: newFollowers,
+      ));
     } else {
-      await _repository.follow(event.userId);
+      // If not loaded, we can't do an optimistic UI update easily in this state model,
+      // but we still want to trigger the follow action.
+      // We assume if it's from search, it's likely a fresh follow.
+      isCurrentlyFollowing = false; 
     }
 
-    // Refresh to get accurate run counts
+    try {
+      if (isCurrentlyFollowing) {
+        await _repository.unfollow(event.userId);
+      } else {
+        await _repository.follow(event.userId);
+        // Contextual permission request
+        getIt<NotificationService>().requestPermissions();
+      }
+    } catch (e) {
+      // Revert or show error if needed; for now we just log/refresh
+    }
+
+    // Refresh to get accurate run counts and sync lists
     add(const PeopleFetchRequested());
   }
 }

@@ -21,9 +21,6 @@ class RunActiveCard extends StatelessWidget {
   /// Called when the check-in button is tapped. Pass null to disable.
   final VoidCallback? onCheckin;
 
-  /// Number of bets currently placed on this run. Shown below the title.
-  final int betCount;
-
   /// Called when the user taps the star / bet count row.
   final VoidCallback? onBetTap;
 
@@ -32,7 +29,6 @@ class RunActiveCard extends StatelessWidget {
     required this.run,
     this.forceDone = false,
     this.onCheckin,
-    this.betCount = 0,
     this.onBetTap,
   });
 
@@ -43,200 +39,149 @@ class RunActiveCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: LWSpacing.lg,
-        vertical: LWSpacing.sm,
+        vertical: LWSpacing.xs,
       ),
-      height: 112,
+      padding: const EdgeInsets.all(LWSpacing.md),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(LWRadius.md),
         color: lw.backgroundCard,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(LWRadius.md),
+        border: Border.all(color: lw.borderSubtle, width: 1),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
+      child: Row(
         children: [
-          // ── Background ──────────────────────────────────────────────────
-          _RunCardBackground(
-            imageAsset: run.imageAsset,
-            imageUrl: run.imageUrl,
-            title: run.challengeTitle,
+          // 1. Streak Ring
+          PngStreakRing(
+            streak: run.currentStreak,
+            size: LWComponents.streakRing.diameterMd,
+            numberColor: lw.contentPrimary,
           ),
+          const SizedBox(width: LWSpacing.md),
 
-          // ── Dark gradient for readability ────────────────────────────────
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                stops: const [0.0, 0.55, 1.0],
-                colors: [
-                  Colors.black.withValues(alpha: 0.65),
-                  Colors.black.withValues(alpha: 0.40),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-
-          // ── Content row ─────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: LWSpacing.lg,
-              vertical: LWSpacing.md,
-            ),
-            child: Row(
+          // 2. Title + Bet Count
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Left: title + streak count
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
                         run.challengeTitle,
                         style: LWTypography.regularNormalBold.copyWith(
-                          color: Colors.white,
-                          shadows: const [
-                            Shadow(blurRadius: 6, color: Colors.black54),
-                          ],
+                          color: lw.contentPrimary,
+                          fontSize: 15,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      // Star bet row
-                      GestureDetector(
-                        onTap: onBetTap,
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            LwIcon(
-                              'misc_bet',
-                              size: 13,
-                              color: betCount > 0
-                                  ? const Color(0xFFFFAB40)
-                                  : Colors.white54,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              betCount > 0
-                                  ? '$betCount bet${betCount == 1 ? '' : 's'}'
-                                  : 'No bets yet',
-                              style: LWTypography.smallNormalRegular.copyWith(
-                                color: betCount > 0
-                                    ? Colors.white70
-                                    : Colors.white38,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: LWSpacing.md),
-
-                // Right: Streak ring + check-in button
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    PngStreakRing(
-                      streak: run.currentStreak,
-                      size: LWComponents.streakRing.diameterMd,
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: lw.contentSecondary.withOpacity(0.5),
                     ),
                   ],
                 ),
-
-                const SizedBox(width: LWSpacing.md),
-
-                // Check-in button
-                _CheckinButton(
-                  done: forceDone || run.hasCheckedInToday,
-                  onTap: (forceDone || run.hasCheckedInToday) ? null : onCheckin,
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: 22, // Stable height for meta info row
+                  child: GestureDetector(
+                    onTap: onBetTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: run.betCount == 0
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: LWSpacing.sm,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(LWRadius.pill),
+                              border: Border.all(
+                                color: lw.brandPrimary.withOpacity(0.4),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.star_rounded,
+                                  size: 12,
+                                  color: lw.brandPrimary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Bet',
+                                  style: LWTypography.smallNormalBold.copyWith(
+                                    color: lw.brandPrimary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: LWSpacing.xs,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: lw.backgroundSurface,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 12,
+                                      color: lw.contentSecondary.withOpacity(0.4),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${run.betCount} bet${run.betCount == 1 ? '' : 's'}',
+                                      style: LWTypography.smallNormalRegular.copyWith(
+                                        color: lw.contentSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
               ],
             ),
           ),
+
+          // 3. More Menu
+          _CircleIconBtn(
+            semanticLabel: 'More actions',
+            icon: Icons.more_vert_rounded,
+            onTap: () {
+              // TODO: implement more actions menu
+            },
+            color: lw.contentSecondary,
+          ),
+          const SizedBox(width: LWSpacing.md),
+
+          // 4. Check-in Button
+          _CheckinButton(
+            done: forceDone || run.hasCheckedInToday,
+            onTap: (forceDone || run.hasCheckedInToday) ? null : onCheckin,
+          ),
         ],
       ),
     );
   }
 }
-
-// ── Background ──────────────────────────────────────────────────────────────
-
-class _RunCardBackground extends StatelessWidget {
-  final String? imageAsset;
-  final String? imageUrl;
-  final String title;
-
-  const _RunCardBackground({
-    required this.imageAsset,
-    required this.imageUrl,
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (imageAsset != null && imageAsset!.isNotEmpty) {
-      return Image.asset(
-        imageAsset!,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _GradientFallback(title: title),
-      );
-    }
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return Image.network(
-        imageUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _GradientFallback(title: title),
-      );
-    }
-    return _GradientFallback(title: title);
-  }
-}
-
-class _GradientFallback extends StatelessWidget {
-  final String title;
-  const _GradientFallback({required this.title});
-
-  Color _color() {
-    const palette = [
-      Color(0xFF2D6A4F),
-      Color(0xFF1B4332),
-      Color(0xFF264653),
-      Color(0xFF6D4C41),
-      Color(0xFF37474F),
-      Color(0xFF4A148C),
-      Color(0xFF1A237E),
-      Color(0xFF880E4F),
-    ];
-    return palette[title.codeUnits.fold(0, (a, b) => a + b) % palette.length];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = _color();
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [base, Color.lerp(base, Colors.black, 0.4)!],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Check-in Button ──────────────────────────────────────────────────────────
 
 class _CheckinButton extends StatelessWidget {
   final bool done;
@@ -246,6 +191,7 @@ class _CheckinButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lw = LWThemeExtension.of(context);
     return Semantics(
       label: done ? 'Already checked in' : 'Check in',
       button: true,
@@ -254,31 +200,59 @@ class _CheckinButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
-          width: 36,
+          width: 36, // Slightly smaller per design
           height: 36,
           decoration: BoxDecoration(
-            color: done
-                ? LWColors.positiveBase.withValues(alpha: 0.90)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(LWRadius.sm),
-            border: done
-                ? null
-                : Border.all(
-                    color: Colors.white.withValues(alpha: 0.70),
-                    width: 2,
-                  ),
+            color: done ? LWColors.positiveBase : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: done ? LWColors.positiveBase : lw.borderStrong,
+              width: 1.5,
+            ),
           ),
           alignment: Alignment.center,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: done
-                ? Icon(
-                    Icons.check_rounded,
-                    key: const ValueKey('done'),
-                    color: Colors.white,
-                    size: 22,
-                  )
-                : const SizedBox.shrink(key: ValueKey('todo')),
+          child: done
+              ? const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 20,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleIconBtn extends StatelessWidget {
+  final String semanticLabel;
+  final VoidCallback? onTap;
+  final Color color;
+  final IconData icon;
+
+  const _CircleIconBtn({
+    required this.semanticLabel,
+    required this.color,
+    required this.icon,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lw = LWThemeExtension.of(context);
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 24,
+          height: 38,
+          child: Icon(
+            icon,
+            size: 20,
+            color: color.withOpacity(0.4),
           ),
         ),
       ),

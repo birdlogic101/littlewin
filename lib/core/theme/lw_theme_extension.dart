@@ -22,6 +22,9 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
   /// Modal scrim (semi-transparent overlay behind modals).
   final Color backgroundOverlay;
 
+  /// Secondary/Subtle surface (e.g. filter chips, subtle backgrounds).
+  final Color backgroundSurface;
+
   // ── Content (Text & Icons) ───────────────────────────────────────────────
   /// High-emphasis text and icons (headings, primary body).
   final Color contentPrimary;
@@ -97,6 +100,9 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
   /// Background when an interactive area is pressed.
   final Color interactivePressed;
 
+  /// Background when an interactive area is disabled.
+  final Color interactiveDisabled;
+
   // ─────────────────────────────────────────────────────────────────────────
 
   const LWThemeExtension({
@@ -128,11 +134,15 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
     required this.borderFocus,
     required this.interactiveDefault,
     required this.interactivePressed,
+    required this.interactiveDisabled,
+    required this.backgroundSurface,
   });
 
   // ── Convenience accessor ─────────────────────────────────────────────────
   static LWThemeExtension of(BuildContext context) =>
       Theme.of(context).extension<LWThemeExtension>()!;
+
+  bool get isDarkMode => backgroundApp == LWColors.inkDarkest;
 
   // ── Light ────────────────────────────────────────────────────────────────
   static const light = LWThemeExtension(
@@ -181,6 +191,8 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
     // Interactive
     interactiveDefault: LWColors.skySurface,
     interactivePressed: LWColors.skyLighter,
+    interactiveDisabled: LWColors.skyLighter,
+    backgroundSurface: LWColors.skySurface,
   );
 
   // ── Dark ─────────────────────────────────────────────────────────────────
@@ -230,6 +242,8 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
     // Interactive
     interactiveDefault: LWColors.inkDark,
     interactivePressed: LWColors.inkBase,
+    interactiveDisabled: LWColors.inkDarkest,
+    backgroundSurface: Color(0xFF1F2937), // dark surface
   );
 
   // ── ThemeExtension boilerplate ───────────────────────────────────────────
@@ -263,6 +277,8 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
     Color? borderFocus,
     Color? interactiveDefault,
     Color? interactivePressed,
+    Color? interactiveDisabled,
+    Color? backgroundSurface,
   }) {
     return LWThemeExtension(
       backgroundApp: backgroundApp ?? this.backgroundApp,
@@ -295,6 +311,8 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
       borderFocus: borderFocus ?? this.borderFocus,
       interactiveDefault: interactiveDefault ?? this.interactiveDefault,
       interactivePressed: interactivePressed ?? this.interactivePressed,
+      interactiveDisabled: interactiveDisabled ?? this.interactiveDisabled,
+      backgroundSurface: backgroundSurface ?? this.backgroundSurface,
     );
   }
 
@@ -339,6 +357,10 @@ class LWThemeExtension extends ThemeExtension<LWThemeExtension> {
           Color.lerp(interactiveDefault, other.interactiveDefault, t)!,
       interactivePressed:
           Color.lerp(interactivePressed, other.interactivePressed, t)!,
+      interactiveDisabled:
+          Color.lerp(interactiveDisabled, other.interactiveDisabled, t)!,
+      backgroundSurface:
+          Color.lerp(backgroundSurface, other.backgroundSurface, t)!,
     );
   }
 }

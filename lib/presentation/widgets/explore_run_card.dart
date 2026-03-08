@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/explore_run_entity.dart';
 import '../widgets/png_streak_ring.dart';
 import '../widgets/lw_icon.dart';
+import '../widgets/lw_button.dart';
 import '../../core/theme/design_system.dart';
 
 /// Full-bleed, full-screen swipeable card showing a single public run.
@@ -120,7 +121,7 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                 ),
                 _BottomGradient(),
                 Positioned(
-                  top: 24,
+                  top: MediaQuery.of(context).padding.top + LWSpacing.lg,
                   left: LWSpacing.lg,
                   right: LWSpacing.lg,
                   child: Row(
@@ -132,8 +133,9 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                       const Spacer(),
                       PngStreakRing(
                         streak: widget.run.currentStreak,
-                        size: 84,
+                        size: 90,
                         numberColor: Colors.white,
+                        subLabel: 'DAY STREAK',
                       ),
                     ],
                   ),
@@ -144,9 +146,12 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                   bottom: 0,
                   child: _BottomContent(
                     title: widget.run.challengeTitle,
+                    description: widget.run.challengeDescription,
+                    isCompleted: widget.run.isCompleted,
                     onDismiss: widget.onDismiss,
                     onJoin: widget.onJoin,
                     onBetTap: widget.onBetTap,
+                    recentBetCount: widget.run.recentBetCount,
                   ),
                 ),
               ],
@@ -334,7 +339,6 @@ class _UserBadge extends StatelessWidget {
           username,
           style: LWTypography.regularNormalBold.copyWith(
             color: Colors.white,
-            shadows: const [Shadow(blurRadius: 6, color: Colors.black54)],
           ),
         ),
       ],
@@ -348,7 +352,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = LWComponents.avatar.md;
+    final size = LWComponents.avatar.sm;
     return Container(
       width: size,
       height: size,
@@ -378,14 +382,20 @@ class _AvatarPlaceholder extends StatelessWidget {
 
 class _BottomContent extends StatelessWidget {
   final String title;
+  final String? description;
+  final bool isCompleted;
   final VoidCallback onDismiss;
   final VoidCallback onJoin;
   final VoidCallback? onBetTap;
+  final int recentBetCount;
   const _BottomContent({
     required this.title,
+    this.description,
+    required this.isCompleted,
     required this.onDismiss,
     required this.onJoin,
     this.onBetTap,
+    required this.recentBetCount,
   });
 
   @override
@@ -401,14 +411,47 @@ class _BottomContent extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: LWTypography.title3.copyWith(
-              color: Colors.white,
-              shadows: const [Shadow(blurRadius: 12, color: Colors.black87)],
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: LWTypography.title3.copyWith(
+                    color: Colors.white,
+                    fontSize: 28,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 16,
+                        color: Colors.black.withValues(alpha: 0.5),
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _showDescription(context),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: LWSpacing.lg, top: 4),
+                  child: LwIcon(
+                    'misc_info_fill',
+                    size: 26,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    shadows: [
+                      Shadow(
+                        blurRadius: 12,
+                        color: Colors.black.withValues(alpha: 0.4),
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: LWSpacing.xl),
           Row(
@@ -416,37 +459,103 @@ class _BottomContent extends StatelessWidget {
               _CircleAction(
                 semanticLabel: 'Dismiss',
                 onTap: onDismiss,
-                child: LwIcon('misc_cross', size: 20, color: Colors.white),
+                child: LwIcon('misc_cross',
+                    size: 24,
+                    color: Colors.white,
+                    shadows: const [Shadow(blurRadius: 4, color: Colors.black26)]),
               ),
               const SizedBox(width: LWSpacing.lg),
               Expanded(
-                child: SizedBox(
-                  height: LWComponents.button.height,
-                  child: ElevatedButton(
-                    onPressed: onJoin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: LWColors.inkDarkest,
-                      elevation: LWElevation.none,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(LWRadius.pill),
-                      ),
-                      padding: EdgeInsets.zero,
-                      textStyle: LWComponents.button.labelStyle,
-                    ),
-                    child: const Text('Join'),
-                  ),
+                child: LwButton(
+                  label: 'Join',
+                  onPressed: onJoin,
+                  variant: LWButtonVariant.action,
+                  size: LWButtonSize.medium,
                 ),
               ),
               const SizedBox(width: LWSpacing.lg),
               _CircleAction(
-                semanticLabel: 'Place a bet',
-                onTap: onBetTap ?? () {},
-                child: LwIcon('misc_bet', size: 20, color: Colors.white),
+                semanticLabel: 'View/Place bets',
+                onTap: isCompleted ? () {} : (onBetTap ?? () {}),
+                child: LwIcon('misc_bet',
+                    size: 24,
+                    color: Colors.white,
+                    shadows: const [
+                      Shadow(blurRadius: 4, color: Colors.black26)
+                    ]),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _showDescription(BuildContext context) {
+    final lw = LWThemeExtension.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: lw.backgroundApp,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(LWRadius.lg),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Handle for aesthetics
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: LWSpacing.md),
+              decoration: BoxDecoration(
+                color: lw.interactiveDisabled,
+                borderRadius: LWRadius.full,
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  LWSpacing.xl,
+                  LWSpacing.md,
+                  LWSpacing.xl,
+                  LWSpacing.xxl,
+                ),
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: LWTypography.title3
+                              .copyWith(color: lw.contentPrimary),
+                        ),
+                      ),
+                      const SizedBox(width: LWSpacing.md),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: LwIcon('misc_cross', color: lw.contentPrimary),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: LWSpacing.xl),
+                  Text(
+                    description ?? '',
+                    style: LWTypography.regularNormalRegular
+                        .copyWith(color: lw.contentSecondary, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -471,8 +580,8 @@ class _CircleAction extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: LWComponents.button.height,
-          height: LWComponents.button.height,
+          width: LWComponents.button.height(LWButtonSize.medium),
+          height: LWComponents.button.height(LWButtonSize.medium),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.18),
             shape: BoxShape.circle,

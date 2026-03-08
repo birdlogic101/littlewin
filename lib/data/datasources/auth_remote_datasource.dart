@@ -1,6 +1,8 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../core/error/failures.dart';
 import '../../core/utils/username_generator.dart';
 import '../models/user_model.dart';
@@ -38,6 +40,8 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> signInWithGoogle();
 
   Future<UserModel> linkWithGoogle();
+  
+  Future<void> updateFcmToken(String? token);
 
   Stream<UserModel?> get userStream;
 }
@@ -45,6 +49,11 @@ abstract class AuthRemoteDataSource {
 @LazySingleton(as: AuthRemoteDataSource)
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final SupabaseClient supabaseClient;
+  
+  late final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email'],
+    serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
+  );
 
   AuthRemoteDataSourceImpl(this.supabaseClient);
 
@@ -86,18 +95,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const ServerFailure('User is null');
       }
 
-      await supabaseClient.from('users').insert({
-        'id': response.user!.id,
-        'username': username,
-        'email': email,
-        'roles': ['basic'],
-      });
+      // Safety: if email confirmation is ever enabled, session will be null.
+      if (response.session == null) {
+        throw const ServerFailure(
+          'Account created. Please check your email to confirm, then sign in.',
+        );
+      }
 
-      return UserModel(
-        id: response.user!.id,
-        email: email,
-        username: username,
-      );
+      // We rely on the Supabase trigger handle_new_user() to create the public.users profile.
+      // We pause briefly or use a retry fetch (similar to Google auth) to return the profile.
+      return await _getUserProfileWithRetry(response.user!);
     } on AuthException catch (e) {
       throw ServerFailure(e.message);
     } catch (e) {
@@ -182,18 +189,24 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> signInWithGoogle() async {
     try {
-      final googleUser = await GoogleSignIn().signIn();
+      print('AuthRemoteDataSource: Starting Google Sign-In');
+      final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
+        print('AuthRemoteDataSource: Google Sign-In cancelled by user');
         throw const ServerFailure('Google sign-in cancelled');
       }
+      
+      print('AuthRemoteDataSource: Requesting authentication tokens');
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
       final accessToken = googleAuth.accessToken;
 
       if (idToken == null) {
-        throw const ServerFailure('No ID Token found.');
+        print('AuthRemoteDataSource: No ID Token found');
+        throw const ServerFailure('No ID Token found. Please ensure your Google Project is configured correctly.');
       }
 
+      print('AuthRemoteDataSource: Signing in to Supabase with ID Token');
       final response = await supabaseClient.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
@@ -201,22 +214,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.user == null) {
+        print('AuthRemoteDataSource: Supabase sign-in failed, user is null');
         throw const ServerFailure('Sign in failed: user is null');
       }
 
-      // Sync profile to public.users
-      await supabaseClient.from('users').upsert({
-        'id': response.user!.id,
-        'username':
-            response.user!.userMetadata?['full_name'] ?? googleUser.displayName,
-        'email': response.user!.email,
-        'roles': ['basic'],
-      }, onConflict: 'id');
+      print('AuthRemoteDataSource: Google Sign-In successful for ${response.user!.email}');
 
-      return _getUserProfile(response.user!);
+      // The database trigger handle_new_user() takes care of creating the public.users row
+      // using the metadata (full_name/email) from the provider.
+      // We'll use a retry mechanism to wait for the trigger to finish.
+      return await _getUserProfileWithRetry(response.user!);
     } on AuthException catch (e) {
+      print('AuthRemoteDataSource: AuthException during Google Sign-In: ${e.message}');
       throw ServerFailure(e.message);
     } catch (e) {
+      print('AuthRemoteDataSource: Unexpected error during Google Sign-In: $e');
       throw ServerFailure(e.toString());
     }
   }
@@ -224,47 +236,42 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> linkWithGoogle() async {
     try {
-      // For native linking, we still use GoogleSignIn to get the token,
-      // then we use linkIdentity.
-      final googleUser = await GoogleSignIn().signIn();
+      print('AuthRemoteDataSource: Starting Identity Linking with Google');
+      final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
+        print('AuthRemoteDataSource: Linking cancelled by user');
         throw const ServerFailure('Linking cancelled');
       }
+      
       final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
 
-      if (idToken == null) {
-        throw const ServerFailure('No ID Token found.');
+      if (accessToken == null) {
+        print('AuthRemoteDataSource: No access token found for linking');
+        throw const ServerFailure('No access token found for linking.');
       }
 
-      // Supabase linkIdentity for native tokens might be different depending on SDK version.
-      // If linkIdentity doesn't support idToken, we might need to handle it via updateUser or browser flow.
-      // In supabase_flutter 2.x, linkIdentity(OAuthProvider.google) triggers browser.
-      // To keep it native, we check if we can use linkIdentity with tokens.
-      
+      print('AuthRemoteDataSource: Linking Supabase identity');
       await supabaseClient.auth.linkIdentity(
         OAuthProvider.google,
-        queryParams: {'access_token': googleAuth.accessToken ?? ''},
+        queryParams: {'access_token': accessToken},
       );
-      
-      // Note: If linkIdentity above opens browser, we might want to reconsider.
-      // But for now, let's follow standard Supabase identity linking.
       
       final user = supabaseClient.auth.currentUser;
       if (user == null) {
+        print('AuthRemoteDataSource: User is null after linking');
         throw const ServerFailure('User is null after linking');
       }
 
-      // Update the public.users row: clear anonymous_id since now linked.
-      await supabaseClient.from('users').update({
-        'email': user.email,
-        'anonymous_id': null,
-      }).eq('id', user.id);
+      print('AuthRemoteDataSource: Identity linked successfully for ${user.email}');
 
-      return _getUserProfile(user);
+      // Refresh the profile with retry logic to ensure triggers finish
+      return await _getUserProfileWithRetry(user);
     } on AuthException catch (e) {
+      print('AuthRemoteDataSource: AuthException during linking: ${e.message}');
       throw ServerFailure(e.message);
     } catch (e) {
+      print('AuthRemoteDataSource: Unexpected error during linking: $e');
       throw ServerFailure(e.toString());
     }
   }
@@ -272,7 +279,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> signOut() async {
     try {
-      await supabaseClient.auth.signOut();
+      await Future.wait([
+        supabaseClient.auth.signOut(),
+        _googleSignIn.signOut(),
+      ]);
     } catch (e) {
       throw ServerFailure(e.toString());
     }
@@ -345,6 +355,43 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         .eq('id', user.id)
         .single();
     return UserModel.fromSupabase(user, data);
+  }
+
+  @override
+  Future<void> updateFcmToken(String? token) async {
+    try {
+      final user = supabaseClient.auth.currentUser;
+      if (user == null) return;
+
+      debugPrint('AuthRemoteDataSource: Updating FCM token for user ${user.id}');
+      await supabaseClient
+          .from('users')
+          .update({'fcm_token': token})
+          .eq('id', user.id);
+    } catch (e) {
+      debugPrint('AuthRemoteDataSource: Failed to update FCM token: $e');
+    }
+  }
+
+  /// Fetches the user profile with a retry mechanism to wait for backend triggers.
+  Future<UserModel> _getUserProfileWithRetry(User user, {int maxRetries = 5}) async {
+    int attempts = 0;
+    while (attempts < maxRetries) {
+      try {
+        attempts++;
+        print('AuthRemoteDataSource: Fetching user profile (attempt $attempts)');
+        return await _getUserProfile(user);
+      } catch (e) {
+        if (attempts >= maxRetries) {
+          print('AuthRemoteDataSource: Profile fetch failed after $maxRetries attempts: $e');
+          rethrow;
+        }
+        final delay = Duration(milliseconds: 500 * attempts);
+        print('AuthRemoteDataSource: Profile not found yet, retrying in ${delay.inMilliseconds}ms...');
+        await Future.delayed(delay);
+      }
+    }
+    throw const ServerFailure('Profile fetch timeout');
   }
 }
 

@@ -49,6 +49,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   firebase_messaging: ^15.1.6
+  firebase_core: ^3.11.0
   google_sign_in: ^6.2.1
   crypto: ^3.0.3
 
@@ -78,7 +79,6 @@ flutter:
     - assets/avatars/
     - assets/misc/
     - assets/pictures/
-    - assets/data/
     - .env
 
   fonts:

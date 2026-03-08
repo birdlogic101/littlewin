@@ -1,6 +1,10 @@
 import '../../domain/entities/bet_entity.dart';
 import '../../domain/entities/stake_entity.dart';
+import '../../domain/entities/bet_resolution_entity.dart';
 import '../datasources/bet_remote_datasource.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:injectable/injectable.dart';
 
 /// In-memory + remote repository for bet-related operations.
 ///
@@ -10,12 +14,12 @@ import '../datasources/bet_remote_datasource.dart';
 ///
 /// Call [initialize] with a [BetRemoteDataSource] to enable persistence;
 /// without it the repository uses only mock data (useful in tests).
+@lazySingleton
 class BetRepository {
   BetRepository({
     BetRemoteDataSource? datasource,
-    List<StakeEntity>? initialStakes,
   })  : _datasource = datasource,
-        _cachedStakes = initialStakes;
+        _cachedStakes = null;
 
   final BetRemoteDataSource? _datasource;
   List<StakeEntity>? _cachedStakes;
@@ -55,16 +59,8 @@ class BetRepository {
     }
   }
 
-  /// Creates a custom stake (premium feature) and appends it to the cache.
-  Future<StakeEntity> createCustomStake({required String title}) async {
-    if (_datasource == null) {
-      throw BetValidationException('BET_DATASOURCE_UNAVAILABLE');
-    }
-    final stake = await _datasource.createStake(title: title);
-    // Append to cache so the modal list refreshes without refetching.
-    _cachedStakes = [...?_cachedStakes, stake];
-    return stake;
-  }
+  // No longer needed as custom stakes are one-time and non-persistent.
+  // Future<StakeEntity> createCustomStake({required String title}) async { ... }
 
   // ── Place bet ──────────────────────────────────────────────────────────────
 
@@ -76,6 +72,7 @@ class BetRepository {
     required String runId,
     required int targetStreak,
     String? stakeId,
+    String? customStakeTitle,
     required bool isSelfBet,
   }) async {
     if (_datasource == null) {
@@ -86,21 +83,42 @@ class BetRepository {
         runId: runId,
         targetStreak: targetStreak,
         stakeId: stakeId,
+        customStakeTitle: customStakeTitle,
         isSelfBet: isSelfBet,
       );
-    } catch (e) {
+    } on PostgrestException catch (e) {
       // The Supabase RPC raises exceptions whose message is the error code
       // string we defined (e.g. "STREAK_TOO_LOW"). Re-wrap for clarity.
-      final msg = e.toString();
-      if (msg.contains('STREAK_TOO_LOW') ||
-          msg.contains('STREAK_TOO_HIGH') ||
-          msg.contains('RUN_NOT_ACTIVE') ||
-          msg.contains('RUN_NOT_FOUND') ||
-          msg.contains('MAX_BETS_PER_RUN') ||
-          msg.contains('MAX_BETS_PER_DAY')) {
-        throw BetValidationException(_extractCode(msg));
+      final code = _extractCode(e.message);
+      if (code != 'UNKNOWN_ERROR') {
+        throw BetValidationException(code);
       }
       rethrow;
+    }
+  }
+
+  // ── Win celebrations ───────────────────────────────────────────────────────
+
+  /// Fetches wins that haven't triggered a celebratory modal yet.
+  Future<List<BetResolutionEntity>> getUnseenWonBets() async {
+    if (_datasource == null) return [];
+    try {
+      return await _datasource.fetchUnseenWonBets();
+    } catch (e) {
+      // ignore: avoid_print
+      print('[BetRepository] getUnseenWonBets error: $e');
+      return [];
+    }
+  }
+
+  /// Marks wins as celebrated.
+  Future<void> acknowledgeWonBets(List<String> ids) async {
+    if (_datasource == null) return;
+    try {
+      await _datasource.acknowledgeWonBets(ids);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[BetRepository] acknowledgeWonBets error: $e');
     }
   }
 
@@ -126,62 +144,62 @@ class BetRepository {
   static List<StakeEntity> _mockStakes() => [
         // ── Plan stakes
         const StakeEntity(
-          id: 'stake-plan-1',
+          id: 'a0000000-0000-0000-0000-000000000001',
           title: 'Coffee Cup',
           category: StakeCategory.plan,
-          imageAsset: 'assets/icons/stake-coffe_cup.png',
+          imageAsset: 'assets/icons/stake-coffee_cup.png',
         ),
         const StakeEntity(
-          id: 'stake-plan-2',
+          id: 'a0000000-0000-0000-0000-000000000002',
           title: 'Brunch Invite',
           category: StakeCategory.plan,
           imageAsset: 'assets/icons/stake-brunch_invite.png',
         ),
         const StakeEntity(
-          id: 'stake-plan-3',
+          id: 'a0000000-0000-0000-0000-000000000003',
           title: 'Restaurant Dinner',
           category: StakeCategory.plan,
           imageAsset: 'assets/icons/stake-restaurant_dinner.png',
         ),
         const StakeEntity(
-          id: 'stake-plan-4',
+          id: 'a0000000-0000-0000-0000-000000000004',
           title: 'Drinks Round',
           category: StakeCategory.plan,
           imageAsset: 'assets/icons/stake-drinks_round.png',
         ),
         const StakeEntity(
-          id: 'stake-plan-5',
+          id: 'a0000000-0000-0000-0000-000000000005',
           title: 'Cinema Night',
           category: StakeCategory.plan,
           imageAsset: 'assets/icons/stake-cinema_night.png',
         ),
         // ── Gift stakes
         const StakeEntity(
-          id: 'stake-gift-1',
+          id: 'a0000000-0000-0000-0000-000000000006',
           title: 'Chocolate Box',
           category: StakeCategory.gift,
           imageAsset: 'assets/icons/stake-chocolate_box.png',
         ),
         const StakeEntity(
-          id: 'stake-gift-2',
+          id: 'a0000000-0000-0000-0000-000000000007',
           title: 'Wine Bottle',
           category: StakeCategory.gift,
           imageAsset: 'assets/icons/stake-wine_bottle.png',
         ),
         const StakeEntity(
-          id: 'stake-gift-3',
+          id: 'a0000000-0000-0000-0000-000000000008',
           title: 'Spa Access',
           category: StakeCategory.gift,
           imageAsset: 'assets/icons/stake-spa_access.png',
         ),
         const StakeEntity(
-          id: 'stake-gift-4',
+          id: 'a0000000-0000-0000-0000-000000000009',
           title: 'Massage Session',
           category: StakeCategory.gift,
           imageAsset: 'assets/icons/stake-massage_session.png',
         ),
         const StakeEntity(
-          id: 'stake-gift-5',
+          id: 'a0000000-0000-0000-0000-00000000000a',
           title: 'Surprise Box',
           category: StakeCategory.gift,
           imageAsset: 'assets/icons/stake-gift_box.png',
@@ -203,7 +221,4 @@ class BetValidationException implements Exception {
         'MAX_BETS_PER_DAY' => 'You have placed the maximum bets allowed today.',
         _ => 'Could not place bet. Please try again.',
       };
-
-  @override
-  String toString() => 'BetValidationException($code)';
 }

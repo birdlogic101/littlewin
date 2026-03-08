@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import '../../core/di/injection.dart';
 import '../../core/theme/design_system.dart';
 import '../../data/datasources/challenge_remote_datasource.dart';
 import '../../data/repositories/challenge_repository_impl.dart';
+import '../../data/repositories/runs_repository.dart';
 import '../../data/repositories/bet_repository.dart';
 import '../../domain/usecases/create_challenge.dart';
 import '../bloc/create_challenge/create_challenge_bloc.dart';
@@ -28,6 +30,7 @@ class CreateChallengeSheet extends StatelessWidget {
     required BetRepository betRepository,
   }) {
     final bloc = CreateChallengeBloc(
+      runsRepository: getIt<RunsRepository>(),
       createChallenge: CreateChallenge(
         ChallengeRepositoryImpl(
           ChallengeRemoteDataSource(Supabase.instance.client),
@@ -87,6 +90,7 @@ class _SheetBodyState extends State<_SheetBody> {
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   bool _isPublic = true;
+  String? _selectedImageAsset = 'assets/pictures/challenge_default_1080.jpg';
 
   @override
   void dispose() {
@@ -101,6 +105,7 @@ class _SheetBodyState extends State<_SheetBody> {
           title: _titleCtrl.text.trim(),
           description: _descCtrl.text.trim(),
           visibility: _isPublic ? 'public' : 'private',
+          imageAsset: _selectedImageAsset,
         ));
   }
 
@@ -184,6 +189,8 @@ class _SheetBodyState extends State<_SheetBody> {
                 decoration: _inputDeco(lw,
                     hint: 'What is this challenge about?'),
               ),
+              const SizedBox(height: LWSpacing.md),
+
               const SizedBox(height: LWSpacing.md),
 
               // Visibility toggle

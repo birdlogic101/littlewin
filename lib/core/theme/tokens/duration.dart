@@ -9,6 +9,7 @@ class LWDuration {
 
   /// Standard UI transition — route push, card expand.
   static const Duration normal = Duration(milliseconds: 200);
+  static const Duration standard = normal;
 
   /// Emphasised motion — drawer slide, modal rise.
   static const Duration slow = Duration(milliseconds: 350);

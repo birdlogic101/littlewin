@@ -1,7 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/people_user_entity.dart';
 
+import 'package:injectable/injectable.dart';
+
 /// Remote data source for follow-system Supabase operations.
+@lazySingleton
 class PeopleRemoteDataSource {
   final SupabaseClient _client;
   PeopleRemoteDataSource(this._client);

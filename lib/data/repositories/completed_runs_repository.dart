@@ -2,18 +2,24 @@ import 'dart:async';
 import '../../domain/entities/completed_run_entity.dart';
 import '../datasources/run_remote_datasource.dart';
 
+import 'package:injectable/injectable.dart';
+
 /// Shared in-memory store for the user's completed runs.
 ///
-/// Seeded with historical mock records on first run. On startup, call
-/// [initialize] to replace/add real records from Supabase.
+/// On startup, call [initialize] to load real records from Supabase.
 /// [RunsRepository.processCompletions] feeds new completions into it
 /// as the user misses check-in deadlines.
+@lazySingleton
 class CompletedRunsRepository {
   CompletedRunsRepository({
-    List<CompletedRunEntity>? initial,
     RunRemoteDataSource? datasource,
-  })  : _runs = List<CompletedRunEntity>.from(initial ?? _defaultRuns()),
+  })  : _runs = <CompletedRunEntity>[],
         _datasource = datasource;
+
+  /// Test constructor — seeds with [initial] runs, no datasource required.
+  CompletedRunsRepository.seeded([List<CompletedRunEntity>? initial])
+      : _runs = initial != null ? List.of(initial) : <CompletedRunEntity>[],
+        _datasource = null;
 
   final List<CompletedRunEntity> _runs;
   final RunRemoteDataSource? _datasource;
@@ -53,48 +59,4 @@ class CompletedRunsRepository {
   }
 
   void dispose() => _controller.close();
-
-  // ── Seed / mock historical records ─────────────────────────────────────────
-
-  static List<CompletedRunEntity> _defaultRuns() => [
-        const CompletedRunEntity(
-          runId: 'rec-1',
-          challengeId: 'ch-04',
-          challengeTitle: '10-Minute Workout',
-          challengeSlug: '10-minute-workout',
-          finalScore: 66,
-          startDate: '2025-11-01',
-          endDate: '2026-01-05',
-          imageAsset: 'assets/pictures/challenge_10-minute-workout.jpg',
-        ),
-        const CompletedRunEntity(
-          runId: 'rec-2',
-          challengeId: 'ch-04',
-          challengeTitle: '10-Minute Workout',
-          challengeSlug: '10-minute-workout',
-          finalScore: 12,
-          startDate: '2025-08-10',
-          endDate: '2025-08-22',
-          imageAsset: 'assets/pictures/challenge_10-minute-workout.jpg',
-        ),
-        const CompletedRunEntity(
-          runId: 'rec-3',
-          challengeId: 'ch-08',
-          challengeTitle: 'No Added Sugar',
-          challengeSlug: 'no-added-sugar',
-          finalScore: 7,
-          startDate: '2025-10-01',
-          endDate: '2025-10-08',
-        ),
-        const CompletedRunEntity(
-          runId: 'rec-4',
-          challengeId: 'ch-02',
-          challengeTitle: '16-Hour Fasting',
-          challengeSlug: '16-hour-fasting',
-          finalScore: 21,
-          startDate: '2025-06-01',
-          endDate: '2025-06-22',
-          imageAsset: 'assets/pictures/challenge_16-hour-fasting.jpg',
-        ),
-      ];
 }

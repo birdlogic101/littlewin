@@ -10,6 +10,8 @@ sealed class RecordsState extends Equatable {
       RecordsLoaded;
   const factory RecordsState.failure({required String message}) =
       RecordsFailure;
+  const factory RecordsState.restartSuccess() = RecordsRestartSuccess;
+  const factory RecordsState.restartAlreadyActive() = RecordsRestartAlreadyActive;
 
   @override
   List<Object?> get props => [];
@@ -37,4 +39,12 @@ class RecordsFailure extends RecordsState {
 
   @override
   List<Object?> get props => [message];
+}
+
+class RecordsRestartSuccess extends RecordsState {
+  const RecordsRestartSuccess();
+}
+
+class RecordsRestartAlreadyActive extends RecordsState {
+  const RecordsRestartAlreadyActive();
 }

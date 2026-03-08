@@ -7,6 +7,7 @@ class ExploreRunEntity extends Equatable {
   final String runId;
   final String challengeId;
   final String challengeTitle;
+  final String? challengeDescription;
 
   /// URL-safe slug used to identify the challenge (e.g. "16-hour-fasting").
   /// Required so the bloc can build a correct [ActiveRunEntity] on join.
@@ -29,10 +30,15 @@ class ExploreRunEntity extends Equatable {
   /// How many bets are currently placed on this run.
   final int recentBetCount;
 
+  /// Whether the run is already completed (Priority 3/4).
+  /// If true, the bet button should be disabled.
+  final bool isCompleted;
+
   const ExploreRunEntity({
     required this.runId,
     required this.challengeId,
     required this.challengeTitle,
+    this.challengeDescription,
     required this.challengeSlug,
     required this.userId,
     required this.username,
@@ -41,6 +47,7 @@ class ExploreRunEntity extends Equatable {
     this.imageUrl,
     this.imageAsset,
     this.recentBetCount = 0,
+    this.isCompleted = false,
   });
 
   @override
@@ -48,6 +55,7 @@ class ExploreRunEntity extends Equatable {
         runId,
         challengeId,
         challengeTitle,
+        challengeDescription,
         challengeSlug,
         userId,
         username,
@@ -56,5 +64,6 @@ class ExploreRunEntity extends Equatable {
         imageUrl,
         imageAsset,
         recentBetCount,
+        isCompleted,
       ];
 }

@@ -22,3 +22,23 @@ class RecordsRunsUpdated extends RecordsEvent {
   @override
   List<Object?> get props => [runs];
 }
+
+/// User requested to restart a challenge from a record.
+class RecordsRestartChallengeRequested extends RecordsEvent {
+  final String challengeId;
+  final String challengeTitle;
+  final String challengeSlug;
+  final String? imageAsset;
+  final String? imageUrl;
+
+  const RecordsRestartChallengeRequested({
+    required this.challengeId,
+    required this.challengeTitle,
+    required this.challengeSlug,
+    this.imageAsset,
+    this.imageUrl,
+  });
+
+  @override
+  List<Object?> get props => [challengeId, challengeTitle, challengeSlug];
+}

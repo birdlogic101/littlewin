@@ -1,10 +1,13 @@
 import '../../domain/entities/people_user_entity.dart';
 import '../datasources/people_remote_datasource.dart';
 
+import 'package:injectable/injectable.dart';
+
 /// Repository for the follow system.
 ///
 /// Provides followed / followers lists and search, with mock fallback when
 /// Supabase is not configured (tests / offline dev).
+@lazySingleton
 class PeopleRepository {
   final PeopleRemoteDataSource? _datasource;
 

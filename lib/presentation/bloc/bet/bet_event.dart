@@ -47,10 +47,10 @@ class BetPlaceRequested extends BetEvent {
   const BetPlaceRequested();
 }
 
-/// User created a custom stake (premium feature) from the + chip.
-class BetCustomStakeCreated extends BetEvent {
+/// User tapped "Place bet" in the custom stake drawer.
+class BetPlaceWithCustomStakeRequested extends BetEvent {
   final String title;
-  const BetCustomStakeCreated(this.title);
+  const BetPlaceWithCustomStakeRequested(this.title);
 
   @override
   List<Object?> get props => [title];

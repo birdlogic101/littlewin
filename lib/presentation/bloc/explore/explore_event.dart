@@ -30,3 +30,23 @@ class ExploreRunJoined extends ExploreEvent {
   @override
   List<Object?> get props => [runId, challengeId];
 }
+/// User scrolled near the end — fetch the next batch.
+class ExploreLoadMoreRequested extends ExploreEvent {
+  const ExploreLoadMoreRequested();
+}
+
+/// Clears the transient [ExploreLoaded.joinError] after the snackbar has been
+/// shown so it doesn't re-trigger on the next rebuild.
+class ExploreClearJoinError extends ExploreEvent {
+  const ExploreClearJoinError();
+}
+
+/// User successfully placed a bet on a run card. 
+/// Used for optimistic UI updates.
+class ExploreRunBetPlaced extends ExploreEvent {
+  final String runId;
+  const ExploreRunBetPlaced({required this.runId});
+
+  @override
+  List<Object?> get props => [runId];
+}

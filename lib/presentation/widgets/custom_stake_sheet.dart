@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/design_system.dart';
+import '../widgets/lw_button.dart';
 import '../bloc/bet/bet_bloc.dart';
 import '../bloc/bet/bet_event.dart';
 import '../bloc/bet/bet_state.dart';
@@ -33,10 +34,9 @@ class CustomStakeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<BetBloc, BetState>(
       listenWhen: (prev, curr) {
-        // Close the sheet as soon as a new stake is selected (creation succeeded)
-        if (prev is! BetReady || curr is! BetReady) return false;
-        return curr.selectedStakeId != prev.selectedStakeId &&
-            curr.submitStatus == BetSubmitStatus.idle;
+        if (curr is! BetReady) return false;
+        // Close if the bet was placed successfully via this flow
+        return curr.submitStatus == BetSubmitStatus.success;
       },
       listener: (ctx, _) => Navigator.pop(ctx),
       child: const _SheetBody(),
@@ -67,7 +67,7 @@ class _SheetBodyState extends State<_SheetBody> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     context
         .read<BetBloc>()
-        .add(BetCustomStakeCreated(_titleCtrl.text.trim()));
+        .add(BetPlaceWithCustomStakeRequested(_titleCtrl.text.trim()));
   }
 
   @override
@@ -75,10 +75,10 @@ class _SheetBodyState extends State<_SheetBody> {
     final lw = LWThemeExtension.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    final isLoading =
-        context.select<BetBloc, bool>((b) =>
-            b.state is BetReady &&
-            (b.state as BetReady).submitStatus == BetSubmitStatus.submitting);
+    final state = context.watch<BetBloc>().state;
+    final isLoading = state is BetReady &&
+        state.submitStatus == BetSubmitStatus.submitting;
+    final errorMessage = (state is BetReady) ? state.errorMessage : null;
 
     return Container(
       decoration: BoxDecoration(
@@ -115,14 +115,14 @@ class _SheetBodyState extends State<_SheetBody> {
               children: [
                 const Text('🎁', style: TextStyle(fontSize: 22)),
                 const SizedBox(width: LWSpacing.sm),
-                Text('Create a Custom Stake',
+                Text('Custom Stake',
                     style: LWTypography.title4
                         .copyWith(color: lw.contentPrimary)),
               ],
             ),
             const SizedBox(height: LWSpacing.xs),
             Text(
-              'Your custom stake will be saved as a gift.',
+              'Personalize this bet with a one-time reward.',
               style: LWTypography.smallNormalRegular
                   .copyWith(color: lw.contentSecondary),
             ),
@@ -172,33 +172,28 @@ class _SheetBodyState extends State<_SheetBody> {
                 if (s.length < 3) return 'At least 3 characters required';
                 return null;
               },
+              onFieldSubmitted: (_) => _submit(),
             ),
+
+            if (errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: LWSpacing.md),
+                child: Text(
+                  errorMessage,
+                  style: LWTypography.smallNormalRegular
+                      .copyWith(color: lw.feedbackNegative),
+                ),
+              ),
+
             const SizedBox(height: LWSpacing.xl),
 
-            // Save button
-            SizedBox(
+            // Place bet button
+            LwButton.primary(
+              label: 'Place bet',
+              onPressed: _submit,
+              isLoading: isLoading,
+              icon: const Icon(Icons.star_rounded, size: 18),
               width: double.infinity,
-              child: FilledButton(
-                onPressed: isLoading ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: lw.brandPrimary,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: LWSpacing.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(LWRadius.pill),
-                  ),
-                ),
-                child: isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : Text('Save Stake',
-                        style: LWTypography.regularNormalMedium
-                            .copyWith(color: Colors.white)),
-              ),
             ),
           ],
         ),

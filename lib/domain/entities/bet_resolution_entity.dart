@@ -5,12 +5,13 @@ import 'stake_entity.dart';
 class WonBetEntry extends Equatable {
   final String betId;
   final String bettorId;
+  final String? stakeId;
 
   /// Display name of the bettor. Falls back to 'Someone' if null.
   final String? bettorUsername;
 
-  /// Remote avatar URL for the bettor. If null, show initials fallback.
-  final String? bettorAvatarUrl;
+  /// Remote avatar ID for the bettor.
+  final int? bettorAvatarId;
 
   final String? stakeTitle;
   final StakeCategory? stakeCategory;
@@ -22,8 +23,9 @@ class WonBetEntry extends Equatable {
   const WonBetEntry({
     required this.betId,
     required this.bettorId,
+    this.stakeId,
     this.bettorUsername,
-    this.bettorAvatarUrl,
+    this.bettorAvatarId,
     this.stakeTitle,
     this.stakeCategory,
     this.stakeEmoji,
@@ -34,8 +36,9 @@ class WonBetEntry extends Equatable {
   List<Object?> get props => [
         betId,
         bettorId,
+        stakeId,
         bettorUsername,
-        bettorAvatarUrl,
+        bettorAvatarId,
         stakeTitle,
         stakeCategory,
         stakeEmoji,

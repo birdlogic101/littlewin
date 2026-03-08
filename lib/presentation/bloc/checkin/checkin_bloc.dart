@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
 import 'checkin_event.dart';
 import 'checkin_state.dart';
 import '../../../data/repositories/runs_repository.dart';
 
+@injectable
 class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   final RunsRepository _runsRepository;
   StreamSubscription<dynamic>? _runsSub;
@@ -24,23 +26,28 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     CheckinFetchRequested event,
     Emitter<CheckinState> emit,
   ) async {
+    // ignore: avoid_print
+    print('[CheckinBloc] _onFetch started');
     emit(const CheckinState.loading());
     try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
       // Guard: if the UTC day rolled over while the app was in the background
       // (or killed + restored), any run with hasCheckedInToday=true but
       // lastCheckinDay != today must be reset — otherwise the UI would show
       // already-done runs as pending on the wrong day.
       _runsRepository.clearStaleCheckinFlags(_todayUtc());
 
-      emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
+      final runs = _runsRepository.activeRuns;
+      // ignore: avoid_print
+      print('[CheckinBloc] emitting loaded with ${runs.length} runs');
+      emit(CheckinState.loaded(runs: runs));
 
       await _runsSub?.cancel();
       _runsSub = _runsRepository.stream.listen((updatedRuns) {
         if (!isClosed) add(CheckinRunsUpdated(runs: updatedRuns));
       });
     } catch (e) {
+      // ignore: avoid_print
+      print('[CheckinBloc] fetch error: $e');
       emit(CheckinState.failure(message: e.toString()));
     }
   }
@@ -74,18 +81,33 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         .firstOrNull;
     if (run == null || run.hasCheckedInToday) return;
 
-    // Delegate to repository: handles optimistic update + Supabase RPC.
-    // The stream subscription will update the run list; we separately
-    // capture the resolution to show the modal if bets were triggered.
-    final resolution = await _runsRepository.checkin(event.runId);
+    // 1. Trigger the update (synchronous part happens immediately)
+    final checkinFuture = _runsRepository.checkin(event.runId);
+    
+    // 2. Emit the now-updated state immediately
+    emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
 
-    if (resolution != null && !isClosed) {
-      // Emit with pendingResolution so CheckinScreen BlocListener can
-      // show the BetWonModal. The run list comes from the stream update.
-      emit(CheckinState.loaded(
-        runs: _runsRepository.activeRuns,
-        pendingResolution: resolution,
-      ));
+    try {
+      // 3. Await the long-running RPC resolution
+      final resolution = await checkinFuture;
+
+      if (resolution != null && !isClosed) {
+        // Emit with pendingResolution so CheckinScreen BlocListener can
+        // show the BetWonModal. The run list comes from the stream update.
+        emit(CheckinState.loaded(
+          runs: _runsRepository.activeRuns,
+          pendingResolution: resolution,
+        ));
+      }
+    } catch (e) {
+      // The repository already reverted the optimistic update and updated
+      // the stream, so the UI will jump back to "Pending". 
+      // We emit a failure state to show a snackbar/toast if needed.
+      if (!isClosed) {
+        emit(CheckinState.failure(message: e.toString()));
+        // After showing the error, we should return to showing the current runs.
+        emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
+      }
     }
   }
 

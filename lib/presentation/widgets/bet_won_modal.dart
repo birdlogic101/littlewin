@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../domain/entities/bet_resolution_entity.dart';
-import '../../domain/entities/stake_entity.dart';
 import '../../core/theme/design_system.dart';
+import 'lw_button.dart';
 
 /// Full-screen celebration overlay shown when a check-in triggers won bets.
 ///
@@ -13,19 +14,26 @@ import '../../core/theme/design_system.dart';
 /// the user taps "Continue".
 class BetWonModal extends StatefulWidget {
   final BetResolutionEntity resolution;
+  final bool isBettorView;
 
-  const BetWonModal._({required this.resolution});
+  const BetWonModal._({
+    required this.resolution,
+    this.isBettorView = false,
+  });
 
-  /// Pushes a full-screen overlay and awaits user dismissal.
   static Future<void> show(
     BuildContext context, {
     required BetResolutionEntity resolution,
+    bool isBettorView = false,
   }) {
     return Navigator.of(context).push<void>(
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black54,
-        pageBuilder: (_, __, ___) => BetWonModal._(resolution: resolution),
+        pageBuilder: (_, __, ___) => BetWonModal._(
+          resolution: resolution,
+          isBettorView: isBettorView,
+        ),
         transitionsBuilder: (_, anim, __, child) => FadeTransition(
           opacity: anim,
           child: child,
@@ -126,9 +134,9 @@ class _BetWonModalState extends State<BetWonModal>
 
                 const SizedBox(height: LWSpacing.xl),
 
-                // "DAYS COMPLETED!"
+                // "DAYS COMPLETED!" (or YOU WON!)
                 Text(
-                  'DAYS COMPLETED !',
+                  widget.isBettorView ? 'YOU WON!' : 'DAYS COMPLETED !',
                   style: LWTypography.title4.copyWith(
                     color: lw.contentPrimary,
                     fontWeight: FontWeight.w800,
@@ -180,25 +188,10 @@ class _BetWonModalState extends State<BetWonModal>
                     LWSpacing.xl,
                     MediaQuery.paddingOf(context).bottom + LWSpacing.lg,
                   ),
-                  child: SizedBox(
+                  child: LwButton.secondary(
+                    label: 'Continue',
+                    onPressed: () => Navigator.of(context).pop(),
                     width: double.infinity,
-                    height: LWComponents.button.height,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                            color: LWColors.skyBase.withValues(alpha: 0.5),
-                            width: 1.5),
-                        foregroundColor: LWColors.skyBase,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(LWRadius.pill),
-                        ),
-                        textStyle: LWComponents.button.labelStyle,
-                        backgroundColor:
-                            LWColors.skyBase.withValues(alpha: 0.08),
-                      ),
-                      child: const Text('Continue'),
-                    ),
                   ),
                 ),
               ],
@@ -220,14 +213,11 @@ class _RewardRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
 
-    final stakeIcon = switch (entry.stakeCategory) {
-      StakeCategory.gift => Icons.card_giftcard_rounded,
-      _ => Icons.calendar_month_rounded,
-    };
 
     final displayName = entry.isSelfBet
         ? 'You'
         : (entry.bettorUsername ?? 'Someone');
+
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: LWSpacing.sm),
@@ -235,14 +225,30 @@ class _RewardRow extends StatelessWidget {
         children: [
           // Bettor avatar
           _BettorAvatar(
-            avatarUrl: entry.bettorAvatarUrl,
+            avatarId: entry.bettorAvatarId,
             username: displayName,
             isSelf: entry.isSelfBet,
           ),
           const SizedBox(width: LWSpacing.md),
 
           // Stake icon
-          Icon(stakeIcon, size: 20, color: lw.contentSecondary),
+          if (entry.stakeTitle != null && entry.stakeId == null)
+            Image.asset(
+              'assets/icons/stake-gift_box.png',
+              height: 24,
+              width: 24,
+              errorBuilder: (_, __, ___) => SvgPicture.asset(
+                'assets/misc/littlewin_logo_text.svg',
+                height: 18,
+                colorFilter: ColorFilter.mode(lw.brandPrimary, BlendMode.srcIn),
+              ),
+            )
+          else
+            SvgPicture.asset(
+              'assets/misc/littlewin_logo_text.svg',
+              height: 18,
+              colorFilter: ColorFilter.mode(lw.brandPrimary, BlendMode.srcIn),
+            ),
           const SizedBox(width: LWSpacing.sm),
 
           // Stake name
@@ -266,11 +272,11 @@ class _RewardRow extends StatelessWidget {
 }
 
 class _BettorAvatar extends StatelessWidget {
-  final String? avatarUrl;
+  final int? avatarId;
   final String username;
   final bool isSelf;
   const _BettorAvatar({
-    required this.avatarUrl,
+    required this.avatarId,
     required this.username,
     required this.isSelf,
   });
@@ -284,7 +290,7 @@ class _BettorAvatar extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: LWColors.skyBase.withValues(alpha: 0.15),
+          color: LWColors.skyBase.withOpacity(0.15),
         ),
         alignment: Alignment.center,
         child: Icon(Icons.star_rounded,
@@ -292,10 +298,10 @@ class _BettorAvatar extends StatelessWidget {
       );
     }
 
-    if (avatarUrl != null) {
+    if (avatarId != null) {
       return ClipOval(
-        child: Image.network(
-          avatarUrl!,
+        child: Image.asset(
+          'assets/avatars/avatar_$avatarId.png',
           width: size,
           height: size,
           fit: BoxFit.cover,
@@ -391,7 +397,7 @@ class _ConfettiPiece {
     final rotation = t * math.pi * 4 * speed;
 
     final paint = Paint()
-      ..color = color.withValues(alpha: opacity)
+      ..color = color.withOpacity(opacity)
       ..style = PaintingStyle.fill;
 
     canvas.save();

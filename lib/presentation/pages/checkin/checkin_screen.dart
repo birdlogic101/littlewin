@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/checkin/checkin_bloc.dart';
 import '../../bloc/checkin/checkin_event.dart';
 import '../../bloc/checkin/checkin_state.dart';
-import '../../widgets/lw_page_header.dart';
+import '../../bloc/auth/auth_bloc.dart';
+import '../../bloc/auth/auth_state.dart';
 import '../../widgets/run_active_card.dart';
 import '../../widgets/run_bets_sheet.dart';
 import '../../widgets/bet_won_modal.dart';
+import '../../widgets/self_bet_invite_dialog.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/active_run_entity.dart';
 import '../../../data/repositories/bet_repository.dart';
@@ -27,20 +30,31 @@ class CheckinScreen extends StatefulWidget {
   State<CheckinScreen> createState() => _CheckinScreenState();
 }
 
-class _CheckinScreenState extends State<CheckinScreen> {
+class _CheckinScreenState extends State<CheckinScreen>
+    with SingleTickerProviderStateMixin {
   static const _exitDuration = Duration(milliseconds: 600);
+  final Set<String> _exiting = {};
 
-  bool _showPending = true;
-
-  /// Run IDs that were just checked in and are in their exit-animation window.
-  /// While a run is in this set it is still shown in Pending (with green state)
-  /// then disappears after [_exitDuration].
-  final _exiting = <String>{};
-
+  late final TabController _tabController;
   @override
   void initState() {
     super.initState();
-    context.read<CheckinBloc>().add(const CheckinFetchRequested());
+    _tabController = TabController(length: 2, vsync: this);
+
+    // Self-sufficiency: if the tab is opened and still in initial state 
+    // (e.g. startup fetch failed or hasn't fired yet), trigger it now.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final bloc = context.read<CheckinBloc>();
+      if (bloc.state is CheckinInitial) {
+        bloc.add(const CheckinFetchRequested());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _handleCheckin(BuildContext ctx, ActiveRunEntity run) {
@@ -79,6 +93,28 @@ class _CheckinScreenState extends State<CheckinScreen> {
               borderRadius: BorderRadius.circular(LWRadius.sm)),
         ),
       );
+
+    // If it's the FIRST check-in ever (streak becomes 1 and lastCheckinDay was null),
+    // show the self-bet invite after a short delay.
+    if (run.lastCheckinDay == null) {
+      final authState = ctx.read<AuthBloc>().state;
+      final username = authState is AuthAuthenticated 
+          ? authState.user.username 
+          : null;
+          
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          SelfBetInviteDialog.show(
+            ctx,
+            runId: run.runId,
+            challengeTitle: run.challengeTitle,
+            currentStreak: streak,
+            betRepository: widget.betRepository,
+            username: username,
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -98,15 +134,14 @@ class _CheckinScreenState extends State<CheckinScreen> {
       },
       builder: (context, state) {
         return ColoredBox(
-          color: lw.backgroundApp,
+          color: lw.backgroundSurface,
           child: switch (state) {
             CheckinInitial() || CheckinLoading() => const _LoadingView(),
             CheckinFailure(:final message) => _ErrorView(message: message),
             CheckinLoaded(:final runs) => _LoadedView(
                 runs: runs,
-                showPending: _showPending,
+                tabController: _tabController,
                 exiting: _exiting,
-                onSegmentChanged: (v) => setState(() => _showPending = v),
                 onCheckin: (run) => _handleCheckin(context, run),
                 betRepository: widget.betRepository,
               ),
@@ -121,81 +156,109 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
 class _LoadedView extends StatelessWidget {
   final List<ActiveRunEntity> runs;
-  final bool showPending;
+  final TabController tabController;
   final Set<String> exiting;
-  final ValueChanged<bool> onSegmentChanged;
   final ValueChanged<ActiveRunEntity> onCheckin;
   final BetRepository betRepository;
 
   const _LoadedView({
     required this.runs,
-    required this.showPending,
+    required this.tabController,
     required this.exiting,
-    required this.onSegmentChanged,
     required this.onCheckin,
     required this.betRepository,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Pending = not yet checked in today, OR in the 600ms exit window.
-    // Done = already checked in today (and not in exit window).
-    final filtered = showPending
+    final lw = LWThemeExtension.of(context);
+    return Column(
+      children: [
+        Container(
+          color: lw.backgroundApp,
+          child: TabBar(
+            controller: tabController,
+            labelStyle: LWTypography.regularNormalBold.copyWith(fontSize: 16),
+            unselectedLabelStyle:
+                LWTypography.regularNormalRegular.copyWith(fontSize: 16),
+            labelColor: lw.contentPrimary,
+            unselectedLabelColor: lw.contentSecondary,
+            indicatorColor: lw.contentPrimary,
+            indicatorWeight: 1,
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: lw.borderSubtle,
+            dividerHeight: 1,
+            tabs: const [
+              Tab(text: 'Pending'),
+              Tab(text: 'Done'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: tabController,
+            children: [
+              _buildRunList(context, lw, isPending: true),
+              _buildRunList(context, lw, isPending: false),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRunList(BuildContext context, LWThemeExtension lw,
+      {required bool isPending}) {
+    final filtered = isPending
         ? runs
             .where((r) => !r.hasCheckedInToday || exiting.contains(r.runId))
             .toList()
         : runs.where((r) => r.hasCheckedInToday).toList();
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LwPageHeader(title: 'Check in'),
-              _SegmentedToggle(
-                showPending: showPending,
-                onChanged: onSegmentChanged,
-              ),
-              const SizedBox(height: LWSpacing.sm),
-            ],
-          ),
-        ),
-        if (filtered.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _EmptySegmentView(pending: showPending),
-          )
-        else
-          SliverList.builder(
-            itemCount: filtered.length,
-            itemBuilder: (context, index) {
-              final run = filtered[index];
-              // Show green "done" state during exit window even if BLoC already
-              // has hasCheckedInToday=true (it does — we emitted immediately).
-              final isDoneState =
-                  run.hasCheckedInToday || exiting.contains(run.runId);
-              return _AnimatedCard(
-                key: ValueKey(run.runId),
-                isExiting: exiting.contains(run.runId) && run.hasCheckedInToday,
-                exitDuration: const Duration(milliseconds: 400),
-                child: RunActiveCard(
-                  run: run,
-                  forceDone: isDoneState,
-                  onCheckin: isDoneState ? null : () => onCheckin(run),
-                  onBetTap: () => RunBetsSheet.show(
-                    context,
-                    runId: run.runId,
-                    currentStreak: run.currentStreak,
-                    username: 'you',
-                    isSelfBet: true,
-                    betRepository: betRepository,
-                  ),
+    return Column(
+      children: [
+        Expanded(
+          child: filtered.isEmpty
+              ? _EmptySegmentView(pending: isPending)
+              : ListView.builder(
+                  padding: const EdgeInsets.only(
+                      top: LWSpacing.sm, bottom: LWSpacing.xxl),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final run = filtered[index];
+                    final isDoneState =
+                        run.hasCheckedInToday || exiting.contains(run.runId);
+                    return _AnimatedCard(
+                      key: ValueKey(run.runId),
+                      isExiting:
+                          exiting.contains(run.runId) && run.hasCheckedInToday,
+                      exitDuration: const Duration(milliseconds: 400),
+                      child: RunActiveCard(
+                        run: run,
+                        forceDone: isDoneState,
+                        onCheckin: isDoneState ? null : () => onCheckin(run),
+                        onBetTap: () async {
+                          await RunBetsSheet.show(
+                            context,
+                            runId: run.runId,
+                            currentStreak: run.currentStreak,
+                            username: 'you',
+                            isSelfBet: true,
+                            startInPlaceMode: run.betCount == 0,
+                            betRepository: betRepository,
+                          );
+                          // Refresh counts when returning
+                          if (context.mounted) {
+                            context
+                                .read<CheckinBloc>()
+                                .add(const CheckinFetchRequested());
+                          }
+                        },
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        const SliverToBoxAdapter(child: SizedBox(height: LWSpacing.xxl)),
+        ),
       ],
     );
   }
@@ -255,86 +318,6 @@ class _AnimatedCardState extends State<_AnimatedCard>
       child: SizeTransition(
         sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(_size),
         child: widget.child,
-      ),
-    );
-  }
-}
-
-// ── Segmented toggle ──────────────────────────────────────────────────────────
-
-class _SegmentedToggle extends StatelessWidget {
-  final bool showPending;
-  final ValueChanged<bool> onChanged;
-
-  const _SegmentedToggle({required this.showPending, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    return Row(
-      children: [
-        _ToggleTab(
-          label: 'Pending',
-          isActive: showPending,
-          activeColor: lw.contentPrimary,
-          inactiveColor: lw.contentSecondary,
-          onTap: () => onChanged(true),
-        ),
-        const SizedBox(width: LWSpacing.xxl),
-        _ToggleTab(
-          label: 'Done',
-          isActive: !showPending,
-          activeColor: lw.contentPrimary,
-          inactiveColor: lw.contentSecondary,
-          onTap: () => onChanged(false),
-        ),
-      ],
-    );
-  }
-}
-
-class _ToggleTab extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final Color activeColor;
-  final Color inactiveColor;
-  final VoidCallback onTap;
-
-  const _ToggleTab({
-    required this.label,
-    required this.isActive,
-    required this.activeColor,
-    required this.inactiveColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedDefaultTextStyle(
-        duration: const Duration(milliseconds: 180),
-        style: (isActive
-                ? LWTypography.regularNormalBold
-                : LWTypography.regularNormalRegular)
-            .copyWith(color: isActive ? activeColor : inactiveColor),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label),
-            const SizedBox(height: 4),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              height: 2,
-              width: isActive ? 40 : 0,
-              decoration: BoxDecoration(
-                color: activeColor,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

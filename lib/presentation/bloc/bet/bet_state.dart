@@ -33,6 +33,9 @@ class BetReady extends BetState {
   /// Currently selected stake id; null means no stake.
   final String? selectedStakeId;
 
+  /// One-time custom stake title; if set, selectedStakeId should be null.
+  final String? customStakeTitle;
+
   /// The selected target streak value.
   final int targetStreak;
 
@@ -54,6 +57,7 @@ class BetReady extends BetState {
     required this.existingBets,
     required this.stakes,
     this.selectedStakeId,
+    this.customStakeTitle,
     required this.targetStreak,
     required this.currentStreak,
     required this.isSelfBet,
@@ -71,6 +75,7 @@ class BetReady extends BetState {
     List<BetEntity>? existingBets,
     List<StakeEntity>? stakes,
     Object? selectedStakeId = _sentinel,
+    Object? customStakeTitle = _sentinel,
     int? targetStreak,
     BetSubmitStatus? submitStatus,
     Object? errorMessage = _sentinel,
@@ -81,6 +86,9 @@ class BetReady extends BetState {
       selectedStakeId: identical(selectedStakeId, _sentinel)
           ? this.selectedStakeId
           : selectedStakeId as String?,
+      customStakeTitle: identical(customStakeTitle, _sentinel)
+          ? this.customStakeTitle
+          : customStakeTitle as String?,
       targetStreak: targetStreak ?? this.targetStreak,
       currentStreak: currentStreak,
       isSelfBet: isSelfBet,
@@ -99,6 +107,7 @@ class BetReady extends BetState {
         existingBets,
         stakes,
         selectedStakeId,
+        customStakeTitle,
         targetStreak,
         currentStreak,
         isSelfBet,

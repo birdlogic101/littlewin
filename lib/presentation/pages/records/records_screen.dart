@@ -3,14 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/records/records_bloc.dart';
 import '../../bloc/records/records_event.dart';
 import '../../bloc/records/records_state.dart';
-import '../../widgets/lw_page_header.dart';
 import '../../widgets/run_record_card.dart';
+import '../../widgets/challenge_history_sheet.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/challenge_record.dart';
 
 /// The Records tab — shows the user's completed runs, grouped by challenge.
 class RecordsScreen extends StatefulWidget {
-  const RecordsScreen({super.key});
+  final VoidCallback? onChallengeRestarted;
+  const RecordsScreen({super.key, this.onChallengeRestarted});
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -27,12 +28,30 @@ class _RecordsScreenState extends State<RecordsScreen> {
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
 
-    return BlocBuilder<RecordsBloc, RecordsState>(
+    return BlocConsumer<RecordsBloc, RecordsState>(
+      listener: (context, state) {
+        if (state is RecordsRestartSuccess) {
+          widget.onChallengeRestarted?.call();
+        } else if (state is RecordsRestartAlreadyActive) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You already have an ongoing run for this challenge!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          // Still navigate back to check-in if that was the intended flow
+          widget.onChallengeRestarted?.call();
+        }
+      },
       builder: (context, state) {
         return ColoredBox(
           color: lw.backgroundApp,
           child: switch (state) {
-            RecordsInitial() || RecordsLoading() => const _LoadingView(),
+            RecordsInitial() ||
+            RecordsLoading() ||
+            RecordsRestartSuccess() ||
+            RecordsRestartAlreadyActive() =>
+              const _LoadingView(),
             RecordsFailure(:final message) => _ErrorView(message: message),
             RecordsLoaded(:final runs) => () {
                 // Group flat completed list by challenge for the card display.
@@ -42,19 +61,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
                 return CustomScrollView(
                   slivers: [
-                    // ── Page header
+                    // ── Filter chip row
                     SliverToBoxAdapter(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const LwPageHeader(title: 'Records'),
-                          // Filter chip row
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              LWSpacing.xl, 0, LWSpacing.xl, LWSpacing.md),
-                            child: _FilterChip(),
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            LWSpacing.lg, LWSpacing.md, LWSpacing.lg, LWSpacing.md),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _FilterChip(),
+                        ),
                       ),
                     ),
 
@@ -67,7 +82,23 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           key: ValueKey(g.challengeId),
                           record: g,
                           onShare: () {},
-                          onRetry: () {},
+                          onRetry: () {
+                            // Find any run in the group to get the metadata
+                            final first = g.runs.first;
+                            context.read<RecordsBloc>().add(
+                                  RecordsRestartChallengeRequested(
+                                    challengeId: g.challengeId,
+                                    challengeTitle: g.challengeTitle,
+                                    challengeSlug: g.challengeSlug,
+                                    imageAsset: first.imageAsset,
+                                    imageUrl: first.imageUrl,
+                                  ),
+                                );
+                          },
+                          onViewHistory: () => ChallengeHistorySheet.show(
+                            context,
+                            record: g,
+                          ),
                         );
                       },
                     ),
@@ -92,19 +123,19 @@ class _FilterChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: LWSpacing.md,
-        vertical: LWSpacing.xs,
+        vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: lw.backgroundCard,
-        borderRadius: BorderRadius.circular(LWRadius.pill),
+        color: lw.backgroundSurface,
+        borderRadius: BorderRadius.circular(LWRadius.md),
         border: Border.all(color: lw.borderSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.filter_alt_rounded,
-              size: 14, color: lw.contentSecondary),
-          const SizedBox(width: 4),
+          Icon(Icons.filter_list_rounded,
+              size: 16, color: lw.contentSecondary),
+          const SizedBox(width: 8),
           Text(
             'All',
             style: LWTypography.smallNormalRegular
@@ -112,7 +143,7 @@ class _FilterChip extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Icon(Icons.expand_more_rounded,
-              size: 14, color: lw.contentSecondary),
+              size: 18, color: lw.contentSecondary),
         ],
       ),
     );

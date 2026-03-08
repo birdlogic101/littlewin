@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/design_system.dart';
 import 'lw_icon.dart';
 
@@ -28,7 +29,7 @@ class LwAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(56);
+  Size get preferredSize => const Size.fromHeight(64);
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +39,14 @@ class LwAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: lw.backgroundApp,
       elevation: LWElevation.none,
       centerTitle: true,
-      leadingWidth: 56,
-      leading: _SvgBtn(
-        iconName: 'misc_menu_lines',
-        onTap: onMenuTap,
-        semanticLabel: 'Menu',
+      leadingWidth: 48,
+      leading: IconButton(
+        onPressed: onMenuTap,
+        icon: LwIcon(
+          'misc_menu_lines',
+          size: LWComponents.appBar.iconSizeSmall,
+          color: lw.contentPrimary,
+        ),
       ),
       title: _Wordmark(),
       actions: [
@@ -50,6 +54,7 @@ class LwAppBar extends StatelessWidget implements PreferredSizeWidget {
           _SvgBtn(
             iconName: 'misc_plus',
             onTap: onCreateTap,
+            size: LWComponents.appBar.iconSize,
             semanticLabel: 'Create challenge',
           ),
         _NotificationBtn(
@@ -66,11 +71,13 @@ class _SvgBtn extends StatelessWidget {
   final String iconName;
   final VoidCallback? onTap;
   final String semanticLabel;
+  final double size;
 
   const _SvgBtn({
     required this.iconName,
     required this.semanticLabel,
     this.onTap,
+    this.size = 20,
   });
 
   @override
@@ -84,7 +91,7 @@ class _SvgBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(LWRadius.pill),
         child: Padding(
           padding: const EdgeInsets.all(LWSpacing.md),
-          child: LwIcon(iconName, size: 22, color: lw.contentPrimary),
+          child: LwIcon(iconName, size: size, color: lw.contentPrimary),
         ),
       ),
     );
@@ -95,16 +102,10 @@ class _Wordmark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('✌️', style: const TextStyle(fontSize: 18)),
-        const SizedBox(width: LWSpacing.xs),
-        Text(
-          'littlewin',
-          style: LWTypography.largeNoneBold.copyWith(color: lw.contentPrimary),
-        ),
-      ],
+    return SvgPicture.asset(
+      'assets/misc/littlewin_logo_text.svg',
+      height: 16,
+      colorFilter: ColorFilter.mode(lw.contentPrimary, BlendMode.srcIn),
     );
   }
 }
@@ -128,7 +129,8 @@ class _NotificationBtn extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              LwIcon('misc_bell', size: 22, color: lw.contentPrimary),
+              LwIcon('misc_bell',
+                  size: LWComponents.appBar.iconSize, color: lw.contentPrimary),
               if (count > 0)
                 Positioned(
                   right: -4,

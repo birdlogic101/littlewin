@@ -1,18 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/bloc/auth/auth_bloc.dart';
 import 'presentation/bloc/auth/auth_event.dart';
+import 'presentation/bloc/auth/auth_state.dart';
+import 'core/utils/username_generator.dart';
+import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   
   try {
      await dotenv.load(fileName: ".env");
@@ -33,6 +43,15 @@ void main() async {
   }
 
   configureDependencies();
+  
+  await Hive.initFlutter();
+  await Hive.openBox('settings');
+
+  // Load username components from JSON
+  await UsernameGenerator.load();
+  
+  // Initialize notifications
+  await getIt<NotificationService>().initialize();
 
   runApp(
     BlocProvider(
@@ -47,20 +66,28 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenUtilInit(
-      designSize: const Size(375, 812), // iPhone X design size
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (context, child) {
-        return MaterialApp.router(
-          title: 'Littlewin',
-          theme: AppTheme.lightTheme, // Default to light theme as per Explore design
-          darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.light, // Force light mode for now to match the request
-          routerConfig: router,
-          debugShowCheckedModeBanner: false,
-        );
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthUnauthenticated) {
+          // User explicitly signed out — send them to the auth screen.
+          router.go('/auth');
+        }
       },
+      child: ScreenUtilInit(
+        designSize: const Size(375, 812), // iPhone X design size
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) {
+          return MaterialApp.router(
+            title: 'Littlewin',
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.light,
+            routerConfig: router,
+            debugShowCheckedModeBanner: false,
+          );
+        },
+      ),
     );
   }
 }

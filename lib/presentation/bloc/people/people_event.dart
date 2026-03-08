@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../domain/entities/people_user_entity.dart';
 
 abstract class PeopleEvent extends Equatable {
   const PeopleEvent();
@@ -33,10 +34,12 @@ class PeopleSearchChanged extends PeopleEvent {
 /// Toggle follow/unfollow for a user (from either tab or search sheet).
 class PeopleFollowToggled extends PeopleEvent {
   final String userId;
-  const PeopleFollowToggled({required this.userId});
+  final PeopleUserEntity? user; // Optional: provided when toggling from outside the current list (e.g. search)
+
+  const PeopleFollowToggled({required this.userId, this.user});
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [userId, user];
 }
 
 enum PeopleTab { followed, followers }

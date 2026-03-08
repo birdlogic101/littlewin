@@ -1,9 +1,25 @@
 import 'dart:async';
+import '../../domain/entities/explore_run_entity.dart';
 import '../../domain/entities/active_run_entity.dart';
 import '../../domain/entities/completed_run_entity.dart';
 import '../../domain/entities/bet_resolution_entity.dart';
 import '../datasources/run_remote_datasource.dart';
 import 'completed_runs_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:injectable/injectable.dart';
+
+/// Thrown by [RunsRepository.addRun] when the user already has an active run
+/// for the same challenge slug.
+class AlreadyParticipatingException implements Exception {
+  final String challengeSlug;
+  const AlreadyParticipatingException(this.challengeSlug);
+
+  @override
+  String toString() =>
+      'AlreadyParticipatingException: already active on "$challengeSlug"';
+}
+
 
 /// Shared in-memory store for the current user's active runs.
 ///
@@ -16,12 +32,21 @@ import 'completed_runs_repository.dart';
 ///
 /// Call [processCompletions] whenever a UTC day rollover is detected to
 /// move missed runs into [CompletedRunsRepository].
+@lazySingleton
 class RunsRepository {
+  /// Main constructor — used by the DI container (injectable).
+  /// [datasource] enables real Supabase operations; omit for offline use.
   RunsRepository({
-    List<ActiveRunEntity>? initial,
     RunRemoteDataSource? datasource,
-  })  : _runs = List<ActiveRunEntity>.from(initial ?? _defaultRuns()),
+  })  : _runs = <ActiveRunEntity>[],
         _datasource = datasource;
+
+  /// Test / in-memory constructor. Seeds the repository with [initial] runs
+  /// without requiring a remote datasource.
+  RunsRepository.seeded(List<ActiveRunEntity> initial)
+      : _runs = List.of(initial),
+        _datasource = null;
+
 
   final List<ActiveRunEntity> _runs;
   final RunRemoteDataSource? _datasource;
@@ -52,19 +77,25 @@ class RunsRepository {
       // Apply client-side completion pass for any remaining gaps
       processCompletions(_todayUtc(), completedRepo);
     } catch (e) {
-      // Non-fatal: keep whatever runs are already in memory
       // ignore: avoid_print
-      print('[RunsRepository] initialize error (non-fatal): $e');
+      print('⚠️ [RunsRepository] initialize error (non-fatal): $e');
     }
+  }
+
+  /// Returns true if there is an ongoing run for this challenge slug.
+  bool isChallengeActive(String slug) {
+    return _runs.any((r) => r.challengeSlug == slug);
   }
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
-  /// Prepend [run] to the list (newest joined → top of Check-in).
-  /// No-op if a run with the same [runId] already exists.
-  /// Also persists the new run to Supabase if a datasource is configured.
   Future<void> addRun(ActiveRunEntity run) async {
     if (_runs.any((r) => r.runId == run.runId)) return;
+
+    // Safety check: don't allow duplicate active runs for the same challenge
+    if (isChallengeActive(run.challengeSlug)) {
+      throw AlreadyParticipatingException(run.challengeSlug);
+    }
 
     // If we have a real datasource, persist to Supabase and get back the
     // server-generated UUID. Then update the local entity's runId.
@@ -75,15 +106,51 @@ class RunsRepository {
           challengeId: run.challengeId,
         );
         toStore = run.copyWith(runId: serverId);
-      } catch (e) {
-        // ignore: avoid_print
-        print('[RunsRepository] createRun error (non-fatal): $e');
-        // Fall through — keep the optimistic local entity
+      } on PostgrestException catch (e) {
+        if (e.message.contains('ALREADY_JOINED')) {
+          throw AlreadyParticipatingException(run.challengeSlug);
+        }
+        rethrow;
       }
     }
 
     _runs.insert(0, toStore);
     _controller.add(List.unmodifiable(_runs));
+  }
+
+  /// Manually injects a run into the local list (e.g. after a challenge is 
+  /// created on the server and returned with its run ID).
+  void injectRun(ActiveRunEntity run) {
+    if (_runs.any((r) => r.runId == run.runId)) return;
+    _runs.insert(0, run);
+    _controller.add(List.unmodifiable(_runs));
+  }
+
+  /// Fetches a batch of public runs for the Explore screen.
+  Future<List<ExploreRunEntity>> fetchExploreFeed({
+    int limit = 5,
+    int offset = 0,
+  }) async {
+    if (_datasource == null) return [];
+    return await _datasource.fetchExploreFeed(limit: limit, offset: offset);
+  }
+
+  /// Fetches ongoing runs for a specific user (other than the current user).
+  Future<List<ActiveRunEntity>> fetchUserRuns(String userId) async {
+    if (_datasource == null) return [];
+    return await _datasource.fetchUserRuns(userId);
+  }
+
+  /// Fetches completed runs for a specific user.
+  Future<List<CompletedRunEntity>> fetchUserCompletedRuns(String userId) async {
+    if (_datasource == null) return [];
+    return await _datasource.fetchUserCompletedRuns(userId);
+  }
+
+  /// Dismisses a run for the current user.
+  Future<void> dismissRun(String runId) async {
+    if (_datasource == null) return;
+    await _datasource.dismissRun(runId);
   }
 
   /// Replace an existing run (e.g. after a check-in optimistic update).
@@ -108,8 +175,25 @@ class RunsRepository {
 
     final run = _runs[idx];
     final today = _todayUtc();
+    final yesterday = dayBefore(today);
+
+    // Guard: if the user missed the window, they can't check in anymore.
+    // The run should have been processCompletions-ed, but if the UI is stale,
+    // we catch it here.
+    if (run.startDate != today && run.lastCheckinDay != yesterday) {
+      // ignore: avoid_print
+      print('[RunsRepository] checkin refused: run $runId has expired.');
+      // Force a completion pass if we hadn't already
+      if (idx != -1) {
+         // This is a bit of a hack to re-run it, but since we are lazy singleton
+         // we might need to be passed the repo or just use an internal method.
+         // For now, we just refuse the check-in and let the next sync fix it.
+         return null; 
+      }
+    }
 
     // Optimistic update
+    final originalRun = run;
     final newStreak = run.currentStreak + 1;
     _runs[idx] = run.copyWith(
       currentStreak: newStreak,
@@ -124,11 +208,19 @@ class RunsRepository {
         return await _datasource.recordCheckin(
           runId: runId,
           challengeTitle: run.challengeTitle,
+          todayUtc: today,
         );
       } catch (e) {
         // ignore: avoid_print
-        print('[RunsRepository] recordCheckin error (non-fatal): $e');
-        // Keep the optimistic update; retry on next sync
+        print('[RunsRepository] recordCheckin error: $e');
+        
+        // REVERT: Replace with original state on failure
+        final currentIdx = _runs.indexWhere((r) => r.runId == runId);
+        if (currentIdx != -1) {
+          _runs[currentIdx] = originalRun;
+          _controller.add(List.unmodifiable(_runs));
+        }
+        rethrow;
       }
     }
     return null;
@@ -253,49 +345,4 @@ class RunsRepository {
         '${prev.day.toString().padLeft(2, '0')}';
   }
 
-  // ── Default seed data ──────────────────────────────────────────────────────
-
-  /// Seeds three active runs with today's UTC date as [startDate] so they are
-  /// always treated as fresh (no missed days until the next real day rollover).
-  static List<ActiveRunEntity> _defaultRuns() {
-    final now = DateTime.now().toUtc();
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    return [
-      ActiveRunEntity(
-        runId: 'run-my-1',
-        challengeId: 'ch-02',
-        challengeTitle: '16-Hour Fasting',
-        challengeSlug: '16-hour-fasting',
-        currentStreak: 14,
-        startDate: today,
-        hasCheckedInToday: false,
-        lastCheckinDay: null,
-        imageAsset: 'assets/pictures/challenge_16-hour-fasting.jpg',
-      ),
-      ActiveRunEntity(
-        runId: 'run-my-2',
-        challengeId: 'ch-11',
-        challengeTitle: '10,000 Steps',
-        challengeSlug: '10000-steps',
-        currentStreak: 7,
-        startDate: today,
-        hasCheckedInToday: false,
-        lastCheckinDay: null,
-        imageAsset: 'assets/pictures/challenge_10000-steps.jpg',
-      ),
-      ActiveRunEntity(
-        runId: 'run-my-3',
-        challengeId: 'ch-05',
-        challengeTitle: '16-Hour Offscreen',
-        challengeSlug: '16-hour-offscreen',
-        currentStreak: 3,
-        startDate: today,
-        hasCheckedInToday: false,
-        lastCheckinDay: null,
-        imageAsset: 'assets/pictures/challenge_16-hour-offscreen.jpg',
-      ),
-    ];
-  }
 }

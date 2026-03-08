@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/design_system.dart';
 import '../bloc/auth/auth_bloc.dart';
@@ -52,7 +53,7 @@ class ProfileDrawer extends StatelessWidget {
                 if (!user.isPremium)
                   _DrawerItem(
                     icon: 'misc_streak',
-                    label: 'Upgrade Account',
+                    label: user.isAnonymous ? 'Join to Go Premium' : 'Upgrade Account',
                     onTap: () {
                       Navigator.pop(context);
                       ProfileDrawer.showUpgradeDialog(context);
@@ -97,23 +98,30 @@ class ProfileDrawer extends StatelessWidget {
 
           // Unauthenticated / initial fallback
           return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(height: topPadding + LWSpacing.xl),
+              const Spacer(),
               const LwIcon('misc_incognito', size: 64),
               const SizedBox(height: LWSpacing.lg),
               const Text('Welcome to Littlewin!'),
-              const Spacer(),
-              _DrawerItem(
-                icon: 'misc_add_contact',
-                label: 'Sign in with Google',
-                onTap: () {
-                  context
-                      .read<AuthBloc>()
-                      .add(AuthGoogleSignInRequested());
-                  Navigator.pop(context);
-                },
-              ),
               const SizedBox(height: LWSpacing.xl),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: LWSpacing.xl),
+                child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context); // close drawer
+                      context.go('/auth');
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: lw.brandPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(LWRadius.md),
+                      ),
+                    ),
+                    child: const Text('Sign In / Sign Up'),
+                ),
+              ),
+              const Spacer(),
             ],
           );
         },
@@ -137,14 +145,76 @@ class ProfileDrawer extends StatelessWidget {
   /// Can be called from anywhere that has an AuthBloc ancestor.
   static void showUpgradeDialog(BuildContext context) {
     final lw = LWThemeExtension.of(context);
+    final authBloc = context.read<AuthBloc>();
+    final authState = authBloc.state;
+
+    if (authState is! AuthAuthenticated) return;
+
+    final user = authState.user;
+
+    if (user.isAnonymous) {
+      // ── Show Sign Up invitation for Anonymous users
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: lw.backgroundSheet,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(LWRadius.lg),
+          ),
+          title: Row(
+            children: [
+              const Text('✨', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: LWSpacing.sm),
+              Text(
+                'Join Littlewin',
+                style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+              ),
+            ],
+          ),
+          content: Text(
+            'To access premium features like custom rewards, please create a proper account first.',
+            style: LWTypography.regularNormalRegular.copyWith(color: lw.contentSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text('Not Now',
+                  style: LWTypography.regularNormalMedium.copyWith(color: lw.contentSecondary)),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                // Navigate to auth screen
+                context.push('/auth');
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: lw.brandPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(LWRadius.md),
+                ),
+              ),
+              child: Text('Sign Up / Sign In',
+                  style: LWTypography.regularNormalMedium.copyWith(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // ── Show Upgrade dialog for Authenticated (non-anonymous) users
     showDialog<void>(
       context: context,
       builder: (dialogContext) => BlocProvider.value(
-        value: context.read<AuthBloc>(),
+        value: authBloc,
         child: BlocListener<AuthBloc, AuthState>(
           listener: (ctx, state) {
             if (state is AuthAuthenticated || state is AuthFailureState) {
-              Navigator.of(dialogContext, rootNavigator: true).pop();
+              // Close dialog if upgrade succeeded or failed
+              if (Navigator.of(dialogContext).canPop()) {
+                Navigator.of(dialogContext).pop();
+              }
+              
               if (state is AuthAuthenticated && state.user.isPremium) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -174,22 +244,19 @@ class ProfileDrawer extends StatelessWidget {
                 const SizedBox(width: LWSpacing.sm),
                 Text(
                   'Upgrade to Premium',
-                  style: LWTypography.title4
-                      .copyWith(color: lw.contentPrimary),
+                  style: LWTypography.title4.copyWith(color: lw.contentPrimary),
                 ),
               ],
             ),
             content: Text(
               'Get full access to all features, including creating your own challenges.',
-              style: LWTypography.regularNormalRegular
-                  .copyWith(color: lw.contentSecondary),
+              style: LWTypography.regularNormalRegular.copyWith(color: lw.contentSecondary),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 child: Text('Cancel',
-                    style: LWTypography.regularNormalMedium
-                        .copyWith(color: lw.contentSecondary)),
+                    style: LWTypography.regularNormalMedium.copyWith(color: lw.contentSecondary)),
               ),
               BlocBuilder<AuthBloc, AuthState>(
                 builder: (ctx, state) {
@@ -197,9 +264,7 @@ class ProfileDrawer extends StatelessWidget {
                   return FilledButton(
                     onPressed: loading
                         ? null
-                        : () => ctx
-                            .read<AuthBloc>()
-                            .add(AuthUpgradeToPremiumRequested()),
+                        : () => ctx.read<AuthBloc>().add(AuthUpgradeToPremiumRequested()),
                     style: FilledButton.styleFrom(
                       backgroundColor: lw.brandPrimary,
                       shape: RoundedRectangleBorder(
@@ -210,12 +275,10 @@ class ProfileDrawer extends StatelessWidget {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : Text('Upgrade',
-                            style: LWTypography.regularNormalMedium
-                                .copyWith(color: Colors.white)),
+                            style: LWTypography.regularNormalMedium.copyWith(color: Colors.white)),
                   );
                 },
               ),
@@ -262,7 +325,7 @@ class _Header extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 32,
-            backgroundColor: lw.brandPrimary.withValues(alpha: 0.12),
+            backgroundColor: lw.brandPrimary.withOpacity(0.12),
             child: Text(
               isAnonymous ? '👤' : initial,
               style: LWTypography.title2.copyWith(color: lw.brandPrimary),
@@ -287,7 +350,7 @@ class _Header extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: lw.accentDefault.withValues(alpha: 0.18),
+                color: lw.accentDefault.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(LWRadius.sm),
               ),
               child: Text(

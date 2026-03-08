@@ -20,11 +20,20 @@ class BetModel {
       bettorUsername = bettorRow['username'] as String?;
     }
 
-    // Joined stake title — may come from a nested stakes object.
     String? stakeTitle;
+    String? imageAsset;
     final stakeRow = json['stakes'];
     if (stakeRow is Map<String, dynamic>) {
       stakeTitle = stakeRow['title'] as String?;
+      if (stakeTitle != null) {
+        final slug = stakeTitle.toLowerCase().replaceAll(' ', '_');
+        imageAsset = 'assets/icons/stake-$slug.png';
+      }
+    }
+
+    // Custom stake: default to gift_box icon
+    if (json['custom_stake_title'] != null) {
+      imageAsset = 'assets/icons/stake-gift_box.png';
     }
 
     return BetEntity(
@@ -35,6 +44,8 @@ class BetModel {
       targetStreak: json['target_streak'] as int,
       stakeId: json['stake_id'] as String?,
       stakeTitle: stakeTitle,
+      customStakeTitle: json['custom_stake_title'] as String?,
+      imageAsset: imageAsset,
       status: status,
       isSelfBet: json['is_self_bet'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -50,11 +61,21 @@ class BetModel {
       _ => StakeCategory.plan,
     };
 
+    final title = json['title'] as String;
+
+    // Hardcoded mapping for official stakes
+    String? imageAsset;
+    final slug = title.toLowerCase().replaceAll(' ', '_');
+    if (category != StakeCategory.custom) {
+      imageAsset = 'assets/icons/stake-$slug.png';
+    }
+
     return StakeEntity(
       id: json['id'] as String,
-      title: json['title'] as String,
+      title: title,
       category: category,
       emoji: json['emoji'] as String?,
+      imageAsset: imageAsset,
     );
   }
 }

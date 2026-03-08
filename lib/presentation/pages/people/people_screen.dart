@@ -3,20 +3,27 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/people/people_bloc.dart';
 import '../../bloc/people/people_event.dart';
 import '../../bloc/people/people_state.dart';
-import '../../widgets/lw_page_header.dart';
 import '../../widgets/user_card.dart';
 import '../../widgets/add_person_sheet.dart';
+import '../../widgets/user_runs_sheet.dart';
 import '../../../data/repositories/people_repository.dart';
+import '../../../data/repositories/runs_repository.dart';
+import '../../../data/repositories/bet_repository.dart';
+import '../../widgets/lw_button.dart';
 import '../../../core/theme/design_system.dart';
 
 /// The People tab — Followed / Followers lists with search.
-///
-/// Header: "People" title + person+ icon (→ AddPersonSheet)
-/// Tabs: Followed | Followers
-/// Below the tab bar: search field (filters current tab client-side)
 class PeopleScreen extends StatefulWidget {
   final PeopleRepository peopleRepository;
-  const PeopleScreen({super.key, required this.peopleRepository});
+  final RunsRepository runsRepository;
+  final BetRepository betRepository;
+
+  const PeopleScreen({
+    super.key,
+    required this.peopleRepository,
+    required this.runsRepository,
+    required this.betRepository,
+  });
 
   @override
   State<PeopleScreen> createState() => _PeopleScreenState();
@@ -65,59 +72,79 @@ class _PeopleScreenState extends State<PeopleScreen>
           color: lw.backgroundApp,
           child: Column(
             children: [
-              // ── Shared page header (centered title + person+ icon) ──────────
-              LwPageHeader(
-                title: 'People',
-                trailingIcon: 'misc_add_contact',
-                trailingSemanticLabel: 'Add person',
-                onTrailingTap: _openAddPersonSheet,
-              ),
-
               // ── Tab bar ────────────────────────────────────────────────
-              TabBar(
-                controller: _tabController,
-                labelStyle: LWTypography.regularNormalBold,
-                unselectedLabelStyle: LWTypography.regularNormalRegular,
-                labelColor: lw.contentPrimary,
-                unselectedLabelColor: lw.contentSecondary,
-                indicatorColor: lw.contentPrimary,
-                indicatorSize: TabBarIndicatorSize.label,
-                tabs: const [
-                  Tab(text: 'Followed'),
-                  Tab(text: 'Followers'),
-                ],
+              Container(
+                color: lw.backgroundApp,
+                child: TabBar(
+                  controller: _tabController,
+                  labelStyle: LWTypography.regularNormalBold.copyWith(fontSize: 16),
+                  unselectedLabelStyle:
+                      LWTypography.regularNormalRegular.copyWith(fontSize: 16),
+                  labelColor: lw.contentPrimary,
+                  unselectedLabelColor: lw.contentSecondary,
+                  indicatorColor: lw.contentPrimary,
+                  indicatorWeight: 1,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: lw.borderSubtle,
+                  dividerHeight: 1,
+                  tabs: const [
+                    Tab(text: 'Followed'),
+                    Tab(text: 'Followers'),
+                  ],
+                ),
               ),
 
               // ── Search bar ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  LWSpacing.lg, LWSpacing.lg, LWSpacing.lg, LWSpacing.sm,
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  onChanged: (q) => context
-                      .read<PeopleBloc>()
-                      .add(PeopleSearchChanged(query: q)),
-                  decoration: InputDecoration(
-                    hintText: 'Search…',
-                    prefixIcon: Icon(Icons.search_rounded,
-                        color: lw.contentSecondary, size: 20),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? GestureDetector(
-                            onTap: () {
-                              _searchController.clear();
-                              context
-                                  .read<PeopleBloc>()
-                                  .add(const PeopleSearchChanged(query: ''));
-                            },
-                            child: Icon(Icons.clear_rounded,
-                                color: lw.contentSecondary, size: 18),
-                          )
-                        : null,
+              if (state is PeopleLoaded) ...[
+                if (state.followedUsers.length > 20 ||
+                    state.followersUsers.length > 20 ||
+                    _searchController.text.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      LWSpacing.lg,
+                      LWSpacing.lg,
+                      LWSpacing.lg,
+                      LWSpacing.sm,
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (q) => context
+                          .read<PeopleBloc>()
+                          .add(PeopleSearchChanged(query: q)),
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        hintStyle: LWTypography.regularNormalRegular
+                            .copyWith(color: lw.contentSecondary),
+                        filled: true,
+                        fillColor: lw.backgroundSurface,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        prefixIcon: Icon(Icons.search_rounded,
+                            color: lw.contentSecondary, size: 22),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(LWRadius.sm),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(LWRadius.sm),
+                          borderSide: BorderSide.none,
+                        ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchController.clear();
+                                  context.read<PeopleBloc>().add(
+                                      const PeopleSearchChanged(query: ''));
+                                },
+                                child: Icon(Icons.clear_rounded,
+                                    color: lw.contentSecondary, size: 18),
+                              )
+                            : null,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+              ],
 
               // ── Tab content ────────────────────────────────────────────
               Expanded(
@@ -137,7 +164,15 @@ class _PeopleScreenState extends State<PeopleScreen>
   Widget _buildList(BuildContext context, PeopleLoaded state) {
     final users = state.visibleUsers;
     if (users.isEmpty) {
-      return _EmptyView(hasQuery: _searchController.text.trim().isNotEmpty);
+      return _EmptyView(
+        hasQuery: _searchController.text.trim().isNotEmpty,
+        onInvite: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invite logic coming soon!')),
+          );
+        },
+        onFind: _openAddPersonSheet,
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.only(top: LWSpacing.sm, bottom: LWSpacing.xxl),
@@ -150,7 +185,15 @@ class _PeopleScreenState extends State<PeopleScreen>
           mode: UserCardMode.listRow,
           onFollowToggle: () => context
               .read<PeopleBloc>()
-              .add(PeopleFollowToggled(userId: user.userId)),
+              .add(PeopleFollowToggled(userId: user.userId, user: user)),
+          onTap: () => UserRunsSheet.show(
+            context,
+            userId: user.userId,
+            username: user.username,
+            avatarId: user.avatarId,
+            runsRepository: widget.runsRepository,
+            betRepository: widget.betRepository,
+          ),
         );
       },
     );
@@ -173,7 +216,14 @@ class _LoadingView extends StatelessWidget {
 
 class _EmptyView extends StatelessWidget {
   final bool hasQuery;
-  const _EmptyView({required this.hasQuery});
+  final VoidCallback? onInvite;
+  final VoidCallback? onFind;
+
+  const _EmptyView({
+    required this.hasQuery,
+    this.onInvite,
+    this.onFind,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +234,8 @@ class _EmptyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.group_off_outlined, size: 60, color: lw.contentSecondary),
+            Icon(Icons.person_off_outlined,
+                size: 80, color: lw.contentSecondary.withOpacity(0.6)),
             const SizedBox(height: LWSpacing.lg),
             Text(
               hasQuery ? 'No users found' : 'No one here yet',
@@ -194,11 +245,25 @@ class _EmptyView extends StatelessWidget {
             Text(
               hasQuery
                   ? 'Try a different username.'
-                  : 'Tap the person+ icon to find people to follow.',
+                  : 'Follow people to see them here.',
               style: LWTypography.regularNormalRegular
                   .copyWith(color: lw.contentSecondary),
               textAlign: TextAlign.center,
             ),
+            if (!hasQuery) ...[
+              const SizedBox(height: LWSpacing.xxl),
+              LwButton.primary(
+                label: 'Invite Someone',
+                onPressed: onInvite,
+                width: double.infinity,
+              ),
+              const SizedBox(height: LWSpacing.md),
+              LwButton.secondary(
+                label: 'Find User',
+                onPressed: onFind,
+                width: double.infinity,
+              ),
+            ],
           ],
         ),
       ),

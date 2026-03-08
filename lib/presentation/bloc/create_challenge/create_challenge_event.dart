@@ -10,13 +10,15 @@ class CreateChallengeSubmitted extends CreateChallengeEvent {
   final String title;
   final String description;
   final String visibility; // 'public' | 'private'
+  final String? imageAsset;
 
   const CreateChallengeSubmitted({
     required this.title,
     required this.description,
     required this.visibility,
+    this.imageAsset,
   });
 
   @override
-  List<Object?> get props => [title, description, visibility];
+  List<Object?> get props => [title, description, visibility, imageAsset];
 }

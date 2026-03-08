@@ -31,6 +31,9 @@ class ActiveRunEntity extends Equatable {
   /// Optional remote URL for background image.
   final String? imageUrl;
 
+  /// Number of bets currently placed on this run.
+  final int betCount;
+
   const ActiveRunEntity({
     required this.runId,
     required this.challengeId,
@@ -42,6 +45,7 @@ class ActiveRunEntity extends Equatable {
     this.lastCheckinDay,
     this.imageAsset,
     this.imageUrl,
+    this.betCount = 0,
   });
 
   // Sentinel used by [copyWith] so callers can explicitly pass `null`
@@ -60,6 +64,7 @@ class ActiveRunEntity extends Equatable {
     Object? lastCheckinDay = _unset,
     String? imageAsset,
     String? imageUrl,
+    int? betCount,
   }) {
     return ActiveRunEntity(
       runId: runId ?? this.runId,
@@ -74,6 +79,7 @@ class ActiveRunEntity extends Equatable {
           : lastCheckinDay as String?,
       imageAsset: imageAsset ?? this.imageAsset,
       imageUrl: imageUrl ?? this.imageUrl,
+      betCount: betCount ?? this.betCount,
     );
   }
 
@@ -89,5 +95,6 @@ class ActiveRunEntity extends Equatable {
         lastCheckinDay,
         imageAsset,
         imageUrl,
+        betCount,
       ];
 }

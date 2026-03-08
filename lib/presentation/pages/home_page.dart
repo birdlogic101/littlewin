@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../bloc/explore/explore_bloc.dart';
 import '../bloc/explore/explore_state.dart';
+import '../bloc/explore/explore_event.dart';
 import '../bloc/checkin/checkin_bloc.dart';
 import '../bloc/checkin/checkin_event.dart';
+import '../bloc/checkin/checkin_state.dart';
 import '../bloc/records/records_bloc.dart';
 import '../bloc/people/people_bloc.dart';
+import '../bloc/notifications/notifications_bloc.dart';
+import '../bloc/notifications/notifications_state.dart';
+import '../bloc/notifications/notifications_event.dart';
 import '../widgets/lw_app_bar.dart';
 import '../widgets/lw_icon.dart';
 import 'explore/explore_screen.dart';
@@ -22,9 +27,11 @@ import '../../data/repositories/completed_runs_repository.dart';
 import '../../data/repositories/bet_repository.dart';
 import '../../data/repositories/people_repository.dart';
 import '../../data/datasources/run_remote_datasource.dart';
-import '../../data/datasources/bet_remote_datasource.dart';
-import '../../data/datasources/people_remote_datasource.dart';
 import '../widgets/create_challenge_sheet.dart';
+import '../widgets/add_person_sheet.dart';
+import '../widgets/bet_won_modal.dart';
+import '../widgets/notifications_bottom_sheet.dart';
+import '../../core/di/injection.dart';
 
 /// Root shell of the app.
 ///
@@ -45,61 +52,155 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   // TODO(future): move repository initialization into AuthBloc once the
   // auth analyzer errors in auth_remote_datasource.dart are resolved.
   // For now, AppShell owns initialization to route around those issues.
-  late final RunRemoteDataSource _runDatasource;
+  // Repositories
   late final RunsRepository _runsRepository;
   late final CompletedRunsRepository _completedRunsRepository;
   late final BetRepository _betRepository;
   late final PeopleRepository _peopleRepository;
+  
+  // Blocs
+  late final ExploreBloc _exploreBloc;
+  late final CheckinBloc _checkinBloc;
+  late final RecordsBloc _recordsBloc;
+  late final PeopleBloc _peopleBloc;
+  late final NotificationsBloc _notificationsBloc;
+  
+  /// Timer to check for UTC day rollover even if the app stays in foreground.
+  Timer? _rolloverTimer;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// The UTC day string seen on last foreground event / cold start.
   late String _lastSeenUtcDay;
 
+  /// Tracks when the user last visited the Check-in tab to clear the badge.
+  DateTime? _lastCheckinVisit;
+
   @override
   void initState() {
     super.initState();
+    debugPrint('🚀 [AppShell] initState started');
     _lastSeenUtcDay = _todayUtc();
 
-    // Wire Supabase datasource into the shared repositories.
-    // SupabaseClient is a singleton — safe to access directly here.
-    _runDatasource = RunRemoteDataSource(Supabase.instance.client);
-    _runsRepository = RunsRepository(datasource: _runDatasource);
-    _completedRunsRepository =
-        CompletedRunsRepository(datasource: _runDatasource);
-    _betRepository = BetRepository(
-      datasource: BetRemoteDataSource(Supabase.instance.client),
-    );
-    _peopleRepository = PeopleRepository(
-      datasource: PeopleRemoteDataSource(Supabase.instance.client),
-    );
+    // Resolve dependencies from getIt
+    _runsRepository = getIt<RunsRepository>();
+    _completedRunsRepository = getIt<CompletedRunsRepository>();
+    _betRepository = getIt<BetRepository>();
+    _peopleRepository = getIt<PeopleRepository>();
+
+    _exploreBloc = getIt<ExploreBloc>();
+    _checkinBloc = getIt<CheckinBloc>();
+    _recordsBloc = getIt<RecordsBloc>();
+    _peopleBloc = getIt<PeopleBloc>();
+    _notificationsBloc = getIt<NotificationsBloc>();
 
     WidgetsBinding.instance.addObserver(this);
+    
+    // Check for rollover every 30 seconds
+    _rolloverTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDayRollover());
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 1. Server-side settlement first (handles inactive users).
-      //    Fire-and-forget; non-fatal errors are swallowed in datasource.
-      await _runDatasource.settleRuns(_lastSeenUtcDay);
+      debugPrint('🚀 [AppShell] postFrameCallback started');
+      
+      // 1. Server-side settlement
+      try {
+        debugPrint('🚀 [AppShell] calling settleRuns...');
+        await getIt<RunRemoteDataSource>()
+            .settleRuns(_lastSeenUtcDay)
+            .timeout(const Duration(seconds: 5));
+        debugPrint('🚀 [AppShell] settleRuns done');
+      } catch (e) {
+        debugPrint('⚠️ [AppShell] settleRuns error/timeout: $e');
+      }
 
-      // 2. Load real run data from Supabase into in-memory repos.
-      //    processCompletions is called inside initialize() after the fetch.
-      await Future.wait([
-        _runsRepository.initialize(_completedRunsRepository),
-        _completedRunsRepository.initialize(),
-      ]);
+      // 2. Load real run data
+      try {
+        debugPrint('🚀 [AppShell] initializing repositories...');
+        await Future.wait([
+          _runsRepository.initialize(_completedRunsRepository),
+          _completedRunsRepository.initialize(),
+        ]).timeout(const Duration(seconds: 10));
+        debugPrint('🚀 [AppShell] repositories initialized');
+      } catch (e) {
+        debugPrint('⚠️ [AppShell] repository initialization error/timeout: $e');
+      }
+
+      // 3. Trigger initial fetches via member variables
+      debugPrint('🚀 [AppShell] triggering initial fetches...');
+      _checkinBloc.add(const CheckinFetchRequested());
+      _exploreBloc.add(const ExploreFetchRequested());
+      _notificationsBloc.add(const NotificationsFetchRequested());
+      debugPrint('🚀 [AppShell] startup sequence complete');
+
+      // 4. Check for won bets (Bettor Celebration)
+      try {
+        final unseenWins = await _betRepository.getUnseenWonBets();
+        if (unseenWins.isNotEmpty && mounted) {
+          debugPrint('🎉 [AppShell] Found ${unseenWins.length} unseen wins!');
+          for (final win in unseenWins) {
+            await BetWonModal.show(context, resolution: win, isBettorView: true);
+          }
+          final allBetIds = unseenWins.expand((w) => w.wonBets.map((b) => b.betId)).toList();
+          await _betRepository.acknowledgeWonBets(allBetIds);
+        }
+      } catch (e) {
+        debugPrint('⚠️ [AppShell] Bettor celebration error: $e');
+      }
     });
+
+    _startUtcTimer();
+  }
+
+  // ── UTC Timer ──────────────────────────────────────────────────────────────
+  Timer? _utcTimer;
+  String _utcTimeLeft = '';
+
+  void _startUtcTimer() {
+    _updateUtcTime();
+    _utcTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateUtcTime());
+  }
+
+  void _updateUtcTime() {
+    final now = DateTime.now().toUtc();
+    final midnight = DateTime.utc(now.year, now.month, now.day + 1);
+    final diff = midnight.difference(now);
+
+    if (diff.isNegative || diff.inSeconds == 0) {
+      if (_utcTimeLeft != '00:00:00') {
+        _utcTimeLeft = '00:00:00';
+        if (mounted) {
+          _checkinBloc.add(const CheckinFetchRequested());
+        }
+      }
+    } else {
+      final h = diff.inHours.toString().padLeft(2, '0');
+      final m = (diff.inMinutes % 60).toString().padLeft(2, '0');
+      final s = (diff.inSeconds % 60).toString().padLeft(2, '0');
+      if (mounted) {
+        setState(() => _utcTimeLeft = '$h:$m:$s');
+      }
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _rolloverTimer?.cancel();
+    _utcTimer?.cancel();
     _runsRepository.dispose();
     _completedRunsRepository.dispose();
+    _exploreBloc.close();
+    _checkinBloc.close();
+    _recordsBloc.close();
+    _peopleBloc.close();
+    _notificationsBloc.close();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      debugPrint('🚀 [AppShell] app resumed');
       _checkDayRollover();
     }
   }
@@ -107,12 +208,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _checkDayRollover() {
     final today = _todayUtc();
     if (today != _lastSeenUtcDay) {
+      debugPrint('🚀 [AppShell] day rollover detected: $today');
       _lastSeenUtcDay = today;
       _runsRepository.processCompletions(today, _completedRunsRepository);
-      // Tell CheckinBloc to reload the run list now that completions are done.
-      if (context.mounted) {
-        context.read<CheckinBloc>().add(const DayRolloverDetected());
-      }
+      _checkinBloc.add(const DayRolloverDetected());
     }
   }
 
@@ -123,7 +222,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         '${now.day.toString().padLeft(2, '0')}';
   }
 
-  void _switchTab(int index) => setState(() => _currentIndex = index);
+  void _switchTab(int index) {
+    setState(() => _currentIndex = index);
+    if (index == 1) {
+      _lastCheckinVisit = DateTime.now();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -131,76 +235,131 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider<ExploreBloc>(
-          create: (_) => ExploreBloc(runsRepository: _runsRepository),
-        ),
-        BlocProvider<CheckinBloc>(
-          create: (_) => CheckinBloc(runsRepository: _runsRepository),
-        ),
-        BlocProvider<RecordsBloc>(
-          create: (_) => RecordsBloc(
-              completedRunsRepository: _completedRunsRepository),
-        ),
-        BlocProvider<PeopleBloc>(
-          create: (_) => PeopleBloc(repository: _peopleRepository),
-        ),
+        BlocProvider.value(value: _exploreBloc),
+        BlocProvider.value(value: _checkinBloc),
+        BlocProvider.value(value: _recordsBloc),
+        BlocProvider.value(value: _peopleBloc),
+        BlocProvider.value(value: _notificationsBloc),
       ],
-      child: BlocListener<ExploreBloc, ExploreState>(
-        listenWhen: (prev, curr) {
-          if (curr is! ExploreLoaded) return false;
-          if (prev is! ExploreLoaded) return curr.lastJoinedAt != null;
-          return curr.lastJoinedAt != prev.lastJoinedAt &&
-              curr.lastJoinedAt != null;
-        },
-        listener: (context, state) => _switchTab(1),
-        child: Scaffold(
-          key: _scaffoldKey,
-          extendBodyBehindAppBar: true,
-          drawer: const ProfileDrawer(),
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(56),
-            child: BlocBuilder<AuthBloc, AuthState>(
-              builder: (context, authState) {
-                final isPremium = authState is AuthAuthenticated
-                    ? authState.user.isPremium
-                    : false;
-                return LwAppBar(
-                  // Always show the + button; premium users get create flow,
-                  // non-premium get the upgrade dialog.
-                  showCreate: true,
-                  notificationCount: 0,
-                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                  onNotificationsTap: () {},
-                  onCreateTap: isPremium
-                      ? () => CreateChallengeSheet.show(
-                            context,
-                            betRepository: _betRepository,
-                          )
-                      : () => ProfileDrawer.showUpgradeDialog(context),
-                );
-              },
+      child: Builder(
+        builder: (innerContext) {
+          return PopScope(
+            canPop: false,
+            child: Scaffold(
+                key: _scaffoldKey,
+              extendBodyBehindAppBar: _currentIndex == 0,
+              drawer: const ProfileDrawer(),
+              appBar: _currentIndex == 0
+                  ? PreferredSize(
+                      preferredSize: const Size.fromHeight(64),
+                      child: BlocBuilder<AuthBloc, AuthState>(
+                        builder: (context, authState) {
+                            final isPremium = authState is AuthAuthenticated
+                                ? authState.user.isPremium
+                                : false;
+                            
+                            return BlocBuilder<NotificationsBloc, NotificationsState>(
+                              builder: (context, notificationState) {
+                                final count = notificationState is NotificationsLoaded
+                                    ? notificationState.unreadCount
+                                    : 0;
+                                    
+                                return LwAppBar(
+                                  showCreate: true,
+                                  notificationCount: count,
+                                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                                  onNotificationsTap: () => NotificationsBottomSheet.show(context),
+                                  onCreateTap: isPremium
+                                      ? () => CreateChallengeSheet.show(
+                                            innerContext,
+                                            betRepository: _betRepository,
+                                          )
+                                      : () => ProfileDrawer.showUpgradeDialog(context),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                    )
+                  : PreferredSize(
+                      preferredSize: const Size.fromHeight(64),
+                      child: AppBar(
+                        backgroundColor: lw.backgroundApp,
+                        elevation: LWElevation.none,
+                        centerTitle: true,
+                        leading: IconButton(
+                          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                          icon: LwIcon('misc_menu_lines',
+                              size: LWComponents.appBar.iconSizeSmall,
+                              color: lw.contentPrimary),
+                        ),
+                          title: _AppBarTitle(
+                            index: _currentIndex,
+                            lw: lw,
+                          ),
+                          actions: [
+                            if (_currentIndex == 1)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: LWSpacing.lg),
+                                  child: Text(
+                                    _utcTimeLeft,
+                                    style: LWTypography.regularNormalRegular.copyWith(
+                                      color: LWColors.skyBase,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (_currentIndex == 3)
+                              IconButton(
+                                onPressed: () => AddPersonSheet.show(
+                                  innerContext,
+                                  repository: _peopleRepository,
+                                ),
+                                icon: LwIcon(
+                                  'misc_add_contact',
+                                  size: LWComponents.appBar.iconSize,
+                                  color: lw.contentPrimary,
+                                ),
+                              ),
+                            if (_currentIndex != 1 && _currentIndex != 3)
+                              const SizedBox(width: 48),
+                          ],
+                        ),
+                      ),
+              body: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  ExploreScreen(betRepository: _betRepository),
+                  CheckinScreen(betRepository: _betRepository),
+                  RecordsScreen(
+                    onChallengeRestarted: () => _switchTab(1),
+                  ),
+                  PeopleScreen(
+                    peopleRepository: _peopleRepository,
+                    runsRepository: _runsRepository,
+                    betRepository: _betRepository,
+                  ),
+                ],
+              ),
+              bottomNavigationBar: _LwBottomNav(
+                currentIndex: _currentIndex,
+                onTap: _switchTab,
+                lastCheckinVisit: _lastCheckinVisit,
+                navColor: lw.navBackground,
+                activeColor: lw.contentPrimary,
+                inactiveColor: lw.contentSecondary.withOpacity(0.5),
+              ),
             ),
-          ),
-          body: IndexedStack(
-            index: _currentIndex,
-            children: [
-              ExploreScreen(betRepository: _betRepository),
-              CheckinScreen(betRepository: _betRepository),
-              const RecordsScreen(),
-              PeopleScreen(peopleRepository: _peopleRepository),
-            ],
-          ),
-          bottomNavigationBar: _LwBottomNav(
-            currentIndex: _currentIndex,
-            onTap: _switchTab,
-            navColor: lw.navBackground,
-            activeColor: lw.navIconActive,
-            inactiveColor: lw.navIconInactive,
-          ),
-        ),
+          );
+        },
       ),
     );
-  }
+}
 }
 
 // ── Bottom nav ────────────────────────────────────────────────────────────────
@@ -208,6 +367,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 class _LwBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final DateTime? lastCheckinVisit;
   final Color navColor;
   final Color activeColor;
   final Color inactiveColor;
@@ -215,6 +375,7 @@ class _LwBottomNav extends StatelessWidget {
   const _LwBottomNav({
     required this.currentIndex,
     required this.onTap,
+    this.lastCheckinVisit,
     required this.navColor,
     required this.activeColor,
     required this.inactiveColor,
@@ -223,7 +384,7 @@ class _LwBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: LWComponents.bottomNav.height +
+      height: 64.0 +
           MediaQuery.of(context).padding.bottom,
       decoration: BoxDecoration(
         color: navColor,
@@ -248,13 +409,39 @@ class _LwBottomNav extends StatelessWidget {
               inactiveColor: inactiveColor,
               onTap: () => onTap(0),
             ),
-            _NavItem(
-              svgName: 'nav_checkin',
-              label: 'Check-in',
-              isActive: currentIndex == 1,
-              activeColor: activeColor,
-              inactiveColor: inactiveColor,
-              onTap: () => onTap(1),
+            BlocBuilder<ExploreBloc, ExploreState>(
+              builder: (context, exploreState) {
+                return BlocBuilder<CheckinBloc, CheckinState>(
+                  builder: (context, checkinState) {
+                    final hasPending = checkinState is CheckinLoaded &&
+                        checkinState.runs.any((r) => !r.hasCheckedInToday);
+
+                    // Show dot badge if a new join happened since last visit
+                    bool showJoinBadge = false;
+                    if (exploreState is ExploreLoaded &&
+                        exploreState.lastJoinedAt != null) {
+                      if (lastCheckinVisit == null ||
+                          exploreState.lastJoinedAt!
+                              .isAfter(lastCheckinVisit!)) {
+                        showJoinBadge = true;
+                      }
+                    }
+
+                    return _PulseIcon(
+                      isPulsing: hasPending && currentIndex != 1,
+                      child: _NavItem(
+                        svgName: 'nav_checkin',
+                        label: 'Check-in',
+                        isActive: currentIndex == 1,
+                        activeColor: activeColor,
+                        inactiveColor: inactiveColor,
+                        onTap: () => onTap(1),
+                        showBadge: showJoinBadge && currentIndex != 1,
+                      ),
+                    );
+                  },
+                );
+              },
             ),
             _NavItem(
               svgName: 'nav_scores',
@@ -286,6 +473,7 @@ class _NavItem extends StatelessWidget {
   final Color activeColor;
   final Color inactiveColor;
   final VoidCallback onTap;
+  final bool showBadge;
 
   const _NavItem({
     required this.svgName,
@@ -294,6 +482,7 @@ class _NavItem extends StatelessWidget {
     required this.activeColor,
     required this.inactiveColor,
     required this.onTap,
+    this.showBadge = false,
   });
 
   @override
@@ -311,26 +500,132 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              LwIcon(
-                svgName,
-                size: LWComponents.bottomNav.iconSize,
-                color: isActive ? activeColor : inactiveColor,
-              ),
-              if (isActive)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Container(
-                    width: LWComponents.bottomNav.dotSize,
-                    height: LWComponents.bottomNav.dotSize,
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      shape: BoxShape.circle,
-                    ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  LwIcon(
+                    svgName,
+                    size: LWComponents.bottomNav.iconSize,
+                    color: isActive ? activeColor : inactiveColor,
                   ),
-                ),
+                  if (showBadge)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: LWThemeExtension.of(context).feedbackNegative,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: LWThemeExtension.of(context).navBackground,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PulseIcon extends StatefulWidget {
+  final Widget child;
+  final bool isPulsing;
+
+  const _PulseIcon({required this.child, required this.isPulsing});
+
+  @override
+  State<_PulseIcon> createState() => _PulseIconState();
+}
+
+class _PulseIconState extends State<_PulseIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+
+    _scale = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _opacity = Tween<double>(begin: 1.0, end: 0.7).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.isPulsing) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_PulseIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPulsing && !oldWidget.isPulsing) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.isPulsing && oldWidget.isPulsing) {
+      _controller.stop();
+      _controller.animateTo(0, duration: LWDuration.normal);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: widget.isPulsing ? _scale.value : 1.0,
+          child: Opacity(
+            opacity: widget.isPulsing ? _opacity.value : 1.0,
+            child: widget.child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AppBarTitle extends StatelessWidget {
+  final int index;
+  final LWThemeExtension lw;
+
+  const _AppBarTitle({
+    required this.index,
+    required this.lw,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final titleText = switch (index) {
+      1 => 'Check in',
+      2 => 'Records',
+      3 => 'People',
+      _ => '',
+    };
+
+    return Text(
+      titleText,
+      style: LWTypography.largeNormalMedium.copyWith(
+        color: lw.contentPrimary,
       ),
     );
   }

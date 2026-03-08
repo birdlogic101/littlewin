@@ -1,0 +1,44 @@
+﻿Analyzing 2 items...                                            
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\explore_run_card.dart:186:20 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\explore_run_card.dart:223:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\explore_run_card.dart:317:28 - deprecated_member_use
+  error - Undefined name 'LWComponents' - lib\presentation\widgets\explore_run_card.dart:355:18 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\explore_run_card.dart:444:43 - deprecated_member_use
+  error - Undefined name 'LWButtonVariant' - lib\presentation\widgets\explore_run_card.dart:474:30 - undefined_identifier
+  error - Undefined name 'LWButtonSize' - lib\presentation\widgets\explore_run_card.dart:475:27 - undefined_identifier
+  error - Undefined name 'LWButtonVariant' - lib\presentation\widgets\explore_run_card.dart:483:30 - undefined_identifier
+  error - Undefined name 'LWButtonSize' - lib\presentation\widgets\explore_run_card.dart:484:27 - undefined_identifier
+  error - Undefined name 'LWButtonVariant' - lib\presentation\widgets\explore_run_card.dart:492:30 - undefined_identifier
+  error - Undefined name 'LWButtonSize' - lib\presentation\widgets\explore_run_card.dart:493:27 - undefined_identifier
+  error - Arguments of a constant creation must be constant expressions - lib\presentation\widgets\explore_run_card.dart:541:34 - const_with_non_constant_argument
+  error - The getter 'xl' isn't defined for the type 'LWRadius' - lib\presentation\widgets\explore_run_card.dart:541:43 - undefined_getter
+  error - The argument type 'BorderRadius' can't be assigned to the parameter type 'double'.  - lib\presentation\widgets\explore_run_card.dart:553:53 - argument_type_not_assignable
+  error - Undefined name 'LWComponents' - lib\presentation\widgets\explore_run_card.dart:619:18 - undefined_identifier
+  error - Undefined name 'LWButtonSize' - lib\presentation\widgets\explore_run_card.dart:619:45 - undefined_identifier
+  error - Undefined name 'LWComponents' - lib\presentation\widgets\explore_run_card.dart:620:19 - undefined_identifier
+  error - Undefined name 'LWButtonSize' - lib\presentation\widgets\explore_run_card.dart:620:46 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\explore_run_card.dart:622:33 - deprecated_member_use
+  error - Arguments of a constant creation must be constant expressions - lib\presentation\widgets\run_bets_sheet.dart:155:34 - const_with_non_constant_argument
+  error - The getter 'xl' isn't defined for the type 'LWRadius' - lib\presentation\widgets\run_bets_sheet.dart:155:43 - undefined_getter
+  error - The argument type 'BorderRadius' can't be assigned to the parameter type 'double'.  - lib\presentation\widgets\run_bets_sheet.dart:169:53 - argument_type_not_assignable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\run_bets_sheet.dart:487:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\run_bets_sheet.dart:512:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\run_bets_sheet.dart:710:41 - deprecated_member_use
+warning - The value of the local variable 'lw' isn't used - lib\presentation\widgets\run_bets_sheet.dart:769:11 - unused_local_variable
+
+flutter : 26 issues found. (ran in 
+5.8s)
+Au caractère Ligne:1 : 1
++ flutter analyze lib\presentation\wi
+dgets\explore_run_card.dart lib\pr 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpe 
+   cified: (26 issues found. (ran i  
+  n 5.8s):String) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorId : Native 
+   CommandError
+ 

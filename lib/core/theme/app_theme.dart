@@ -66,12 +66,12 @@ class AppTheme {
         backgroundColor: LWColors.skyWhite,
         foregroundColor: LWColors.inkDarkest,
         elevation: LWElevation.none,
-        minimumSize: Size(double.infinity, LWComponents.button.height),
+        minimumSize: Size(double.infinity, LWComponents.button.height(LWButtonSize.medium)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LWComponents.button.radius),
         ),
-        padding: LWComponents.button.contentPadding,
-        textStyle: LWComponents.button.labelStyle,
+        padding: LWComponents.button.padding(LWButtonSize.medium),
+        textStyle: LWComponents.button.labelStyle(LWButtonSize.medium),
       ),
     ),
 
@@ -206,12 +206,12 @@ class AppTheme {
         backgroundColor: LWColors.primaryBase,
         foregroundColor: LWColors.skyWhite,
         elevation: LWElevation.none,
-        minimumSize: Size(double.infinity, LWComponents.button.height),
+        minimumSize: Size(double.infinity, LWComponents.button.height(LWButtonSize.medium)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LWComponents.button.radius),
         ),
-        padding: LWComponents.button.contentPadding,
-        textStyle: LWComponents.button.labelStyle,
+        padding: LWComponents.button.padding(LWButtonSize.medium),
+        textStyle: LWComponents.button.labelStyle(LWButtonSize.medium),
       ),
     ),
 

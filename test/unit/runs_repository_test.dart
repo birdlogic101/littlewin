@@ -24,6 +24,7 @@ ActiveRunEntity makeRun({
   String? lastCheckinDay,
   int currentStreak = 0,
   bool hasCheckedInToday = false,
+  int betCount = 0,
 }) {
   return ActiveRunEntity(
     runId: runId,
@@ -34,6 +35,7 @@ ActiveRunEntity makeRun({
     startDate: startDate,
     hasCheckedInToday: hasCheckedInToday,
     lastCheckinDay: lastCheckinDay,
+    betCount: betCount,
   );
 }
 
@@ -61,13 +63,13 @@ void main() {
     late CompletedRunsRepository completedRepo;
 
     setUp(() {
-      completedRepo = CompletedRunsRepository(initial: []);
+      completedRepo = CompletedRunsRepository.seeded();
     });
 
     // ── Day-1 rule ─────────────────────────────────────────────────────────
 
     test('Day-1 rule: run started today with no check-in survives', () {
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(runId: 'r1', startDate: today, lastCheckinDay: null),
       ]);
 
@@ -79,7 +81,7 @@ void main() {
     });
 
     test('Day-1 rule: hasCheckedInToday is reset to false', () {
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: today,
@@ -94,11 +96,41 @@ void main() {
       expect(repo.activeRuns.first.hasCheckedInToday, isFalse);
     });
 
+    // ── injectRun ───────────────────────────────────────────────────────────
+
+    test('injectRun: adds run and notifies listeners', () async {
+      final repo = RunsRepository.seeded([]);
+      final newRun = makeRun(runId: 'new-run', startDate: today);
+      
+      final expectation = expectLater(
+        repo.stream,
+        emits(predicate<List<ActiveRunEntity>>((list) => 
+          list.length == 1 && list.first.runId == 'new-run')),
+      );
+
+      repo.injectRun(newRun);
+
+      await expectation;
+      expect(repo.activeRuns.length, 1);
+      expect(repo.activeRuns.first.runId, 'new-run');
+    });
+
+    test('injectRun: does not add duplicate runId', () {
+      final repo = RunsRepository.seeded([
+        makeRun(runId: 'r1', startDate: today),
+      ]);
+      final duplicate = makeRun(runId: 'r1', startDate: today);
+
+      repo.injectRun(duplicate);
+
+      expect(repo.activeRuns.length, 1, reason: 'Duplicate runId should be ignored');
+    });
+
     // ── Survival rule ──────────────────────────────────────────────────────
 
     test('Survival: run with lastCheckinDay == yesterday survives', () {
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: daysAgo(today, 5),
@@ -116,7 +148,7 @@ void main() {
 
     test('Survival: hasCheckedInToday is reset to false for surviving run', () {
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: daysAgo(today, 5),
@@ -137,7 +169,7 @@ void main() {
         'Missed: run started yesterday with no check-in → completed with score 0',
         () {
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: yesterday,
@@ -161,7 +193,7 @@ void main() {
     test('Missed: lastCheckinDay 2 days ago → completed (multi-day gap)', () {
       final twoDaysAgo = daysAgo(today, 2);
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: daysAgo(today, 10),
@@ -178,6 +210,25 @@ void main() {
           reason: 'endDate should be the last day that should have had a check-in');
     });
 
+    // ── checkin guard ─────────────────────────────────────────────────────────
+
+    test('checkin: refuses check-in if the run has expired (guard logic)', () async {
+      final twoDaysAgo = daysAgo(today, 2);
+      final repo = RunsRepository.seeded([
+        makeRun(
+          runId: 'r1',
+          startDate: daysAgo(today, 10),
+          lastCheckinDay: twoDaysAgo,
+          currentStreak: 7,
+        ),
+      ]);
+
+      final result = await repo.checkin('r1');
+
+      expect(result, isNull, reason: 'Check-in must be refused if lastCheckinDay is not yesterday');
+      expect(repo.activeRuns.first.hasCheckedInToday, isFalse, reason: 'Optimistic update must not happen');
+    });
+
     // ── Timezone travel: checked in yesterday in a different timezone ───────
 
     test(
@@ -187,7 +238,7 @@ void main() {
       // UTC-5 (NYC). The canonical check-in day is always UTC, so as long as
       // lastCheckinDay == yesterday UTC, the run survives.
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: daysAgo(today, 30),
@@ -207,7 +258,7 @@ void main() {
 
     test('Idempotency: calling processCompletions twice has the same result', () {
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         // Run that will be completed (never checked in)
         makeRun(runId: 'r1', startDate: yesterday, lastCheckinDay: null),
         // Run that will survive
@@ -228,7 +279,7 @@ void main() {
 
     test('Multiple runs: correctly partitions survivors and completed', () {
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
             runId: 'alive-1',
             startDate: daysAgo(today, 3),
@@ -265,7 +316,7 @@ void main() {
   group('RunsRepository.clearStaleCheckinFlags', () {
     test('resets hasCheckedInToday when lastCheckinDay != today', () {
       final yesterday = daysAgo(today, 1);
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: daysAgo(today, 5),
@@ -282,7 +333,7 @@ void main() {
     });
 
     test('does not reset hasCheckedInToday when lastCheckinDay == today', () {
-      final repo = RunsRepository(initial: [
+      final repo = RunsRepository.seeded([
         makeRun(
           runId: 'r1',
           startDate: daysAgo(today, 5),

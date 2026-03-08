@@ -38,6 +38,8 @@ class AuthGoogleSignInRequested extends AuthEvent {}
 
 class AuthSignOutRequested extends AuthEvent {}
 
+class AuthAnonymousLoginRequested extends AuthEvent {}
+
 class AuthUpdateUsernameRequested extends AuthEvent {
   final String username;
 

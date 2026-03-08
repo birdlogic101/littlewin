@@ -1,10 +1,44 @@
+import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/services.dart';
 
-/// Generates absurd-but-memorable usernames in the format:
-///   adjective + "_" + thing + "_" + 3-digit-number
-/// e.g. "shady_cookie_400", "pompous_bunny_018"
+/// Generates memorable usernames in the format:
+///   adjective + noun + 3-digit-number
+/// e.g. "boldbadger042"
 class UsernameGenerator {
-  static const _adjectives = [
+  static List<String> _adjectives = _initialAdjectives;
+  static List<String> _nouns = _initialNouns;
+  static final _random = Random();
+
+  /// Loads username components from assets/data/username_components.json.
+  /// Falls back to hardcoded lists if the file is missing or invalid.
+  static Future<void> load() async {
+    try {
+      final jsonString = await rootBundle.loadString('assets/data/username_components.json');
+      final Map<String, dynamic> data = json.decode(jsonString);
+      
+      if (data.containsKey('adjectives') && data['adjectives'] is List) {
+        _adjectives = List<String>.from(data['adjectives']);
+      }
+      if (data.containsKey('nouns') && data['nouns'] is List) {
+        _nouns = List<String>.from(data['nouns']);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[UsernameGenerator] Failed to load JSON components: $e');
+    }
+  }
+
+  /// Returns a username like "boldbadger042".
+  static String generate() {
+    final adj = _adjectives[_random.nextInt(_adjectives.length)];
+    final noun = _nouns[_random.nextInt(_nouns.length)];
+    // 3-digit number with leading zeros: 000 – 999
+    final number = _random.nextInt(1000).toString().padLeft(3, '0');
+    return '$adj$noun$number';
+  }
+
+  static const _initialAdjectives = [
     'absurd',
     'ancient',
     'anxious',
@@ -146,7 +180,7 @@ class UsernameGenerator {
     'zesty',
   ];
 
-  static const _things = [
+  static const _initialNouns = [
     'avocado',
     'badger',
     'banana',
@@ -289,15 +323,4 @@ class UsernameGenerator {
     'yak',
     'zucchini',
   ];
-
-  static final _random = Random();
-
-  /// Returns a fun username like "shady_cookie_400".
-  static String generate() {
-    final adj = _adjectives[_random.nextInt(_adjectives.length)];
-    final thing = _things[_random.nextInt(_things.length)];
-    // 3-digit number with leading zeros: 000 – 999
-    final number = _random.nextInt(1000).toString().padLeft(3, '0');
-    return '${adj}_${thing}_$number';
-  }
 }

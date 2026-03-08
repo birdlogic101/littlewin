@@ -77,7 +77,7 @@ class _AddPersonSheetState extends State<AddPersonSheet> {
     // Notify parent BLoC so the Followed tab refreshes
     context
         .read<PeopleBloc>()
-        .add(PeopleFollowToggled(userId: user.userId));
+        .add(PeopleFollowToggled(userId: user.userId, user: user));
   }
 
   @override

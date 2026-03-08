@@ -24,6 +24,7 @@ class ChallengeRemoteDataSource {
     required String title,
     required String description,
     required String visibility,
+    String? imageAsset,
   }) async {
     final slug = _generateSlug(title);
 
@@ -32,6 +33,7 @@ class ChallengeRemoteDataSource {
       'p_description': description.trim().isEmpty ? null : description.trim(),
       'p_visibility': visibility,
       'p_slug': slug,
+      'p_image_asset': imageAsset,
     }) as Map<String, dynamic>;
 
     return ChallengeCreationResult(
@@ -39,6 +41,25 @@ class ChallengeRemoteDataSource {
       runId: result['run_id'] as String,
       challengeTitle: title,
     );
+  }
+
+  /// Fetches all public challenges.
+  Future<List<Map<String, dynamic>>> fetchAll() async {
+    return await _client
+        .from('challenges')
+        .select()
+        .eq('visibility', 'public')
+        .order('created_at', ascending: false);
+  }
+
+  /// Finds a single challenge by ID.
+  Future<Map<String, dynamic>?> findById(String id) async {
+    final result = await _client
+        .from('challenges')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+    return result;
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────

@@ -1,19 +1,30 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
 import 'explore_event.dart';
 import 'explore_state.dart';
 import '../../../domain/entities/explore_run_entity.dart';
 import '../../../domain/entities/active_run_entity.dart';
 import '../../../data/repositories/runs_repository.dart';
 
+/// The challenger0 system user UUID used to identify Community Challenges.
+const _challenger0Id = '00000000-0000-0000-0000-000000000000';
+
+@injectable 
 class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
   final RunsRepository _runsRepository;
+
+  /// Tracks the current cycle number for generating unique synthetic IDs.
+  int _cycleCounter = 0;
 
   ExploreBloc({required RunsRepository runsRepository})
       : _runsRepository = runsRepository,
         super(const ExploreState.initial()) {
     on<ExploreFetchRequested>(_onFetch);
+    on<ExploreLoadMoreRequested>(_onLoadMore);
     on<ExploreRunDismissed>(_onDismiss);
     on<ExploreRunJoined>(_onJoin);
+    on<ExploreClearJoinError>(_onClearJoinError);
+    on<ExploreRunBetPlaced>(_onRunBetPlaced);
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -24,20 +35,53 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
   ) async {
     emit(const ExploreState.loading());
     try {
-      // TODO: replace with real datasource call via use-case
-      await Future.delayed(const Duration(milliseconds: 600));
+      // Fetch a large initial batch — server returns P1-P4 in priority order.
+      final allRuns = await _runsRepository.fetchExploreFeed(
+        limit: 100,
+        offset: 0,
+      );
 
-      // Filter out any challenges the user has already joined
-      final joinedIds =
-          _runsRepository.activeRuns.map((r) => r.challengeId).toSet();
-      final runs = _mockRuns()
-          .where((r) => !joinedIds.contains(r.challengeId))
-          .toList();
+      // Split: challenger0 runs go into the Community Challenges (fallback) pool, everything else is ongoing/followed content.
+      final ongoingRuns = <ExploreRunEntity>[];
+      final communityChallenges = <ExploreRunEntity>[];
+      for (final run in allRuns) {
+        if (run.userId == _challenger0Id) {
+          communityChallenges.add(run);
+        } else {
+          ongoingRuns.add(run);
+        }
+      }
 
-      emit(ExploreState.loaded(runs: runs, cursor: null, hasMore: false));
+      // Seed the display list with ongoing runs + one initial cycle of community challenges.
+      _cycleCounter = 0;
+      final display = [...ongoingRuns, ..._nextCycleBatch(communityChallenges)];
+
+      emit(ExploreState.loaded(
+        runs: display,
+        fallbackPool: communityChallenges,
+        cycleIndex: _cycleCounter,
+      ));
     } catch (e) {
       emit(ExploreState.failure(message: e.toString()));
     }
+  }
+
+  Future<void> _onLoadMore(
+    ExploreLoadMoreRequested event,
+    Emitter<ExploreState> emit,
+  ) async {
+    final current = state;
+    if (current is! ExploreLoaded) return;
+    if (current.fallbackPool.isEmpty) return;
+
+    // Append the next cycle of fallback runs — pure client-side, zero latency.
+    final nextBatch = _nextCycleBatch(current.fallbackPool);
+    emit(ExploreState.loaded(
+      runs: [...current.runs, ...nextBatch],
+      fallbackPool: current.fallbackPool,
+      cycleIndex: _cycleCounter,
+      lastJoinedAt: current.lastJoinedAt,
+    ));
   }
 
   Future<void> _onDismiss(
@@ -47,15 +91,26 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
     final current = state;
     if (current is! ExploreLoaded) return;
 
-    final updated =
-        current.runs.where((r) => r.runId != event.runId).toList();
+    final run = current.runs.where((r) => r.runId == event.runId).firstOrNull;
+
+    // Only fire server dismissal for real (non-cycled) runs.
+    if (run != null && !event.runId.contains('_cycle')) {
+      _runsRepository.dismissRun(run.runId);
+    }
+
+    // Remove from display (local-only for cycled cards — reappears next cycle).
+    final updated = current.runs.where((r) => r.runId != event.runId).toList();
     emit(ExploreState.loaded(
       runs: updated,
-      cursor: current.cursor,
-      hasMore: current.hasMore,
+      fallbackPool: current.fallbackPool,
+      cycleIndex: current.cycleIndex,
+      lastJoinedAt: current.lastJoinedAt,
     ));
 
-    // TODO: call dismiss use-case (fire-and-forget, do not block UI)
+    // Buffer: if running low, append more fallback content instantly.
+    if (updated.length < 3 && current.fallbackPool.isNotEmpty) {
+      add(const ExploreLoadMoreRequested());
+    }
   }
 
   Future<void> _onJoin(
@@ -66,20 +121,16 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
     if (current is! ExploreLoaded) return;
 
     // Find the run being joined so we can convert it to an ActiveRunEntity
-    final exploreRun = current.runs
-        .where((r) => r.runId == event.runId)
-        .firstOrNull;
+    final exploreRun =
+        current.runs.where((r) => r.runId == event.runId).firstOrNull;
 
     if (exploreRun != null) {
       final today = DateTime.now().toUtc();
       final startDate =
           '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-      // Generate a unique run ID for the user's own run
-      final newRunId = 'run-joined-${exploreRun.challengeId}-${today.millisecondsSinceEpoch}';
-
       final activeRun = ActiveRunEntity(
-        runId: newRunId,
+        runId: 'temp-${exploreRun.challengeId}', // will be replaced by server ID
         challengeId: exploreRun.challengeId,
         challengeTitle: exploreRun.challengeTitle,
         challengeSlug: exploreRun.challengeSlug,
@@ -90,115 +141,120 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
         imageUrl: exploreRun.imageUrl,
       );
 
-      await _runsRepository.addRun(activeRun);
+      try {
+        await _runsRepository.addRun(activeRun);
+      } on AlreadyParticipatingException {
+        // User already has an active run for this challenge — keep the card in
+        // the feed and inform them via a snackbar.
+        emit(ExploreState.loaded(
+          runs: current.runs,
+          fallbackPool: current.fallbackPool,
+          cycleIndex: current.cycleIndex,
+          lastJoinedAt: current.lastJoinedAt,
+          joinError: "You're already running this challenge!",
+        ));
+        return;
+      } catch (e) {
+        // ignore: avoid_print
+        print('[ExploreBloc] addRun error: $e');
+        // Keep the card in the feed so the user can retry.
+        emit(ExploreState.loaded(
+          runs: current.runs,
+          fallbackPool: current.fallbackPool,
+          cycleIndex: current.cycleIndex,
+          lastJoinedAt: current.lastJoinedAt,
+          joinError: "Couldn't join — please try again.",
+        ));
+        return;
+      }
     }
 
-    // Remove from Explore feed & signal join happened
-    final updated =
-        current.runs.where((r) => r.runId != event.runId).toList();
+    // Success: remove from Explore feed & signal join happened
+    final updated = current.runs.where((r) => r.runId != event.runId).toList();
     emit(ExploreState.loaded(
       runs: updated,
-      cursor: current.cursor,
-      hasMore: current.hasMore,
+      fallbackPool: current.fallbackPool,
+      cycleIndex: current.cycleIndex,
       lastJoinedAt: DateTime.now(),
     ));
 
-    // TODO: call join use-case in Supabase (user's own run creation)
+    // Buffer: if running low, append more fallback content instantly.
+    if (updated.length < 3 && current.fallbackPool.isNotEmpty) {
+      add(const ExploreLoadMoreRequested());
+    }
   }
 
-  // ── Stub data (replaced when use-case + datasource are wired) ─────────────
+  Future<void> _onClearJoinError(
+    ExploreClearJoinError event,
+    Emitter<ExploreState> emit,
+  ) async {
+    final current = state;
+    if (current is! ExploreLoaded) return;
+    emit(ExploreState.loaded(
+      runs: current.runs,
+      fallbackPool: current.fallbackPool,
+      cycleIndex: current.cycleIndex,
+      lastJoinedAt: current.lastJoinedAt,
+      // joinError omitted → defaults to null
+    ));
+  }
 
-  List<ExploreRunEntity> _mockRuns() => [
-        const ExploreRunEntity(
-          runId: 'run-1',
-          challengeId: 'ch-02',
-          challengeTitle: '16-Hour Fasting',
-          challengeSlug: '16-hour-fasting',
-          userId: 'user-1',
-          username: 'elwilliam',
-          avatarId: 1,
-          currentStreak: 75,
-          imageAsset: 'assets/pictures/challenge_16-hour-fasting.jpg',
-        ),
-        const ExploreRunEntity(
-          runId: 'run-2',
-          challengeId: 'ch-11',
-          challengeTitle: '10,000 Steps',
-          challengeSlug: '10000-steps',
-          userId: 'user-2',
-          username: 'marta.runs',
-          avatarId: 3,
-          currentStreak: 21,
-          imageAsset: 'assets/pictures/challenge_10000-steps.jpg',
-        ),
-        const ExploreRunEntity(
-          runId: 'run-3',
-          challengeId: 'ch-03',
-          challengeTitle: '1-Minute Cold Shower',
-          challengeSlug: '1-minute-cold-shower',
-          userId: 'user-3',
-          username: 'jakobf',
-          avatarId: 5,
-          currentStreak: 9,
-          imageAsset: 'assets/pictures/challenge_1-minute-cold-shower.jpg',
-        ),
-        const ExploreRunEntity(
-          runId: 'run-4',
-          challengeId: 'ch-04',
-          challengeTitle: 'Zero Doomscroll',
-          challengeSlug: 'zero-doomscroll',
-          userId: 'user-4',
-          username: 'quietmind',
-          avatarId: 7,
-          currentStreak: 33,
-          imageAsset: 'assets/pictures/challenge_zero-doomscroll.jpg',
-        ),
-        const ExploreRunEntity(
-          runId: 'run-5',
-          challengeId: 'ch-07',
-          challengeTitle: 'No Eating Out',
-          challengeSlug: 'no-eating-out',
-          userId: 'user-5',
-          username: 'lena.cooks',
-          avatarId: 2,
-          currentStreak: 14,
-          imageAsset: 'assets/pictures/challenge_no-eating-out.jpg',
-          recentBetCount: 4,
-        ),
-        const ExploreRunEntity(
-          runId: 'run-6',
-          challengeId: 'ch-12',
-          challengeTitle: 'Zero Alcohol',
-          challengeSlug: 'zero-alcohol',
-          userId: 'user-6',
-          username: 'dryjan_paul',
-          avatarId: 4,
-          currentStreak: 56,
-          imageAsset: 'assets/pictures/challenge_zero-alcohol.jpg',
-          recentBetCount: 12,
-        ),
-        const ExploreRunEntity(
-          runId: 'run-7',
-          challengeId: 'ch-15',
-          challengeTitle: '1-Page Journaling',
-          challengeSlug: '1-page-journaling',
-          userId: 'user-7',
-          username: 'notepad_kai',
-          avatarId: 6,
-          currentStreak: 7,
-          imageAsset: 'assets/pictures/challenge_1-page-journaling.jpg',
-        ),
-        const ExploreRunEntity(
-          runId: 'run-8',
-          challengeId: 'ch-01',
-          challengeTitle: '10-Minute Workout',
-          challengeSlug: '10-minute-workout',
-          userId: 'user-8',
-          username: 'thomas_fit',
-          avatarId: 8,
-          currentStreak: 42,
-          imageAsset: 'assets/pictures/challenge_10-minute-workout.jpg',
-          recentBetCount: 7,
-        ),
-      ];
+  void _onRunBetPlaced(
+    ExploreRunBetPlaced event,
+    Emitter<ExploreState> emit,
+  ) {
+    final current = state;
+    if (current is! ExploreLoaded) return;
+
+    final updatedRuns = current.runs.map((r) {
+      if (r.runId == event.runId) {
+        return ExploreRunEntity(
+          runId: r.runId,
+          challengeId: r.challengeId,
+          challengeTitle: r.challengeTitle,
+          challengeSlug: r.challengeSlug,
+          userId: r.userId,
+          username: r.username,
+          avatarId: r.avatarId,
+          currentStreak: r.currentStreak,
+          imageUrl: r.imageUrl,
+          imageAsset: r.imageAsset,
+          recentBetCount: r.recentBetCount + 1,
+          isCompleted: r.isCompleted,
+        );
+      }
+      return r;
+    }).toList();
+
+    emit(ExploreState.loaded(
+      runs: updatedRuns,
+      fallbackPool: current.fallbackPool,
+      cycleIndex: current.cycleIndex,
+      lastJoinedAt: current.lastJoinedAt,
+    ));
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /// Returns a copy of [pool] with synthetic unique run IDs for this cycle.
+  /// Each cycle increments [_cycleCounter] to ensure IDs never collide.
+  List<ExploreRunEntity> _nextCycleBatch(List<ExploreRunEntity> pool) {
+    _cycleCounter++;
+    return pool.map((r) {
+      return ExploreRunEntity(
+        runId: '${r.runId}_cycle$_cycleCounter',
+        challengeId: r.challengeId,
+        challengeTitle: r.challengeTitle,
+        challengeSlug: r.challengeSlug,
+        userId: r.userId,
+        username: r.username,
+        avatarId: r.avatarId,
+        currentStreak: r.currentStreak,
+        imageUrl: r.imageUrl,
+        imageAsset: r.imageAsset,
+        recentBetCount: r.recentBetCount,
+        isCompleted: r.isCompleted,
+      );
+    }).toList();
+  }
 }

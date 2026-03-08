@@ -2,8 +2,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bet_event.dart';
 import 'bet_state.dart';
 import '../../../data/repositories/bet_repository.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/di/injection.dart';
+import '../../../domain/entities/stake_entity.dart';
+import '../../../domain/entities/bet_entity.dart';
 
-/// Scoped BLoC for the RunBetsSheet + PlaceBetModal flow.
+/// Scoped BLoC for the unified RunBetsSheet flow.
 ///
 /// Created inside the bottom sheet widget tree — no global lifetime needed.
 class BetBloc extends Bloc<BetEvent, BetState> {
@@ -16,7 +20,7 @@ class BetBloc extends Bloc<BetEvent, BetState> {
     on<BetTargetChanged>(_onTargetChanged);
     on<BetStakeSelected>(_onStakeSelected);
     on<BetPlaceRequested>(_onPlaceRequested);
-    on<BetCustomStakeCreated>(_onCustomStakeCreated);
+    on<BetPlaceWithCustomStakeRequested>(_onPlaceWithCustomStakeRequested);
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -33,12 +37,27 @@ class BetBloc extends Bloc<BetEvent, BetState> {
         _repository.getBetsForRun(event.runId),
       ]);
 
-      final stakes = results[0] as List;
-      final bets = results[1] as List;
+      final stakes = results[0] as List<StakeEntity>;
+      final bets = results[1] as List<BetEntity>;
+
+      // Dynamic preselection logic:
+      // - Self-bet: Find "Spa Access" (Gift)
+      // - Other: Find "Brunch Invite" (Plan)
+      String? preselectedStakeId;
+      try {
+        final targetTitle = event.isSelfBet ? 'Spa Access' : 'Brunch Invite';
+        final stake = stakes.firstWhere(
+          (s) => s.title.toLowerCase() == targetTitle.toLowerCase(),
+        );
+        preselectedStakeId = stake.id;
+      } catch (_) {
+        // Fallback: no preselection if titles don't match
+      }
 
       emit(BetReady(
         existingBets: List.unmodifiable(bets),
         stakes: List.unmodifiable(stakes),
+        selectedStakeId: preselectedStakeId,
         targetStreak: event.currentStreak + 7,
         currentStreak: event.currentStreak,
         isSelfBet: event.isSelfBet,
@@ -90,6 +109,7 @@ class BetBloc extends Bloc<BetEvent, BetState> {
 
     emit(current.copyWith(
       selectedStakeId: newId,
+      customStakeTitle: null, // Selecting a predefined stake clears any custom title.
       submitStatus: BetSubmitStatus.idle,
       errorMessage: null,
     ));
@@ -108,6 +128,7 @@ class BetBloc extends Bloc<BetEvent, BetState> {
         runId: current.runId,
         targetStreak: current.targetStreak,
         stakeId: current.selectedStakeId,
+        customStakeTitle: current.customStakeTitle,
         isSelfBet: current.isSelfBet,
       );
 
@@ -118,12 +139,17 @@ class BetBloc extends Bloc<BetEvent, BetState> {
         submitStatus: BetSubmitStatus.success,
         errorMessage: null,
       ));
+
+      // Contextual permission request: Ask if they want to be notified of the outcome!
+      getIt<NotificationService>().requestPermissions();
     } on BetValidationException catch (e) {
       emit(current.copyWith(
         submitStatus: BetSubmitStatus.error,
         errorMessage: e.userMessage,
       ));
     } catch (e) {
+      // ignore: avoid_print
+      print('[BetBloc] placeBet error: $e');
       emit(current.copyWith(
         submitStatus: BetSubmitStatus.error,
         errorMessage: 'Could not place bet. Please try again.',
@@ -131,43 +157,49 @@ class BetBloc extends Bloc<BetEvent, BetState> {
     }
   }
 
-  Future<void> _onCustomStakeCreated(
-    BetCustomStakeCreated event,
+  Future<void> _onPlaceWithCustomStakeRequested(
+    BetPlaceWithCustomStakeRequested event,
     Emitter<BetState> emit,
   ) async {
     final current = state;
     if (current is! BetReady) return;
 
-    // ── Deduplication: check in-memory cache first (zero Supabase calls)
-    final normalised = event.title.trim().toLowerCase();
-    final existing = current.stakes
-        .where((s) => s.title.toLowerCase() == normalised)
-        .firstOrNull;
+    // 1. Update state with the title and set status to submitting.
+    // Also clear selectedStakeId.
+    emit(current.copyWith(
+      customStakeTitle: event.title,
+      selectedStakeId: null,
+      submitStatus: BetSubmitStatus.submitting,
+    ));
 
-    if (existing != null) {
-      // Already exists — just select it, no network call needed.
-      emit(current.copyWith(
-        selectedStakeId: existing.id,
-        submitStatus: BetSubmitStatus.idle,
-        errorMessage: null,
-      ));
-      return;
-    }
-
-    // ── New stake: persist to Supabase
+    // 2. Perform same logic as _onPlaceRequested.
     try {
-      final stake = await _repository.createCustomStake(title: event.title);
-      final updatedStakes = [...current.stakes, stake];
+      final newBet = await _repository.placeBet(
+        runId: current.runId,
+        targetStreak: current.targetStreak,
+        stakeId: null, // Clear for custom
+        customStakeTitle: event.title,
+        isSelfBet: current.isSelfBet,
+      );
+
+      final updatedBets = [newBet, ...current.existingBets];
       emit(current.copyWith(
-        stakes: updatedStakes,
-        selectedStakeId: stake.id, // auto-select the new stake
-        submitStatus: BetSubmitStatus.idle,
+        existingBets: updatedBets,
+        submitStatus: BetSubmitStatus.success,
         errorMessage: null,
       ));
-    } catch (e) {
+
+      getIt<NotificationService>().requestPermissions();
+    } on BetValidationException catch (e) {
       emit(current.copyWith(
         submitStatus: BetSubmitStatus.error,
-        errorMessage: 'Could not create stake. Please try again.',
+        errorMessage: e.userMessage,
+      ));
+    } catch (e) {
+      print('[BetBloc] placeWithCustomStake error: $e');
+      emit(current.copyWith(
+        submitStatus: BetSubmitStatus.error,
+        errorMessage: 'Could not place bet. Please try again.',
       ));
     }
   }

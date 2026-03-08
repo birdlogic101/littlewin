@@ -1,18 +1,27 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
 import 'records_event.dart';
 import 'records_state.dart';
 import '../../../data/repositories/completed_runs_repository.dart';
+import '../../../data/repositories/runs_repository.dart';
+import '../../../domain/entities/active_run_entity.dart';
 
+@injectable
 class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
   final CompletedRunsRepository _completedRunsRepository;
+  final RunsRepository _runsRepository;
   StreamSubscription<dynamic>? _sub;
 
-  RecordsBloc({required CompletedRunsRepository completedRunsRepository})
-      : _completedRunsRepository = completedRunsRepository,
+  RecordsBloc({
+    required CompletedRunsRepository completedRunsRepository,
+    required RunsRepository runsRepository,
+  })  : _completedRunsRepository = completedRunsRepository,
+        _runsRepository = runsRepository,
         super(const RecordsState.initial()) {
     on<RecordsFetchRequested>(_onFetch);
     on<RecordsRunsUpdated>(_onRunsUpdated);
+    on<RecordsRestartChallengeRequested>(_onRestartChallenge);
   }
 
   Future<void> _onFetch(
@@ -39,6 +48,47 @@ class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
     Emitter<RecordsState> emit,
   ) async {
     emit(RecordsState.loaded(runs: event.runs));
+  }
+
+  Future<void> _onRestartChallenge(
+    RecordsRestartChallengeRequested event,
+    Emitter<RecordsState> emit,
+  ) async {
+    final now = DateTime.now().toUtc();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final newRun = ActiveRunEntity(
+      runId: 'run-${event.challengeSlug}-${now.millisecondsSinceEpoch}',
+      challengeId: event.challengeId,
+      challengeTitle: event.challengeTitle,
+      challengeSlug: event.challengeSlug,
+      currentStreak: 0,
+      startDate: today,
+      hasCheckedInToday: false,
+      lastCheckinDay: null,
+      imageAsset: event.imageAsset,
+      imageUrl: event.imageUrl,
+    );
+
+    if (_runsRepository.isChallengeActive(event.challengeSlug)) {
+      emit(const RecordsRestartAlreadyActive());
+    } else {
+      try {
+        await _runsRepository.addRun(newRun);
+        emit(const RecordsRestartSuccess());
+      } catch (e) {
+        final msg = e.toString();
+        if (msg.contains('ALREADY_JOINED')) {
+          emit(const RecordsRestartAlreadyActive());
+        } else {
+          emit(RecordsState.failure(message: 'Could not restart challenge: $msg'));
+        }
+      }
+    }
+
+    // Switch back to loaded state so the UI doesn't stay in success forever
+    emit(RecordsState.loaded(runs: _completedRunsRepository.allRuns));
   }
 
   @override

@@ -1,13 +1,17 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../domain/entities/explore_run_entity.dart';
 import '../../domain/entities/active_run_entity.dart';
 import '../../domain/entities/completed_run_entity.dart';
 import '../../domain/entities/bet_resolution_entity.dart';
 import '../../domain/entities/stake_entity.dart';
 
+import 'package:injectable/injectable.dart';
+
 /// Remote data source for all run-related Supabase operations.
 ///
 /// All methods throw a [PostgrestException] on server errors — callers are
 /// responsible for catching and converting to domain failures.
+@lazySingleton
 class RunRemoteDataSource {
   final SupabaseClient _client;
 
@@ -20,61 +24,116 @@ class RunRemoteDataSource {
   ///
   /// Returns a list of [ActiveRunEntity] ready to load into [RunsRepository].
   Future<List<ActiveRunEntity>> fetchMyRuns() async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return [];
+    final user = _client.auth.currentUser;
+    final userId = user?.id;
+    // ignore: avoid_print
+    print('🚀 [RunRemoteDataSource] fetchMyRuns started. Auth state: ${user != null ? 'Logged in ($userId)' : 'Not logged in'}');
+    
+    if (userId == null) {
+      // ignore: avoid_print
+      print('⚠️ [RunRemoteDataSource] No user ID, returning empty list');
+      return [];
+    }
 
-    // Fetch ongoing runs with challenge data joined.
-    // last_checkin_day is derived from the max(check_in_day_utc) in checkins.
-    final rows = await _client
-        .from('runs')
-        .select('''
-          id,
-          challenge_id,
-          current_streak,
-          start_date,
-          challenges!inner(title, slug),
-          checkins(check_in_day_utc)
-        ''')
-        .eq('user_id', userId)
-        .eq('status', 'ongoing')
-        .order('created_at');
+    return fetchUserRuns(userId);
+  }
 
-    final today = _todayUtc();
+  /// Fetches ongoing runs for a specific user.
+  Future<List<ActiveRunEntity>> fetchUserRuns(String userId) async {
+    try {
+      // ignore: avoid_print
+      print('🚀 [RunRemoteDataSource] querying runs for user $userId...');
+      final rows = await _client
+          .from('runs')
+          .select('''
+            id,
+            challenge_id,
+            current_streak,
+            start_date,
+            challenges!inner(title, slug),
+            checkins(check_in_day_utc),
+            bets(id)
+          ''')
+          .eq('user_id', userId)
+          .eq('status', 'ongoing')
+          .order('created_at')
+          .timeout(const Duration(seconds: 15));
 
-    return rows.map<ActiveRunEntity>((row) {
-      final runId = row['id'] as String;
-      final startDate = (row['start_date'] as String).substring(0, 10);
-      final challenge = row['challenges'] as Map<String, dynamic>;
+      final today = _todayUtc();
 
-      // Derive lastCheckinDay from all checkin rows for this run
-      final checkins = (row['checkins'] as List<dynamic>? ?? []);
-      final checkinDays = checkins
-          .map((c) => (c['check_in_day_utc'] as String).substring(0, 10))
-          .toList()
-        ..sort();
-      final lastCheckinDay = checkinDays.isNotEmpty ? checkinDays.last : null;
+      final runs = <ActiveRunEntity>[];
+      for (final row in rows) {
+        try {
+          runs.add(_mapActiveRun(row, today));
+        } catch (e) {
+          // ignore: avoid_print
+          print('[RunRemoteDataSource] row mapping error: $e');
+          // skip this single row if it's malformed
+        }
+      }
+      return runs;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[RunRemoteDataSource] fetchUserRuns fatal error: $e');
+      rethrow;
+    }
+  }
 
-      // hasCheckedInToday: true if the last checkin was today's UTC date
-      final hasCheckedInToday = lastCheckinDay == today;
+  ActiveRunEntity _mapActiveRun(Map<String, dynamic> row, String today) {
+    final runId = row['id'] as String;
+    // start_date is a date string 'yyyy-MM-dd' or ISO. 
+    // Use safe substring or fallback.
+    final rawStart = row['start_date']?.toString() ?? today;
+    final startDate = rawStart.length >= 10 
+        ? rawStart.substring(0, 10) 
+        : rawStart;
+    
+    final challenge = row['challenges'] as Map<String, dynamic>? ?? {};
+    final title = challenge['title']?.toString() ?? 'Unknown Challenge';
+    final slug = challenge['slug']?.toString() ?? 'unknown-slug';
 
-      return ActiveRunEntity(
-        runId: runId,
-        challengeId: row['challenge_id'] as String,
-        challengeTitle: challenge['title'] as String,
-        challengeSlug: challenge['slug'] as String,
-        currentStreak: row['current_streak'] as int,
-        startDate: startDate,
-        hasCheckedInToday: hasCheckedInToday,
-        lastCheckinDay: lastCheckinDay,
-      );
-    }).toList();
+    // Derive lastCheckinDay from all checkin rows for this run
+    final checkins = (row['checkins'] as List<dynamic>? ?? []);
+    final checkinDays = checkins
+        .map((c) {
+          final day = c['check_in_day_utc']?.toString();
+          return (day != null && day.length >= 10) 
+              ? day.substring(0, 10) 
+              : null;
+        })
+        .whereType<String>()
+        .toList()
+      ..sort();
+    
+    final lastCheckinDay = checkinDays.isNotEmpty ? checkinDays.last : null;
+    final hasCheckedInToday = lastCheckinDay == today;
+
+    // Count bets
+    final bets = (row['bets'] as List<dynamic>? ?? []);
+    final betCount = bets.length;
+
+    return ActiveRunEntity(
+      runId: runId,
+      challengeId: row['challenge_id'] as String? ?? '',
+      challengeTitle: title,
+      challengeSlug: slug,
+      currentStreak: row['current_streak'] as int? ?? 0,
+      startDate: startDate,
+      hasCheckedInToday: hasCheckedInToday,
+      lastCheckinDay: lastCheckinDay,
+      betCount: betCount,
+    );
   }
 
   /// Fetches the current user's completed runs.
   Future<List<CompletedRunEntity>> fetchMyCompletedRuns() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
+    return fetchUserCompletedRuns(userId);
+  }
 
+  /// Fetches completed runs for a specific user.
+  Future<List<CompletedRunEntity>> fetchUserCompletedRuns(String userId) async {
     final rows = await _client
         .from('runs')
         .select('''
@@ -89,54 +148,91 @@ class RunRemoteDataSource {
         .eq('status', 'completed')
         .order('updated_at', ascending: false);
 
-    return rows.map<CompletedRunEntity>((row) {
-      final challenge = row['challenges'] as Map<String, dynamic>;
-      // updated_at is set to now() when settled — use its date as endDate
-      final endDate =
-          (row['updated_at'] as String).substring(0, 10);
+    return rows.map<CompletedRunEntity>((row) => _mapCompletedRun(row)).toList();
+  }
 
-      return CompletedRunEntity(
-        runId: 'completed-${row['id']}',
-        challengeId: row['challenge_id'] as String,
-        challengeTitle: challenge['title'] as String,
-        challengeSlug: challenge['slug'] as String,
-        finalScore: (row['final_score'] as int?) ?? 0,
-        startDate: (row['start_date'] as String).substring(0, 10),
-        endDate: endDate,
-      );
-    }).toList();
+  CompletedRunEntity _mapCompletedRun(Map<String, dynamic> row) {
+    final challenge = row['challenges'] as Map<String, dynamic>;
+    // updated_at is set to now() when settled — use its date as endDate
+    final endDate = (row['updated_at'] as String).substring(0, 10);
+
+    return CompletedRunEntity(
+      runId: 'completed-${row['id']}',
+      challengeId: row['challenge_id'] as String,
+      challengeTitle: challenge['title'] as String,
+      challengeSlug: challenge['slug'] as String,
+      finalScore: (row['final_score'] as int?) ?? 0,
+      startDate: (row['start_date'] as String).substring(0, 10),
+      endDate: endDate,
+    );
+  }
+
+  /// Fetches a batch of runs for the Explore screen using the priority-based RPC.
+  Future<List<ExploreRunEntity>> fetchExploreFeed({
+    required int limit,
+    required int offset,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    try {
+      final rows = await _client.rpc('get_explore_feed', params: {
+        'p_user_id': userId,
+        'p_limit': limit,
+        'p_offset': offset,
+      }) as List<dynamic>;
+
+      return rows.map<ExploreRunEntity>((r) {
+        // The SQL aliases `image_asset` as `image_url` — these are local
+        // asset paths, so map to `imageAsset` for correct rendering.
+        return ExploreRunEntity(
+          runId: r['run_id'] as String,
+          challengeId: r['challenge_id'] as String,
+          challengeTitle: r['challenge_title'] as String,
+          challengeSlug: r['challenge_slug'] as String,
+          userId: r['user_id'] as String,
+          username: r['username'] as String,
+          avatarId: r['avatar_id'] as int?,
+          currentStreak: r['current_streak'] as int,
+          imageAsset: r['image_url'] as String?,
+          challengeDescription: r['challenge_description'] as String?,
+          recentBetCount: r['recent_bet_count'] as int? ?? 0,
+          isCompleted: r['is_completed'] as bool? ?? false,
+        );
+      }).toList();
+    } catch (e) {
+      // ignore: avoid_print
+      print('[RunRemoteDataSource] fetchExploreFeed error: $e');
+      rethrow;
+    }
+  }
+
+  /// Records a run dismissal to exclude it from the Explore feed for 14 days.
+  Future<void> dismissRun(String runId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final expiresAt =
+        DateTime.now().toUtc().add(const Duration(days: 14)).toIso8601String();
+
+    await _client.from('dismissed_runs').upsert({
+      'user_id': userId,
+      'run_id': runId,
+      'expires_at': expiresAt,
+    }, onConflict: 'user_id, run_id');
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
 
-  /// Creates a new ongoing run for the current user on [challengeId].
+  /// Creates a new ongoing run for the current user on [challengeId] atomically.
   ///
-  /// Returns the newly created run's UUID so [RunsRepository] can use it.
+  /// Calls the `join_challenge` RPC which handles the run insertion and
+  /// challenge participant increment in a single transaction.
+  ///
+  /// Returns the newly created run's UUID.
   Future<String> createRun({required String challengeId}) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) throw Exception('Not authenticated');
-
-    final today = _todayUtc();
-
-    final row = await _client
-        .from('runs')
-        .insert({
-          'challenge_id': challengeId,
-          'user_id': userId,
-          'start_date': today,
-          'current_streak': 0,
-          'status': 'ongoing',
-          'visibility': 'public',
-        })
-        .select('id')
-        .single();
-
-    // Increment challenge participant count
-    await _client.rpc('increment_participant_count', params: {
-      'cid': challengeId,
+    final result = await _client.rpc('join_challenge', params: {
+      'p_challenge_id': challengeId,
     });
-
-    return row['id'] as String;
+    return result as String;
   }
 
   /// Records a check-in for today on [runId] via the server-side RPC.
@@ -149,9 +245,11 @@ class RunRemoteDataSource {
   Future<BetResolutionEntity?> recordCheckin({
     required String runId,
     required String challengeTitle,
+    required String todayUtc,
   }) async {
     final result = await _client.rpc('perform_checkin', params: {
       'p_run_id': runId,
+      'p_day_utc': todayUtc,
     });
 
     // RPC returns: { new_streak: int, triggered_bets: [...] }
@@ -172,8 +270,9 @@ class RunRemoteDataSource {
         betId: b['id'] as String,
         bettorId: b['bettor_id'] as String,
         bettorUsername: b['bettor_username'] as String?,
-        bettorAvatarUrl: b['bettor_avatar_url'] as String?,
+        bettorAvatarId: b['bettor_avatar_id'] as int?,
         stakeTitle: b['stake_title'] as String?,
+        stakeId: b['stake_id'] as String?,
         stakeCategory: category,
         stakeEmoji: b['stake_emoji'] as String?,
         isSelfBet: b['is_self_bet'] as bool? ?? false,

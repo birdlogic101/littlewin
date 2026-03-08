@@ -32,6 +32,7 @@ class _MockBetRepository extends BetRepository {
     required String runId,
     required int targetStreak,
     String? stakeId,
+    String? customStakeTitle,
     required bool isSelfBet,
   }) async {
     if (placeBetError != null) throw placeBetError!;
@@ -105,8 +106,8 @@ void main() {
       final ready = states[1] as BetReady;
       expect(ready.stakes.length, 2);
       expect(ready.existingBets, isEmpty);
-      expect(ready.targetStreak, _currentStreak + 1);
-      expect(ready.maxStreak, _currentStreak + 90);
+      expect(ready.targetStreak, _currentStreak + 7);
+      expect(ready.maxStreak, 999);
     });
 
     test('populates existingBets when run has bets', () async {
@@ -123,7 +124,7 @@ void main() {
       final bloc = await _openedBloc();
       bloc.add(const BetTargetChanged(1));
       await Future.delayed(Duration.zero);
-      expect((bloc.state as BetReady).targetStreak, _currentStreak + 2);
+      expect((bloc.state as BetReady).targetStreak, _currentStreak + 8);
     });
 
     test('clamps to min (currentStreak + 1)', () async {
@@ -133,20 +134,20 @@ void main() {
       expect((bloc.state as BetReady).targetStreak, _currentStreak + 1);
     });
 
-    test('clamps to max (currentStreak + 90)', () async {
+    test('clamps to max (999)', () async {
       final bloc = await _openedBloc();
       bloc.add(const BetTargetChanged(1000));
       await Future.delayed(Duration.zero);
-      expect((bloc.state as BetReady).targetStreak, _currentStreak + 90);
+      expect((bloc.state as BetReady).targetStreak, 999);
     });
 
     test('decrements by 10 correctly', () async {
       final bloc = await _openedBloc();
-      bloc.add(const BetTargetChanged(20)); // set to +21
+      bloc.add(const BetTargetChanged(20)); // currentStreak + 7 + 20 = +27
       await Future.delayed(Duration.zero);
       bloc.add(const BetTargetChanged(-10));
       await Future.delayed(Duration.zero);
-      expect((bloc.state as BetReady).targetStreak, _currentStreak + 11);
+      expect((bloc.state as BetReady).targetStreak, _currentStreak + 17);
     });
   });
 
@@ -221,7 +222,7 @@ void main() {
       final ready = bloc.state as BetReady;
       // targetStreak starts at currentStreak + 1 → canPlace = true
       expect(ready.canPlace, isTrue);
-      expect(ready.targetStreak, _currentStreak + 1);
+      expect(ready.targetStreak, _currentStreak + 7);
     });
   });
 }
