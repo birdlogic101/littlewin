@@ -26,15 +26,20 @@ abstract class AuthRepository {
 
   Future<Either<Failure, void>> signOut();
 
-  Future<Either<Failure, UserEntity>> signInWithGoogle();
+  Future<Either<Failure, UserEntity>> upgradeToPremium();
+  
+  /// Signs in with Google. If [anonymousIdToMerge] is provided, data from
+  /// that account will be moved to the new Google account.
+  Future<Either<Failure, UserEntity>> signInWithGoogle({String? anonymousIdToMerge});
+
+  /// Explicitly merges data from an old anonymous account into the current one.
+  Future<Either<Failure, UserEntity>> mergeAnonymousData(String anonymousId);
 
   Future<Either<Failure, UserEntity>> linkWithGoogle();
 
   Future<Either<Failure, UserEntity>> getCurrentUser();
 
   Future<Either<Failure, UserEntity>> updateUsername(String username);
-
-  Future<Either<Failure, UserEntity>> upgradeToPremium();
 
   Stream<UserEntity?> get userStream;
 }

@@ -30,17 +30,23 @@ class BetRepository {
   /// Falls back to [_mockStakes] if the datasource is unavailable.
   Future<List<StakeEntity>> getStakes() async {
     if (_cachedStakes != null) return _cachedStakes!;
+    
+    List<StakeEntity>? result;
     if (_datasource != null) {
       try {
-        _cachedStakes = await _datasource.fetchStakes();
-        return _cachedStakes!;
+        result = await _datasource.fetchStakes();
       } catch (e) {
         // ignore: avoid_print
-        print('[BetRepository] fetchStakes error (non-fatal): $e');
+        print('[BetRepository] fetchStakes error: $e');
       }
     }
-    // Fallback to mock when Supabase is unavailable
-    _cachedStakes = _mockStakes();
+    
+    // Fallback to defaults if DB is empty or fails
+    if (result == null || result.isEmpty) {
+      result = _mockStakes();
+    }
+    
+    _cachedStakes = result;
     return _cachedStakes!;
   }
 
@@ -50,13 +56,7 @@ class BetRepository {
   /// Returns empty list if the datasource is unavailable.
   Future<List<BetEntity>> getBetsForRun(String runId) async {
     if (_datasource == null) return [];
-    try {
-      return await _datasource.fetchBetsForRun(runId);
-    } catch (e) {
-      // ignore: avoid_print
-      print('[BetRepository] fetchBetsForRun error (non-fatal): $e');
-      return [];
-    }
+    return await _datasource.fetchBetsForRun(runId);
   }
 
   // No longer needed as custom stakes are one-time and non-persistent.

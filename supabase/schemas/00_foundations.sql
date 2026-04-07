@@ -87,7 +87,8 @@ create table if not exists public.runs (
   status run_status default 'ongoing' not null,
   created_at timestamp with time zone default now() not null,
   updated_at timestamp with time zone default now() not null,
-  recent_bet_count int default 0 not null
+  recent_bet_count int default 0 not null,
+  last_checkin_day date -- denormalized for performance
 );
 alter table public.runs enable row level security;
 create index if not exists runs_user_id_idx on public.runs (user_id);
@@ -107,6 +108,15 @@ create table if not exists public.checkins (
 alter table public.checkins enable row level security;
 create index if not exists checkins_run_id_idx on public.checkins (run_id);
 create index if not exists checkins_check_in_day_utc_idx on public.checkins (check_in_day_utc);
+
+-- Maintenance: and Ensure the new last_checkin_day column is populated for existing runs.
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_name='runs' and column_name='last_checkin_day') then
+    alter table public.runs add column last_checkin_day date;
+    update public.runs r set last_checkin_day = (select max(check_in_day_utc) from public.checkins c where c.run_id = r.id);
+  end if;
+end $$;
 
 -- 2.5 stakes
 create table if not exists public.stakes (
@@ -166,7 +176,8 @@ create table if not exists public.follows (
   follower_id uuid references public.users(id) on delete cascade not null,
   followed_id uuid references public.users(id) on delete cascade not null,
   created_at timestamp with time zone default now() not null,
-  unique(follower_id, followed_id)
+  unique(follower_id, followed_id),
+  check (follower_id != followed_id)
 );
 alter table public.follows enable row level security;
 create index if not exists follows_follower_id_idx on public.follows (follower_id);
@@ -349,3 +360,47 @@ grant usage on schema public to authenticated, anon;
 grant all on all tables in schema public to authenticated;
 grant all on all sequences in schema public to authenticated;
 grant all on all functions in schema public to authenticated;
+
+-- 6. Row Level Security (RLS) Policies
+-- Essential for enabling client-side joined queries!
+
+-- 6.1 Users
+create policy "Users can read all profiles" on public.users
+  for select using (true);
+create policy "Users can update their own profile" on public.users
+  for update using (auth.uid() = id);
+
+-- 6.2 Challenges
+create policy "Challenges are readable by all" on public.challenges
+  for select using (true);
+
+-- 6.3 Runs
+create policy "Runs are readable by all" on public.runs
+  for select using (true);
+create policy "Users can update their own runs" on public.runs
+  for update using (auth.uid() = user_id);
+
+-- 6.4 Stakes
+create policy "Stakes are readable by all" on public.stakes
+  for select using (true);
+
+-- 6.5 Bets
+create policy "Bets are readable by all" on public.bets
+  for select using (true);
+create policy "Users can place bets" on public.bets
+  for insert with check (auth.uid() = bettor_id);
+
+-- 7. Seed Default Stakes
+insert into public.stakes (id, title, category, emoji)
+values
+  ('a0000000-0000-0000-0000-000000000001', 'Coffee Cup', 'plan', '☕'),
+  ('a0000000-0000-0000-0000-000000000002', 'Brunch Invite', 'plan', '🥐'),
+  ('a0000000-0000-0000-0000-000000000003', 'Restaurant Dinner', 'plan', '🍽️'),
+  ('a0000000-0000-0000-0000-000000000004', 'Drinks Round', 'plan', '🍻'),
+  ('a0000000-0000-0000-0000-000000000005', 'Cinema Night', 'plan', '🍿'),
+  ('a0000000-0000-0000-0000-000000000006', 'Chocolate Box', 'gift', '🍫'),
+  ('a0000000-0000-0000-0000-000000000007', 'Wine Bottle', 'gift', '🍷'),
+  ('a0000000-0000-0000-0000-000000000008', 'Spa Access', 'gift', '🧘'),
+  ('a0000000-0000-0000-0000-000000000009', 'Massage Session', 'gift', '💆'),
+  ('a0000000-0000-0000-0000-00000000000a', 'Surprise Box', 'gift', '🎁')
+on conflict (id) do nothing;

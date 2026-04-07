@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'checkin_event.dart';
 import 'checkin_state.dart';
 import '../../../data/repositories/runs_repository.dart';
+import '../../../domain/entities/active_run_entity.dart';
 
 @injectable
 class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
@@ -18,6 +19,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     on<CheckinRunsUpdated>(_onRunsUpdated);
     on<DayRolloverDetected>(_onDayRollover);
     on<CheckinResolutionCleared>(_onResolutionCleared);
+    on<CheckinRunBetPlaced>(_onRunBetPlaced);
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -28,7 +30,14 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   ) async {
     // ignore: avoid_print
     print('[CheckinBloc] _onFetch started');
-    emit(const CheckinState.loading());
+
+    // Only flash the loading spinner on the very first load.
+    // On subsequent fetches (midnight tick, bet-sheet close, etc.) keep the
+    // current runs visible to avoid a disruptive spinner flash.
+    if (state is! CheckinLoaded) {
+      emit(const CheckinState.loading());
+    }
+
     try {
       // Guard: if the UTC day rolled over while the app was in the background
       // (or killed + restored), any run with hasCheckedInToday=true but
@@ -41,10 +50,14 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       print('[CheckinBloc] emitting loaded with ${runs.length} runs');
       emit(CheckinState.loaded(runs: runs));
 
-      await _runsSub?.cancel();
-      _runsSub = _runsRepository.stream.listen((updatedRuns) {
-        if (!isClosed) add(CheckinRunsUpdated(runs: updatedRuns));
-      });
+      // Only (re-)subscribe if we don't already have an active subscription.
+      // This prevents tearing down and rebuilding the stream on every re-fetch,
+      // which could lose in-flight CheckinRunsUpdated events.
+      if (_runsSub == null) {
+        _runsSub = _runsRepository.stream.listen((updatedRuns) {
+          if (!isClosed) add(CheckinRunsUpdated(runs: updatedRuns));
+        });
+      }
     } catch (e) {
       // ignore: avoid_print
       print('[CheckinBloc] fetch error: $e');
@@ -79,6 +92,9 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     final run = _runsRepository.activeRuns
         .where((r) => r.runId == event.runId)
         .firstOrNull;
+    // Guard: run must exist and must not already be checked in.
+    // The repository's checkin() also guards, but we bail early here to
+    // avoid the unnecessary async round-trip and optimistic emit.
     if (run == null || run.hasCheckedInToday) return;
 
     // 1. Trigger the update (synchronous part happens immediately)
@@ -118,6 +134,29 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     final current = state;
     if (current is! CheckinLoaded) return;
     emit(CheckinState.loaded(runs: current.runs));
+  }
+
+  void _onRunBetPlaced(
+    CheckinRunBetPlaced event,
+    Emitter<CheckinState> emit,
+  ) {
+    final current = state;
+    if (current is! CheckinLoaded) return;
+
+    final run = current.runs.where((r) => r.runId == event.runId).firstOrNull;
+    if (run == null) return;
+
+    // Update the central repository so the change persists across refreshes
+    final updatedRun = run.copyWith(betCount: run.betCount + 1);
+    _runsRepository.updateRun(updatedRun);
+    
+    // Optimistic immediate update to the UI
+    final newRuns = List<ActiveRunEntity>.from(current.runs);
+    final idx = newRuns.indexWhere((r) => r.runId == event.runId);
+    if (idx != -1) {
+      newRuns[idx] = updatedRun;
+    }
+    emit(CheckinState.loaded(runs: newRuns));
   }
 
   @override

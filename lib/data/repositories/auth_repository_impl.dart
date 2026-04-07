@@ -94,9 +94,30 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, UserEntity>> signInWithGoogle() async {
+  Future<Either<Failure, UserEntity>> signInWithGoogle({String? anonymousIdToMerge}) async {
     try {
+      // 1. Authenticate with Google (replaces session)
       final user = await remoteDataSource.signInWithGoogle();
+
+      // 2. If we have an anonymous ID to merge, trigger the RPC
+      if (anonymousIdToMerge != null) {
+        print('AuthRepository: Merging anonymous data ($anonymousIdToMerge) into new account (${user.id})');
+        final mergedUser = await remoteDataSource.mergeAnonymousData(anonymousIdToMerge);
+        return Right(mergedUser);
+      }
+
+      return Right(user);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserEntity>> mergeAnonymousData(String anonymousId) async {
+    try {
+      final user = await remoteDataSource.mergeAnonymousData(anonymousId);
       return Right(user);
     } on Failure catch (e) {
       return Left(e);

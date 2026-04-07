@@ -118,6 +118,30 @@ class RunsRepository {
     _controller.add(List.unmodifiable(_runs));
   }
 
+  /// High-level method to join a challenge by ID.
+  /// Handles temporary entity creation and RPC trigger.
+  Future<void> joinChallenge(
+    String challengeId, {
+    String title = 'Joining...',
+    String slug = '',
+    String? imageAsset,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final today = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final tempRun = ActiveRunEntity(
+      runId: 'temp-$challengeId-${now.millisecondsSinceEpoch}',
+      challengeId: challengeId,
+      challengeTitle: title,
+      challengeSlug: slug.isNotEmpty ? slug : 'joining-$challengeId',
+      currentStreak: 0,
+      startDate: today,
+      hasCheckedInToday: false,
+    );
+
+    await addRun(tempRun);
+  }
+
   /// Manually injects a run into the local list (e.g. after a challenge is 
   /// created on the server and returned with its run ID).
   void injectRun(ActiveRunEntity run) {
@@ -174,22 +198,36 @@ class RunsRepository {
     if (idx == -1) return null;
 
     final run = _runs[idx];
+
+    // Defense-in-depth: never double-check-in. The BLoC guards this too, but
+    // the repository must be the authoritative gate since it owns the state.
+    if (run.hasCheckedInToday) {
+      // ignore: avoid_print
+      print('[RunsRepository] checkin ignored: $runId already checked in today.');
+      return null;
+    }
+
     final today = _todayUtc();
     final yesterday = dayBefore(today);
 
     // Guard: if the user missed the window, they can't check in anymore.
     // The run should have been processCompletions-ed, but if the UI is stale,
     // we catch it here.
-    if (run.startDate != today && run.lastCheckinDay != yesterday) {
+    //
+    // A run is expired only if it has a prior check-in AND that check-in is
+    // older than yesterday (meaning at least one full UTC day was skipped).
+    // A null lastCheckinDay means "never checked in yet" which is always valid
+    // — it covers both Day-1 runs AND runs started earlier that were never
+    // touched (the latter will have been cleared by processCompletions already,
+    // so we should rarely reach this branch with a stale null, but we must not
+    // reject it).
+    final hasExpiredStreak = run.lastCheckinDay != null &&
+        run.lastCheckinDay != today &&
+        run.lastCheckinDay != yesterday;
+    if (hasExpiredStreak) {
       // ignore: avoid_print
-      print('[RunsRepository] checkin refused: run $runId has expired.');
-      // Force a completion pass if we hadn't already
-      if (idx != -1) {
-         // This is a bit of a hack to re-run it, but since we are lazy singleton
-         // we might need to be passed the repo or just use an internal method.
-         // For now, we just refuse the check-in and let the next sync fix it.
-         return null; 
-      }
+      print('[RunsRepository] checkin refused: run $runId has expired (lastCheckinDay=${run.lastCheckinDay}).');
+      return null;
     }
 
     // Optimistic update
@@ -205,16 +243,31 @@ class RunsRepository {
     // Persist to Supabase via RPC
     if (_datasource != null) {
       try {
-        return await _datasource.recordCheckin(
+        final resolution = await _datasource.recordCheckin(
           runId: runId,
           challengeTitle: run.challengeTitle,
           todayUtc: today,
         );
+        
+        // Success: the server might have changed the streak (redundant checkin return)
+        // or resolved bets. If we get a resolution, it means the server 
+        // authoritative state is now in our hands.
+        if (resolution != null) {
+          final updatedRun = _runs[idx].copyWith(
+            currentStreak: resolution.newStreak,
+            hasCheckedInToday: true,
+            lastCheckinDay: today,
+          );
+          _runs[idx] = updatedRun;
+          _controller.add(List.unmodifiable(_runs));
+        }
+        
+        return resolution;
       } catch (e) {
         // ignore: avoid_print
-        print('[RunsRepository] recordCheckin error: $e');
+        print('❌ [RunsRepository] recordCheckin failed for $runId: $e');
         
-        // REVERT: Replace with original state on failure
+        // REVERT: Replace with original state on failure so the UI pops back
         final currentIdx = _runs.indexWhere((r) => r.runId == runId);
         if (currentIdx != -1) {
           _runs[currentIdx] = originalRun;
@@ -258,7 +311,6 @@ class RunsRepository {
       // ── Day-1 rule ─────────────────────────────────────────────────────────
       // The run started today: first eligible check-in is today, nothing missed.
       if (run.startDate == todayUtc) {
-        _runs[i] = run.copyWith(hasCheckedInToday: false);
         continue;
       }
 
@@ -269,16 +321,16 @@ class RunsRepository {
         continue;
       }
 
+      // If already checked in today (e.g. just performed check-in and re-synced),
+      // the run is definitely alive and should NOT be processed as missed.
+      if (run.lastCheckinDay == todayUtc) {
+        continue;
+      }
+
       // ── Missed run ─────────────────────────────────────────────────────────
       // Covers:
       //   • lastCheckinDay == null AND startDate < todayUtc (never checked in)
-      //   • lastCheckinDay is older than yesterday (multi-day gap / traveller)
-      //
-      // finalScore = currentStreak at the point of failure:
-      //   • 0 if the user never checked in
-      //   • last consecutive streak if they fell off later
-      //
-      // endDate = yesterday (the last day that *should* have had a check-in).
+      //   • lastCheckinDay is older than yesterday (multi-day gap)
       completedRepo.addRun(
         CompletedRunEntity(
           runId: 'completed-${run.runId}-$yesterday',

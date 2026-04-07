@@ -33,17 +33,17 @@ class RunRecordCard extends StatelessWidget {
         horizontal: LWSpacing.lg,
         vertical: LWSpacing.xs,
       ),
-      padding: const EdgeInsets.all(LWSpacing.md),
+      padding: const EdgeInsets.all(12), // Aligned with RunActiveCard
       decoration: BoxDecoration(
         color: lw.backgroundCard,
-        borderRadius: BorderRadius.circular(LWRadius.md),
+        borderRadius: BorderRadius.circular(LWRadius.lg), // Matching RunActiveCard
         border: Border.all(color: lw.borderSubtle, width: 1),
       ),
       child: Row(
         children: [
           PngStreakRing(
             streak: record.bestScore,
-            size: LWComponents.streakRing.diameterMd,
+            size: 50, // Standardized size
             numberColor: lw.contentPrimary,
           ),
           const SizedBox(width: LWSpacing.md),
@@ -58,27 +58,43 @@ class RunRecordCard extends StatelessWidget {
                 children: [
                   Text(
                     record.challengeTitle,
-                    style: LWTypography.regularNormalBold
-                        .copyWith(color: lw.contentPrimary),
+                    style: LWTypography.regularNoneRegular.copyWith(
+                      color: LWColors.inkBase,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(
-                    height: 20,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.list_rounded,
-                          size: 16,
-                          color: lw.contentSecondary.withOpacity(0.7),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${record.runCount} ${record.runCount == 1 ? 'run' : 'runs'}',
-                          style: LWTypography.smallNormalRegular
-                              .copyWith(color: lw.contentSecondary),
-                        ),
-                      ],
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: onViewHistory,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: LWColors.skyLightest,
+                        borderRadius: BorderRadius.circular(LWRadius.pill),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LwIcon(
+                            'misc_list_dropdown',
+                            size: 14,
+                            color: lw.contentSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${record.runCount}',
+                            style: LWTypography.smallNoneBold.copyWith(
+                              color: lw.contentSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -90,15 +106,16 @@ class RunRecordCard extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _IconBtn(
-                semanticLabel: 'More actions',
-                iconData: Icons.more_vert_rounded,
-                onTap: () {
-                  // TODO: implement more actions menu
-                },
-                color: lw.contentSecondary,
+              IconButton(
+                onPressed: () {}, // TODO: implement more actions menu
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  size: 20,
+                  color: lw.contentSecondary.withValues(alpha: 0.6),
+                ),
+                splashRadius: 20,
               ),
-              const SizedBox(width: LWSpacing.md),
+              const SizedBox(width: LWSpacing.xs),
               _RetryButton(onTap: onRetry),
             ],
           ),
@@ -121,11 +138,11 @@ class _RetryButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 36,
-          height: 36,
+          width: 24, // Aligned with Check-in toggle weight
+          height: 24,
           decoration: BoxDecoration(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: lw.borderStrong,
               width: 1.5,
@@ -134,7 +151,7 @@ class _RetryButton extends StatelessWidget {
           alignment: Alignment.center,
           child: Icon(
             Icons.refresh_rounded,
-            size: 20,
+            size: 16, // Proportional to 24x24 container
             color: lw.contentSecondary.withOpacity(0.8),
           ),
         ),

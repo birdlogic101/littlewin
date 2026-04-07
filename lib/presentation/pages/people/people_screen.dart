@@ -77,9 +77,8 @@ class _PeopleScreenState extends State<PeopleScreen>
                 color: lw.backgroundApp,
                 child: TabBar(
                   controller: _tabController,
-                  labelStyle: LWTypography.regularNormalBold.copyWith(fontSize: 16),
-                  unselectedLabelStyle:
-                      LWTypography.regularNormalRegular.copyWith(fontSize: 16),
+                  labelStyle: LWTypography.regularNoneBold,
+                  unselectedLabelStyle: LWTypography.regularNoneRegular,
                   labelColor: lw.contentPrimary,
                   unselectedLabelColor: lw.contentSecondary,
                   indicatorColor: lw.contentPrimary,
@@ -112,9 +111,11 @@ class _PeopleScreenState extends State<PeopleScreen>
                       onChanged: (q) => context
                           .read<PeopleBloc>()
                           .add(PeopleSearchChanged(query: q)),
+                      style: LWTypography.smallTightRegular
+                          .copyWith(color: lw.contentPrimary),
                       decoration: InputDecoration(
                         hintText: 'Search...',
-                        hintStyle: LWTypography.regularNormalRegular
+                        hintStyle: LWTypography.smallTightRegular
                             .copyWith(color: lw.contentSecondary),
                         filled: true,
                         fillColor: lw.backgroundSurface,
@@ -246,7 +247,7 @@ class _EmptyView extends StatelessWidget {
               hasQuery
                   ? 'Try a different username.'
                   : 'Follow people to see them here.',
-              style: LWTypography.regularNormalRegular
+              style: LWTypography.regularNoneRegular
                   .copyWith(color: lw.contentSecondary),
               textAlign: TextAlign.center,
             ),
@@ -287,11 +288,11 @@ class _ErrorView extends StatelessWidget {
             Icon(Icons.wifi_off_rounded, size: 48, color: lw.contentSecondary),
             const SizedBox(height: LWSpacing.lg),
             Text('Could not load users.',
-                style: LWTypography.regularNormalBold
+                style: LWTypography.regularNoneBold
                     .copyWith(color: lw.contentPrimary)),
             const SizedBox(height: LWSpacing.sm),
             Text(message,
-                style: LWTypography.smallNormalRegular
+                style: LWTypography.smallTightRegular
                     .copyWith(color: lw.contentSecondary),
                 textAlign: TextAlign.center,
                 maxLines: 3),

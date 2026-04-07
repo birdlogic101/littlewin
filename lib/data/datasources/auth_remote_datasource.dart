@@ -40,8 +40,11 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> signInWithGoogle();
 
   Future<UserModel> linkWithGoogle();
-  
+
   Future<void> updateFcmToken(String? token);
+  
+  /// Merges data from an old anonymous account into the current one.
+  Future<UserModel> mergeAnonymousData(String anonymousId);
 
   Stream<UserModel?> get userStream;
 }
@@ -370,6 +373,28 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           .eq('id', user.id);
     } catch (e) {
       debugPrint('AuthRemoteDataSource: Failed to update FCM token: $e');
+    }
+  }
+
+  @override
+  Future<UserModel> mergeAnonymousData(String anonymousId) async {
+    try {
+      final user = supabaseClient.auth.currentUser;
+      if (user == null) throw const ServerFailure('Not authenticated');
+
+      print('AuthRemoteDataSource: Merging anonymous data from $anonymousId into ${user.id}');
+      
+      // 1. Call the merge RPC
+      await supabaseClient.rpc('merge_anonymous_account', params: {
+        'p_anonymous_id': anonymousId,
+      });
+
+      // 2. Fetch the updated profile
+      return await _getUserProfileWithRetry(user);
+    } on AuthException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw ServerFailure(e.toString());
     }
   }
 

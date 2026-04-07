@@ -10,6 +10,8 @@ import '../../../core/di/injection.dart';
 @injectable
 class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
   final PeopleRepository _repository;
+  /// Tracks user IDs that have a follow/unfollow request in flight.
+  final Set<String> _pendingToggles = {};
 
   PeopleBloc({required PeopleRepository repository})
       : _repository = repository,
@@ -26,10 +28,14 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
     PeopleFetchRequested event,
     Emitter<PeopleState> emit,
   ) async {
-    emit(const PeopleState.loading());
+    final current = state is PeopleLoaded ? (state as PeopleLoaded) : null;
+    
+    // Skip full-screen loading if we already have data (prevents flickering on refresh)
+    if (current == null) {
+      emit(const PeopleState.loading());
+    }
+
     try {
-      final current =
-          state is PeopleLoaded ? (state as PeopleLoaded) : null;
       final activeTab = current?.activeTab ?? PeopleTab.followed;
 
       final results = await Future.wait([
@@ -41,10 +47,16 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
         followedUsers: results[0],
         followersUsers: results[1],
         activeTab: activeTab,
-        query: '',
+        query: current?.query ?? '',
       ));
     } catch (e) {
-      emit(PeopleState.failure(message: e.toString()));
+      if (current == null) {
+        emit(PeopleState.failure(message: e.toString()));
+      } else {
+        // If we already have data, just log and keep current state
+        // ignore: avoid_print
+        print('[PeopleBloc] Refresh error: $e');
+      }
     }
   }
 
@@ -65,33 +77,34 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
     Emitter<PeopleState> emit,
   ) async {
     final currentState = state;
+    if (currentState is! PeopleLoaded) return;
     
-    // We need some context to do optimistic updates, but we should always trigger the repo call.
-    // If we're loading, we might still have a "previous" loaded state if we use a different pattern,
-    // but here we'll just try to work with PeopleLoaded if it exists.
-    
-    bool isCurrentlyFollowing = false;
-    
-    if (currentState is PeopleLoaded) {
+    // Guard: ignore if a request for this user is already in flight
+    if (_pendingToggles.contains(event.userId)) return;
+    _pendingToggles.add(event.userId);
+
+    try {
+      bool isCurrentlyFollowing = false;
       final target = currentState.followedUsers
           .where((u) => u.userId == event.userId)
           .firstOrNull;
+      
       isCurrentlyFollowing = target?.isFollowing ??
           currentState.followersUsers
               .where((u) => u.userId == event.userId)
               .firstOrNull
               ?.isFollowing ??
           false;
-
+  
       // Optimistic toggle on both lists
       PeopleUserEntity toggle(PeopleUserEntity u) =>
           u.userId == event.userId
               ? u.copyWith(isFollowing: !u.isFollowing)
               : u;
-
+  
       List<PeopleUserEntity> newFollowed = currentState.followedUsers.map(toggle).toList();
       List<PeopleUserEntity> newFollowers = currentState.followersUsers.map(toggle).toList();
-
+  
       // If we are following a NEW person (not in our lists yet), and the object was provided
       if (!isCurrentlyFollowing && event.user != null) {
         final alreadyInFollowed = newFollowed.any((u) => u.userId == event.userId);
@@ -99,31 +112,27 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
           newFollowed.insert(0, event.user!.copyWith(isFollowing: true));
         }
       }
-
+  
       emit(currentState.copyWith(
         followedUsers: newFollowed,
         followersUsers: newFollowers,
       ));
-    } else {
-      // If not loaded, we can't do an optimistic UI update easily in this state model,
-      // but we still want to trigger the follow action.
-      // We assume if it's from search, it's likely a fresh follow.
-      isCurrentlyFollowing = false; 
-    }
-
-    try {
+  
       if (isCurrentlyFollowing) {
         await _repository.unfollow(event.userId);
       } else {
         await _repository.follow(event.userId);
-        // Contextual permission request
         getIt<NotificationService>().requestPermissions();
       }
+      
+      // Post-action refresh to get accurate run counts etc.
+      add(const PeopleFetchRequested());
     } catch (e) {
-      // Revert or show error if needed; for now we just log/refresh
+      // Revert optimistic update on error.
+      // Easiest is to just fetch fresh state.
+      add(const PeopleFetchRequested());
+    } finally {
+      _pendingToggles.remove(event.userId);
     }
-
-    // Refresh to get accurate run counts and sync lists
-    add(const PeopleFetchRequested());
   }
 }

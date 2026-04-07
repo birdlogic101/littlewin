@@ -46,6 +46,7 @@ class AppTheme {
 
     appBarTheme: AppBarTheme(
       backgroundColor: LWColors.skyWhite,
+      surfaceTintColor: Colors.transparent,
       elevation: LWElevation.none,
       centerTitle: true,
       iconTheme: const IconThemeData(color: LWColors.inkDarkest),
@@ -186,6 +187,7 @@ class AppTheme {
 
     appBarTheme: AppBarTheme(
       backgroundColor: LWColors.inkDarkest,
+      surfaceTintColor: Colors.transparent,
       elevation: LWElevation.none,
       centerTitle: true,
       iconTheme: const IconThemeData(color: LWColors.skyWhite),

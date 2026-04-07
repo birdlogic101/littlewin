@@ -123,9 +123,27 @@ class _CheckinScreenState extends State<CheckinScreen>
 
     return BlocConsumer<CheckinBloc, CheckinState>(
       // Show BetWonModal whenever a check-in triggers won bets.
+      // Also clear any in-progress exit animation if the RPC fails (so the
+      // card is not stuck in the exiting state after a network rollback).
       listenWhen: (prev, curr) =>
-          curr is CheckinLoaded && curr.pendingResolution != null,
+          (curr is CheckinLoaded && curr.pendingResolution != null) ||
+          (curr is CheckinFailure),
       listener: (ctx, state) async {
+        if (state is CheckinFailure) {
+          // RPC failed — revert optimistic exit animation and show error
+          if (_exiting.isNotEmpty) setState(() => _exiting.clear());
+
+          ScaffoldMessenger.of(ctx)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text('Check-in failed: ${state.message}'),
+                backgroundColor: lw.feedbackNegative, // error color
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          return;
+        }
         if (state is! CheckinLoaded || state.pendingResolution == null) return;
         final resolution = state.pendingResolution!;
         // Clear the resolution flag before awaiting so it won't re-trigger.
@@ -134,7 +152,7 @@ class _CheckinScreenState extends State<CheckinScreen>
       },
       builder: (context, state) {
         return ColoredBox(
-          color: lw.backgroundSurface,
+          color: lw.backgroundApp,
           child: switch (state) {
             CheckinInitial() || CheckinLoading() => const _LoadingView(),
             CheckinFailure(:final message) => _ErrorView(message: message),
@@ -178,9 +196,8 @@ class _LoadedView extends StatelessWidget {
           color: lw.backgroundApp,
           child: TabBar(
             controller: tabController,
-            labelStyle: LWTypography.regularNormalBold.copyWith(fontSize: 16),
-            unselectedLabelStyle:
-                LWTypography.regularNormalRegular.copyWith(fontSize: 16),
+            labelStyle: LWTypography.regularNoneBold,
+            unselectedLabelStyle: LWTypography.regularNoneRegular,
             labelColor: lw.contentPrimary,
             unselectedLabelColor: lw.contentSecondary,
             indicatorColor: lw.contentPrimary,
@@ -213,7 +230,9 @@ class _LoadedView extends StatelessWidget {
         ? runs
             .where((r) => !r.hasCheckedInToday || exiting.contains(r.runId))
             .toList()
-        : runs.where((r) => r.hasCheckedInToday).toList();
+        : runs
+            .where((r) => r.hasCheckedInToday && !exiting.contains(r.runId))
+            .toList();
 
     return Column(
       children: [
@@ -246,8 +265,15 @@ class _LoadedView extends StatelessWidget {
                             isSelfBet: true,
                             startInPlaceMode: run.betCount == 0,
                             betRepository: betRepository,
+                            onBetPlaced: () {
+                              if (context.mounted) {
+                                context
+                                    .read<CheckinBloc>()
+                                    .add(CheckinRunBetPlaced(runId: run.runId));
+                              }
+                            },
                           );
-                          // Refresh counts when returning
+                          // Full refresh on close for safety (server sync)
                           if (context.mounted) {
                             context
                                 .read<CheckinBloc>()

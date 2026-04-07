@@ -17,68 +17,40 @@ class PeopleRepository {
   // ── Reads ──────────────────────────────────────────────────────────────────
 
   Future<List<PeopleUserEntity>> getFollowed() async {
-    if (_datasource == null) return _mockFollowed();
-    try {
-      return await _datasource.fetchFollowed();
-    } catch (e) {
-      // ignore: avoid_print
-      print('[PeopleRepository] fetchFollowed error: $e');
-      return _mockFollowed();
-    }
+    if (_datasource == null) return [];
+    return await _datasource.fetchFollowed();
   }
 
   Future<List<PeopleUserEntity>> getFollowers() async {
-    if (_datasource == null) return _mockFollowers();
-    try {
-      final followers = await _datasource.fetchFollowers();
-      // Enrich: mark those we also follow back
-      final followedIds = await _datasource.fetchFollowedIds();
-      return followers
-          .map((u) => u.copyWith(isFollowing: followedIds.contains(u.userId)))
-          .toList();
-    } catch (e) {
-      // ignore: avoid_print
-      print('[PeopleRepository] fetchFollowers error: $e');
-      return _mockFollowers();
-    }
+    if (_datasource == null) return [];
+    final followers = await _datasource.fetchFollowers();
+    // Enrich: mark those we also follow back
+    final followedIds = await _datasource.fetchFollowedIds();
+    return followers
+        .map((u) => u.copyWith(isFollowing: followedIds.contains(u.userId)))
+        .toList();
   }
 
   /// Searches for users by username and marks which ones the caller follows.
   Future<List<PeopleUserEntity>> searchUsers(String query) async {
-    if (_datasource == null) return _mockSearch(query);
-    try {
-      final results = await _datasource.searchUsers(query);
-      final followedIds = await _datasource.fetchFollowedIds();
-      return results
-          .map((u) => u.copyWith(isFollowing: followedIds.contains(u.userId)))
-          .toList();
-    } catch (e) {
-      // ignore: avoid_print
-      print('[PeopleRepository] searchUsers error: $e');
-      return [];
-    }
+    if (_datasource == null) return [];
+    final results = await _datasource.searchUsers(query);
+    final followedIds = await _datasource.fetchFollowedIds();
+    return results
+        .map((u) => u.copyWith(isFollowing: followedIds.contains(u.userId)))
+        .toList();
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
 
   Future<void> follow(String userId) async {
     if (_datasource == null) return;
-    try {
-      await _datasource.follow(userId);
-    } catch (e) {
-      // ignore: avoid_print
-      print('[PeopleRepository] follow error: $e');
-    }
+    await _datasource.follow(userId);
   }
 
   Future<void> unfollow(String userId) async {
     if (_datasource == null) return;
-    try {
-      await _datasource.unfollow(userId);
-    } catch (e) {
-      // ignore: avoid_print
-      print('[PeopleRepository] unfollow error: $e');
-    }
+    await _datasource.unfollow(userId);
   }
 
   // ── Mock data ──────────────────────────────────────────────────────────────

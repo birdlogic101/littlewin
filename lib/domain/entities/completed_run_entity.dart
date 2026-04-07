@@ -49,4 +49,28 @@ class CompletedRunEntity extends Equatable {
         imageAsset,
         imageUrl,
       ];
+
+  CompletedRunEntity copyWith({
+    String? runId,
+    String? challengeId,
+    String? challengeTitle,
+    String? challengeSlug,
+    int? finalScore,
+    String? startDate,
+    String? endDate,
+    String? imageAsset,
+    String? imageUrl,
+  }) {
+    return CompletedRunEntity(
+      runId: runId ?? this.runId,
+      challengeId: challengeId ?? this.challengeId,
+      challengeTitle: challengeTitle ?? this.challengeTitle,
+      challengeSlug: challengeSlug ?? this.challengeSlug,
+      finalScore: finalScore ?? this.finalScore,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      imageAsset: imageAsset ?? this.imageAsset,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
 }

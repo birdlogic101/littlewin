@@ -110,6 +110,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     currentStreak: run.currentStreak,
                     username: run.username,
                     isSelfBet: false,
+                    startInPlaceMode: run.recentBetCount == 0,
                     betRepository: widget.betRepository,
                     onBetPlaced: () => context
                         .read<ExploreBloc>()

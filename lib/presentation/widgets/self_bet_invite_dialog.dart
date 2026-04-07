@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/design_system.dart';
 import '../../data/repositories/bet_repository.dart';
+import '../bloc/checkin/checkin_bloc.dart';
+import '../bloc/checkin/checkin_event.dart';
 import 'run_bets_sheet.dart';
 
 /// A lightweight dialog that appears after a user joins or creates a challenge,
@@ -79,8 +82,22 @@ class SelfBetInviteDialog {
                     currentStreak: currentStreak,
                     username: username ?? 'you',
                     isSelfBet: true,
+                    startInPlaceMode: true,
                     betRepository: betRepository,
+                    onBetPlaced: () {
+                      try {
+                        context.read<CheckinBloc>().add(
+                            CheckinRunBetPlaced(runId: runId));
+                      } catch (_) {
+                        // context may have changed or bloc not present
+                      }
+                    },
                   );
+                  // Full refresh when sheet/dialog closes
+                  try {
+                    context.read<CheckinBloc>().add(
+                        const CheckinFetchRequested());
+                  } catch (_) {}
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: lw.brandPrimary,

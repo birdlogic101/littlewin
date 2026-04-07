@@ -41,15 +41,28 @@ class BetModel {
       runId: json['run_id'] as String,
       bettorId: json['bettor_id'] as String,
       bettorUsername: bettorUsername,
-      targetStreak: json['target_streak'] as int,
+      targetStreak: _toInt(json['target_streak']),
       stakeId: json['stake_id'] as String?,
       stakeTitle: stakeTitle,
       customStakeTitle: json['custom_stake_title'] as String?,
       imageAsset: imageAsset,
       status: status,
       isSelfBet: json['is_self_bet'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      // Supabase RPC may return a native DateTime or an ISO-8601 String
+      // depending on the return path (rpc vs direct table select).
+      createdAt: json['created_at'] == null
+          ? DateTime.now()
+          : json['created_at'] is DateTime
+              ? json['created_at'] as DateTime
+              : DateTime.parse(json['created_at'] as String),
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   /// Maps a `stakes` table row to a [StakeEntity].

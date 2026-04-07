@@ -82,12 +82,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthGoogleSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
+    final currentState = state;
+    String? anonymousId;
+    if (currentState is AuthAuthenticated && currentState.user.isAnonymous) {
+      anonymousId = currentState.user.id;
+      print('AuthBloc: Capturing anonymous ID for merge: $anonymousId');
+    }
+
     emit(AuthLoading());
 
     // Always use signInWithIdToken for native apps.
     // linkIdentity is browser-based and doesn't work on Android/iOS.
     // signInWithIdToken will replace the current session (anonymous or not).
-    final result = await _signInWithGoogle(NoParams());
+    final result = await _signInWithGoogle(GoogleSignInParams(
+      anonymousIdToMerge: anonymousId,
+    ));
+
     result.fold(
       (failure) => emit(AuthFailureState(failure.message)),
       (user) => emit(AuthAuthenticated(user)),

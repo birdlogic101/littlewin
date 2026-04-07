@@ -10,7 +10,9 @@ import '../bloc/checkin/checkin_bloc.dart';
 import '../bloc/checkin/checkin_event.dart';
 import '../bloc/checkin/checkin_state.dart';
 import '../bloc/records/records_bloc.dart';
+import '../bloc/records/records_event.dart';
 import '../bloc/people/people_bloc.dart';
+import '../bloc/people/people_event.dart';
 import '../bloc/notifications/notifications_bloc.dart';
 import '../bloc/notifications/notifications_state.dart';
 import '../bloc/notifications/notifications_event.dart';
@@ -97,40 +99,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     
     // Check for rollover every 30 seconds
-    _rolloverTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDayRollover());
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      debugPrint('🚀 [AppShell] postFrameCallback started');
-      
-      // 1. Server-side settlement
-      try {
-        debugPrint('🚀 [AppShell] calling settleRuns...');
-        await getIt<RunRemoteDataSource>()
-            .settleRuns(_lastSeenUtcDay)
-            .timeout(const Duration(seconds: 5));
-        debugPrint('🚀 [AppShell] settleRuns done');
-      } catch (e) {
-        debugPrint('⚠️ [AppShell] settleRuns error/timeout: $e');
-      }
-
-      // 2. Load real run data
-      try {
-        debugPrint('🚀 [AppShell] initializing repositories...');
-        await Future.wait([
-          _runsRepository.initialize(_completedRunsRepository),
-          _completedRunsRepository.initialize(),
-        ]).timeout(const Duration(seconds: 10));
-        debugPrint('🚀 [AppShell] repositories initialized');
-      } catch (e) {
-        debugPrint('⚠️ [AppShell] repository initialization error/timeout: $e');
-      }
-
-      // 3. Trigger initial fetches via member variables
-      debugPrint('🚀 [AppShell] triggering initial fetches...');
-      _checkinBloc.add(const CheckinFetchRequested());
-      _exploreBloc.add(const ExploreFetchRequested());
-      _notificationsBloc.add(const NotificationsFetchRequested());
-      debugPrint('🚀 [AppShell] startup sequence complete');
+    _rolloverTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDayRollover());    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      debugPrint('🚀 [AppShell] postFrameCallback: triggering initial settle and fetch');
+      await _settleAndRefresh();
 
       // 4. Check for won bets (Bettor Celebration)
       try {
@@ -205,13 +176,46 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  void _checkDayRollover() {
+  Future<void> _checkDayRollover() async {
     final today = _todayUtc();
     if (today != _lastSeenUtcDay) {
       debugPrint('🚀 [AppShell] day rollover detected: $today');
       _lastSeenUtcDay = today;
-      _runsRepository.processCompletions(today, _completedRunsRepository);
-      _checkinBloc.add(const DayRolloverDetected());
+      await _settleAndRefresh();
+    }
+  }
+
+  /// Calls the server-side settlement RPC and then notifies all BLoCs to
+  /// refresh their data. This ensures "missed" runs complete and UI stays in sync.
+  Future<void> _settleAndRefresh() async {
+    // 1. Settle on server
+    try {
+      debugPrint('🚀 [AppShell] settling runs for $_lastSeenUtcDay...');
+      await getIt<RunRemoteDataSource>()
+          .settleRuns(_lastSeenUtcDay)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('⚠️ [AppShell] settleRuns error: $e');
+    }
+
+    // 2. Initialize Repositories (syncs local state with DB)
+    try {
+      await Future.wait([
+        _runsRepository.initialize(_completedRunsRepository),
+        _completedRunsRepository.initialize(),
+      ]).timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('⚠️ [AppShell] repo initialization error: $e');
+    }
+
+    // 3. Trigger refreshing of all visible/active segments
+    debugPrint('🚀 [AppShell] triggering global Bloc refreshes');
+    if (mounted) {
+      _checkinBloc.add(const CheckinFetchRequested());
+      _exploreBloc.add(const ExploreFetchRequested());
+      _recordsBloc.add(const RecordsFetchRequested());
+      _peopleBloc.add(const PeopleFetchRequested());
+      _notificationsBloc.add(const NotificationsFetchRequested());
     }
   }
 
@@ -247,6 +251,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             canPop: false,
             child: Scaffold(
                 key: _scaffoldKey,
+                backgroundColor: lw.backgroundApp,
               extendBodyBehindAppBar: _currentIndex == 0,
               drawer: const ProfileDrawer(),
               appBar: _currentIndex == 0
@@ -287,12 +292,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         backgroundColor: lw.backgroundApp,
                         elevation: LWElevation.none,
                         centerTitle: true,
-                        leading: IconButton(
-                          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                          icon: LwIcon('misc_menu_lines',
-                              size: LWComponents.appBar.iconSizeSmall,
-                              color: lw.contentPrimary),
-                        ),
+                        leading: _currentIndex == 0
+                            ? IconButton(
+                                onPressed: () =>
+                                    _scaffoldKey.currentState?.openDrawer(),
+                                icon: LwIcon('misc_menu_lines',
+                                    size: LWComponents.appBar.iconSizeSmall,
+                                    color: lw.contentPrimary),
+                              )
+                            : null,
                           title: _AppBarTitle(
                             index: _currentIndex,
                             lw: lw,
@@ -304,12 +312,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                                   padding: const EdgeInsets.only(right: LWSpacing.lg),
                                   child: Text(
                                     _utcTimeLeft,
-                                    style: LWTypography.regularNormalRegular.copyWith(
+                                    style: LWTypography.largeNormalRegular.copyWith(
                                       color: LWColors.skyBase,
                                       fontFeatures: const [
                                         FontFeature.tabularFigures()
                                       ],
-                                      fontSize: 14,
                                     ),
                                   ),
                                 ),
@@ -354,6 +361,31 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 activeColor: lw.contentPrimary,
                 inactiveColor: lw.contentSecondary.withOpacity(0.5),
               ),
+              floatingActionButton: _currentIndex == 1
+                  ? FloatingActionButton(
+                      onPressed: () {
+                        // Same logic as LwAppBar + button
+                        final authState = context.read<AuthBloc>().state;
+                        final isPremium = authState is AuthAuthenticated
+                            ? authState.user.isPremium
+                            : false;
+
+                        if (isPremium) {
+                          CreateChallengeSheet.show(
+                            context,
+                            betRepository: _betRepository,
+                          );
+                        } else {
+                          ProfileDrawer.showUpgradeDialog(context);
+                        }
+                      },
+                      backgroundColor: Colors.white,
+                      foregroundColor: lw.contentPrimary,
+                      elevation: 4,
+                      shape: const CircleBorder(),
+                      child: const Icon(Icons.add_rounded, size: 32),
+                    )
+                  : null,
             ),
           );
         },
@@ -624,8 +656,8 @@ class _AppBarTitle extends StatelessWidget {
 
     return Text(
       titleText,
-      style: LWTypography.largeNormalMedium.copyWith(
-        color: lw.contentPrimary,
+      style: LWTypography.largeNoneRegular.copyWith(
+        color: LWColors.inkBase,
       ),
     );
   }

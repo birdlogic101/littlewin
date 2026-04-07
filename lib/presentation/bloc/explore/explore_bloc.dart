@@ -121,28 +121,28 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
     if (current is! ExploreLoaded) return;
 
     // Find the run being joined so we can convert it to an ActiveRunEntity
-    final exploreRun =
-        current.runs.where((r) => r.runId == event.runId).firstOrNull;
+    final exploreRun = current.runs.where((r) => r.runId == event.runId).firstOrNull;
 
     if (exploreRun != null) {
-      final today = DateTime.now().toUtc();
-      final startDate =
-          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
-      final activeRun = ActiveRunEntity(
-        runId: 'temp-${exploreRun.challengeId}', // will be replaced by server ID
-        challengeId: exploreRun.challengeId,
-        challengeTitle: exploreRun.challengeTitle,
-        challengeSlug: exploreRun.challengeSlug,
-        currentStreak: 0,
-        startDate: startDate,
-        hasCheckedInToday: false,
-        imageAsset: exploreRun.imageAsset,
-        imageUrl: exploreRun.imageUrl,
-      );
-
       try {
-        await _runsRepository.addRun(activeRun);
+        await _runsRepository.joinChallenge(
+          exploreRun.challengeId,
+          title: exploreRun.challengeTitle,
+          slug: exploreRun.challengeSlug,
+          imageAsset: exploreRun.imageAsset,
+        );
+
+        // RPC succeeded (and repository stream was updated)
+        // Remove the run from the explore list so we don't see it again.
+        final updatedRuns =
+            current.runs.where((r) => r.runId != event.runId).toList();
+
+        emit(ExploreState.loaded(
+          runs: updatedRuns,
+          fallbackPool: current.fallbackPool,
+          cycleIndex: current.cycleIndex,
+          lastJoinedAt: DateTime.now().toUtc(),
+        ));
       } on AlreadyParticipatingException {
         // User already has an active run for this challenge — keep the card in
         // the feed and inform them via a snackbar.
@@ -206,22 +206,18 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
     final current = state;
     if (current is! ExploreLoaded) return;
 
+    // Community challenge cards have synthetic runIds (e.g. "abc_cycle1").
+    // Strip the _cycleN suffix so we can match both real and cycled cards.
+    final baseEventId = event.runId.contains('_cycle')
+        ? event.runId.replaceAll(RegExp(r'_cycle\d+$'), '')
+        : event.runId;
+
     final updatedRuns = current.runs.map((r) {
-      if (r.runId == event.runId) {
-        return ExploreRunEntity(
-          runId: r.runId,
-          challengeId: r.challengeId,
-          challengeTitle: r.challengeTitle,
-          challengeSlug: r.challengeSlug,
-          userId: r.userId,
-          username: r.username,
-          avatarId: r.avatarId,
-          currentStreak: r.currentStreak,
-          imageUrl: r.imageUrl,
-          imageAsset: r.imageAsset,
-          recentBetCount: r.recentBetCount + 1,
-          isCompleted: r.isCompleted,
-        );
+      final baseRunId = r.runId.contains('_cycle')
+          ? r.runId.replaceAll(RegExp(r'_cycle\d+$'), '')
+          : r.runId;
+      if (r.runId == event.runId || baseRunId == baseEventId) {
+        return r.copyWith(recentBetCount: r.recentBetCount + 1);
       }
       return r;
     }).toList();
@@ -241,19 +237,8 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
   List<ExploreRunEntity> _nextCycleBatch(List<ExploreRunEntity> pool) {
     _cycleCounter++;
     return pool.map((r) {
-      return ExploreRunEntity(
+      return r.copyWith(
         runId: '${r.runId}_cycle$_cycleCounter',
-        challengeId: r.challengeId,
-        challengeTitle: r.challengeTitle,
-        challengeSlug: r.challengeSlug,
-        userId: r.userId,
-        username: r.username,
-        avatarId: r.avatarId,
-        currentStreak: r.currentStreak,
-        imageUrl: r.imageUrl,
-        imageAsset: r.imageAsset,
-        recentBetCount: r.recentBetCount,
-        isCompleted: r.isCompleted,
       );
     }).toList();
   }

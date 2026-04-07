@@ -498,63 +498,69 @@ class _BottomContent extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
           color: lw.backgroundApp,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(LWRadius.lg),
           ),
         ),
-        child: Column(
-          children: [
-            // Handle for aesthetics
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: LWSpacing.md),
-              decoration: BoxDecoration(
-                color: lw.interactiveDisabled,
-                borderRadius: LWRadius.full,
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  LWSpacing.xl,
-                  LWSpacing.md,
-                  LWSpacing.xl,
-                  LWSpacing.xxl,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Proportional to content
+            children: [
+              // Handle for aesthetics
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: LWSpacing.md),
+                decoration: BoxDecoration(
+                  color: lw.interactiveDisabled,
+                  borderRadius: LWRadius.full,
                 ),
-                children: [
-                  Row(
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    LWSpacing.xl,
+                    LWSpacing.md,
+                    LWSpacing.xl,
+                    LWSpacing.xxl,
+                  ),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: LWTypography.title3
-                              .copyWith(color: lw.contentPrimary),
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: LWTypography.title3
+                                  .copyWith(color: lw.contentPrimary),
+                            ),
+                          ),
+                          const SizedBox(width: LWSpacing.md),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: LwIcon('misc_cross', color: lw.contentPrimary),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: LWSpacing.md),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: LwIcon('misc_cross', color: lw.contentPrimary),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                      const SizedBox(height: LWSpacing.xl),
+                      Text(
+                        description ?? 'No description available.',
+                        style: LWTypography.regularNormalRegular
+                            .copyWith(color: lw.contentSecondary, height: 1.5),
                       ),
                     ],
                   ),
-                  const SizedBox(height: LWSpacing.xl),
-                  Text(
-                    description ?? '',
-                    style: LWTypography.regularNormalRegular
-                        .copyWith(color: lw.contentSecondary, height: 1.5),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

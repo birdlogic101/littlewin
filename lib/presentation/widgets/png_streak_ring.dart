@@ -56,18 +56,10 @@ class PngStreakRing extends StatelessWidget {
                 offset: const Offset(0, 1), // Optical nudge for centering
                 child: Text(
                   '$streak',
-                  style: TextStyle(
+                  style: LWTypography.largeNoneBold.copyWith(
                     fontSize: effectiveFontSize,
-                    fontWeight: FontWeight.w800,
-                    color: numberColor ?? lw.contentPrimary,
-                    height: 1,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        offset: const Offset(0, 5),
-                        blurRadius: 10,
-                      ),
-                    ],
+                    color: numberColor ?? LWColors.inkBase,
+                    shadows: const [],
                   ),
                 ),
               ),

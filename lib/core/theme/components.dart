@@ -58,9 +58,9 @@ class _Button {
   double get radiusCompact => LWRadius.sm;
 
   TextStyle labelStyle(LWButtonSize size) => switch (size) {
-        LWButtonSize.large => LWTypography.regularNormalBold,
-        LWButtonSize.medium => LWTypography.regularNormalBold,
-        LWButtonSize.small => LWTypography.smallNormalMedium,
+        LWButtonSize.large => LWTypography.regularNoneBold,
+        LWButtonSize.medium => LWTypography.regularNoneBold,
+        LWButtonSize.small => LWTypography.smallNoneMedium,
       };
 }
 
@@ -150,8 +150,8 @@ class _BottomNav {
   const _BottomNav();
 
   double get height => 64.0;
-  double get iconSize => 24.0;
-  double get iconSizeActive => 26.0;
+  double get iconSize => 32.0;
+  double get iconSizeActive => 32.0;
   double get dotSize => 4.0;    // active indicator dot
 }
 

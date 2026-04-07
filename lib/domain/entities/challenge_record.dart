@@ -26,7 +26,7 @@ class ChallengeRecord extends Equatable {
 
   /// The highest [finalScore] across all runs (shown in the score ring).
   int get bestScore =>
-      runs.map((r) => r.finalScore).reduce((a, b) => a > b ? a : b);
+      runs.fold(0, (max, r) => r.finalScore > max ? r.finalScore : max);
 
   /// Total number of completed runs for this challenge.
   int get runCount => runs.length;

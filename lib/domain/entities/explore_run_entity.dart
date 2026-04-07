@@ -66,4 +66,36 @@ class ExploreRunEntity extends Equatable {
         recentBetCount,
         isCompleted,
       ];
+
+  ExploreRunEntity copyWith({
+    String? runId,
+    String? challengeId,
+    String? challengeTitle,
+    String? challengeDescription,
+    String? challengeSlug,
+    String? userId,
+    String? username,
+    int? avatarId,
+    int? currentStreak,
+    String? imageUrl,
+    String? imageAsset,
+    int? recentBetCount,
+    bool? isCompleted,
+  }) {
+    return ExploreRunEntity(
+      runId: runId ?? this.runId,
+      challengeId: challengeId ?? this.challengeId,
+      challengeTitle: challengeTitle ?? this.challengeTitle,
+      challengeDescription: challengeDescription ?? this.challengeDescription,
+      challengeSlug: challengeSlug ?? this.challengeSlug,
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      avatarId: avatarId ?? this.avatarId,
+      currentStreak: currentStreak ?? this.currentStreak,
+      imageUrl: imageUrl ?? this.imageUrl,
+      imageAsset: imageAsset ?? this.imageAsset,
+      recentBetCount: recentBetCount ?? this.recentBetCount,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
 }

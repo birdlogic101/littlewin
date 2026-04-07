@@ -151,7 +151,10 @@ security definer
 set search_path = public
 as $$
 declare
-  yesterday_utc date := today_utc - interval '1 day';
+  -- Grace window: we only settle runs that missed "yesterday" if it is currently 
+  -- past 4 AM UTC of today.
+  v_effective_today DATE := (NOW() AT TIME ZONE 'UTC' - interval '4 hours')::DATE;
+  v_yesterday_utc date := v_effective_today - interval '1 day';
   r             record;
 begin
   -- ── 1. Find and settle all runs that missed yesterday's deadline ────────────
@@ -164,14 +167,14 @@ begin
       runs.current_streak
     from public.runs
     where runs.status = 'ongoing'
-      -- Day-1 rule: never settle a run that started today
-      and runs.start_date < today_utc
-      -- Missed rule: no check-in record for yesterday
+      -- Day-1 rule: never settle a run that started on or after the effective today
+      and runs.start_date < v_effective_today
+      -- Missed rule: no check-in record for effective yesterday
       and not exists (
         select 1
         from public.checkins
         where checkins.run_id  = runs.id
-          and checkins.check_in_day_utc = yesterday_utc
+          and checkins.check_in_day_utc = v_yesterday_utc
       )
   loop
     -- Mark run as completed
@@ -318,39 +321,37 @@ AS $$
 DECLARE
   v_new_streak INT;
   v_today DATE := (NOW() AT TIME ZONE 'UTC')::DATE;
+  -- Grace window: if it's before 4 AM UTC, we are more lenient with "yesterday's" missed window.
+  v_effective_today DATE := (NOW() AT TIME ZONE 'UTC' - interval '4 hours')::DATE;
   v_won_bets JSON;
 BEGIN
-  -- 0. Validation: Ensure client and server clocks agree on the day (within reason)
-  -- or at least that the client isn't trying to check in for a past day that was already missed.
-  IF p_day_utc != v_today THEN
-    RAISE EXCEPTION 'CLOCK_DRIFT_DETECTED';
-  END IF;
-
-  -- 0b. Validation: Ensure the run is still ongoing and the streak hasn't expired.
-  -- A streak is expired if the user missed yesterday's check-in window.
+  -- 0. Validation: Ensure the run is still ongoing and the streak hasn't expired.
+  -- A streak is expired if the user missed their last check-in window (plus grace).
   IF EXISTS (
     SELECT 1 FROM public.runs r
     WHERE r.id = p_run_id
       AND r.status = 'ongoing'
-      AND r.start_date < v_today
-      AND NOT EXISTS (
-        SELECT 1 FROM public.checkins c
-        WHERE c.run_id = p_run_id
-          AND c.check_in_day_utc = v_today - interval '1 day'
+      AND (
+        -- Expired if last check-in was before the effective "yesterday"
+        (r.last_checkin_day IS NOT NULL AND r.last_checkin_day < v_effective_today - interval '1 day')
+        OR
+        -- Expired if started before effective "yesterday" and never checked in
+        (r.last_checkin_day IS NULL AND r.start_date < v_effective_today - interval '1 day')
       )
   ) THEN
     RAISE EXCEPTION 'STREAK_EXPIRED';
   END IF;
 
-  -- 1. Insert check-in record (will fail due to UNIQUE constraint if already done today)
+  -- 1. Insert check-in record (authoritatively uses server's UTC day to avoid clock skew issues)
+  -- If p_day_utc was slightly off (e.g. 23:59 vs 00:01), the server's day wins.
   INSERT INTO public.checkins (run_id, check_in_day_utc)
   VALUES (p_run_id, v_today);
 
   -- 2. Increment streak and update timestamp in runs table.
-  -- We implicitly trust the client-side logic that this is only called for ongoing runs.
   UPDATE public.runs
   SET 
     current_streak = current_streak + 1,
+    last_checkin_day = v_today,
     updated_at = NOW()
   WHERE id = p_run_id
   RETURNING current_streak INTO v_new_streak;
@@ -373,21 +374,6 @@ BEGIN
       target_streak,
       stake_id,
       custom_stake_title
-  ),
-  inserted_notifs AS (
-    INSERT INTO public.notifications (user_id, message, type, deep_link, unique_hash)
-    SELECT 
-      sb.bettor_id,
-      'You won a ' || coalesce(sb.custom_stake_title, s.title, 'Reward') || '! ' || u_runner.username || ' reached Day ' || sb.target_streak || '.',
-      'bet_won',
-      '/records',
-      'bet_won_' || sb.id
-    FROM settled_bets sb
-    JOIN public.runs r ON r.id = p_run_id
-    JOIN public.challenges c ON c.id = r.challenge_id
-    JOIN public.users u_runner ON u_runner.id = r.user_id
-    LEFT JOIN public.stakes s ON s.id = sb.stake_id
-    ON CONFLICT (unique_hash) DO NOTHING
   )
   SELECT json_agg(
     json_build_object(
@@ -397,7 +383,6 @@ BEGIN
       'target_streak', sb.target_streak,
       'stake_title', coalesce(sb.custom_stake_title, s.title),
       'stake_category', s.category,
-      -- Fetching username and avatar from public.users for the modal
       'bettor_username', u.username,
       'bettor_avatar_id', u.avatar_id
     )
@@ -406,6 +391,24 @@ BEGIN
   LEFT JOIN public.stakes s ON sb.stake_id = s.id
   LEFT JOIN public.users u ON sb.bettor_id = u.id;
 
+  -- 3b. Create notifications for won bets (Bettor Impact)
+  INSERT INTO public.notifications (user_id, message, type, deep_link, unique_hash)
+  SELECT 
+    b.bettor_id,
+    'You won a ' || coalesce(b.custom_stake_title, s.title, 'Reward') || '! ' || u_runner.username || ' reached Day ' || b.target_streak || '.',
+    'bet_won',
+    '/records',
+    'bet_won_' || b.id
+  FROM public.bets b
+  JOIN public.runs r ON r.id = p_run_id
+  JOIN public.users u_runner ON u_runner.id = r.user_id
+  LEFT JOIN public.stakes s ON s.id = b.stake_id
+  WHERE b.run_id = p_run_id 
+    AND b.status = 'won'
+    AND b.target_streak <= v_new_streak
+    AND b.won_at >= NOW() - interval '1 minute'
+  ON CONFLICT (unique_hash) DO NOTHING;
+
   -- 4. Return summary JSON
   RETURN json_build_object(
     'new_streak', v_new_streak,
@@ -413,11 +416,33 @@ BEGIN
   );
 
 EXCEPTION WHEN UNIQUE_VIOLATION THEN
-  -- If already checked in today, return current state without error.
+  -- Conflict Handling: If already checked in today (e.g. network retry), 
+  -- return the current state INCLUDING any bets won in the last 10 mins.
+  -- This ensures the client still gets the celebration even on a retry.
   SELECT current_streak INTO v_new_streak FROM public.runs WHERE id = p_run_id;
+  
+  SELECT json_agg(
+    json_build_object(
+      'id', b.id,
+      'bettor_id', b.bettor_id,
+      'is_self_bet', b.is_self_bet,
+      'target_streak', b.target_streak,
+      'stake_title', coalesce(b.custom_stake_title, s.title),
+      'stake_category', s.category,
+      'bettor_username', u.username,
+      'bettor_avatar_id', u.avatar_id
+    )
+  ) INTO v_won_bets
+  FROM public.bets b
+  LEFT JOIN public.stakes s ON b.stake_id = s.id
+  LEFT JOIN public.users u ON b.bettor_id = u.id
+  WHERE b.run_id = p_run_id
+    AND b.status = 'won'
+    AND b.won_at >= NOW() - interval '10 minutes';
+
   RETURN json_build_object(
     'new_streak', v_new_streak,
-    'triggered_bets', '[]'::JSON
+    'triggered_bets', COALESCE(v_won_bets, '[]'::JSON)
   );
 END;
 $$;
@@ -836,3 +861,81 @@ drop trigger if exists on_notification_created on public.notifications;
 create trigger on_notification_created
   after insert on public.notifications
   for each row execute procedure public.handle_new_notification();
+
+-- -----------------------------------------------------------------------------
+-- 13. merge_anonymous_account
+-- -----------------------------------------------------------------------------
+-- Transfers all progress and social data from an old anonymous account to the
+-- currently signed-in permanent account (auth.uid()).
+-- -----------------------------------------------------------------------------
+create or replace function public.merge_anonymous_account(p_anonymous_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  -- Guard: don't merge into self or if no user is authenticated
+  if auth.uid() is null or auth.uid() = p_anonymous_id then
+    return;
+  end if;
+
+  -- 1. Transfer progress: Runs and Checkins
+  -- (Checkins cascade via fk or are linked to runs, which we re-assign)
+  update public.runs
+  set user_id = auth.uid()
+  where user_id = p_anonymous_id;
+
+  -- 2. Transfer Bets
+  update public.bets
+  set bettor_id = auth.uid()
+  where bettor_id = p_anonymous_id;
+
+  -- 3. Transfer Social: Follows
+  -- As follower
+  update public.follows
+  set follower_id = auth.uid()
+  where follower_id = p_anonymous_id
+    and not exists (
+      select 1 from public.follows f2 
+      where f2.follower_id = auth.uid() and f2.followed_id = public.follows.followed_id
+    );
+  
+  -- As followed (rare for anon, but possible)
+  update public.follows
+  set followed_id = auth.uid()
+  where followed_id = p_anonymous_id
+    and not exists (
+      select 1 from public.follows f2 
+      where f2.followed_id = auth.uid() and f2.follower_id = public.follows.follower_id
+    );
+
+  -- 4. Transfer Notifications
+  update public.notifications
+  set user_id = auth.uid()
+  where user_id = p_anonymous_id;
+
+  -- 5. Transfer Dismissals
+  update public.dismissed_challenges
+  set user_id = auth.uid()
+  where user_id = p_anonymous_id
+    and not exists (
+      select 1 from public.dismissed_challenges d2
+      where d2.user_id = auth.uid() and d2.challenge_id = public.dismissed_challenges.challenge_id
+    );
+
+  update public.dismissed_runs
+  set user_id = auth.uid()
+  where user_id = p_anonymous_id
+    and not exists (
+      select 1 from public.dismissed_runs d2
+      where d2.user_id = auth.uid() and d2.run_id = public.dismissed_runs.run_id
+    );
+
+  -- 6. Cleanup the old anonymous public profile
+  delete from public.users
+  where id = p_anonymous_id;
+  
+  -- Note: we don't delete auth.users(p_anonymous_id) here as we might not have 
+  -- permission to manage auth schema from this function.
+end;
+$$;

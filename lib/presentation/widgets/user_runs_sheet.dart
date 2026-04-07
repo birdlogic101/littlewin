@@ -23,6 +23,9 @@ class UserRunsSheet extends StatefulWidget {
   final int? avatarId;
   final RunsRepository runsRepository;
   final BetRepository betRepository;
+  // Set of challengeIds the current viewer already participates in.
+  // Resolved from CheckinBloc before the modal opens (modal has no BLoC tree).
+  final Set<String> joinedChallengeIds;
 
   const UserRunsSheet({
     super.key,
@@ -31,6 +34,7 @@ class UserRunsSheet extends StatefulWidget {
     this.avatarId,
     required this.runsRepository,
     required this.betRepository,
+    this.joinedChallengeIds = const {},
   });
 
   static Future<void> show(
@@ -41,6 +45,13 @@ class UserRunsSheet extends StatefulWidget {
     required RunsRepository runsRepository,
     required BetRepository betRepository,
   }) {
+    // Resolve which challengeIds the viewer already participates in, while
+    // we still have access to the BlocProvider tree (before modal opens).
+    final checkinState = context.read<CheckinBloc>().state;
+    final joinedChallengeIds = checkinState is CheckinLoaded
+        ? checkinState.runs.map((r) => r.challengeId).toSet()
+        : const <String>{};
+
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -51,6 +62,7 @@ class UserRunsSheet extends StatefulWidget {
         avatarId: avatarId,
         runsRepository: runsRepository,
         betRepository: betRepository,
+        joinedChallengeIds: joinedChallengeIds,
       ),
     );
   }
@@ -68,8 +80,20 @@ class _UserRunsSheetState extends State<UserRunsSheet> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _ongoingFuture = widget.runsRepository.fetchUserRuns(widget.userId);
-    _completedFuture = widget.runsRepository.fetchUserCompletedRuns(widget.userId);
+    _refreshOngoing();
+    _refreshCompleted();
+  }
+
+  void _refreshOngoing() {
+    setState(() {
+      _ongoingFuture = widget.runsRepository.fetchUserRuns(widget.userId);
+    });
+  }
+
+  void _refreshCompleted() {
+    setState(() {
+      _completedFuture = widget.runsRepository.fetchUserCompletedRuns(widget.userId);
+    });
   }
 
   @override
@@ -139,11 +163,14 @@ class _UserRunsSheetState extends State<UserRunsSheet> with SingleTickerProvider
                   username: widget.username,
                   runsRepository: widget.runsRepository,
                   betRepository: widget.betRepository,
+                  joinedChallengeIds: widget.joinedChallengeIds,
+                  onRefresh: _refreshOngoing,
                 ),
                 _CompletedTab(
                   future: _completedFuture,
                   username: widget.username,
                   runsRepository: widget.runsRepository,
+                  joinedChallengeIds: widget.joinedChallengeIds,
                 ),
               ],
             ),
@@ -240,12 +267,16 @@ class _OngoingTab extends StatelessWidget {
   final String username;
   final RunsRepository runsRepository;
   final BetRepository betRepository;
+  final Set<String> joinedChallengeIds;
+  final VoidCallback onRefresh;
 
   const _OngoingTab({
     required this.future,
     required this.username,
     required this.runsRepository,
     required this.betRepository,
+    required this.joinedChallengeIds,
+    required this.onRefresh,
   });
 
   @override
@@ -265,16 +296,20 @@ class _OngoingTab extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.lg),
           itemBuilder: (context, index) {
             final run = runs[index];
+            final isJoined =
+                joinedChallengeIds.contains(run.challengeId);
             return _ProfileRunCard(
               title: run.challengeTitle,
               subtitle: 'Current streak: ${run.currentStreak} days',
+              slug: run.challengeSlug,
               streak: run.currentStreak,
               challengeId: run.challengeId,
+              isAlreadyJoined: isJoined,
               runsRepository: runsRepository,
               trailing: _BetButton(
                 betCount: run.betCount,
-                onTap: () {
-                  RunBetsSheet.show(
+                onTap: () async {
+                  await RunBetsSheet.show(
                     context,
                     runId: run.runId,
                     currentStreak: run.currentStreak,
@@ -283,6 +318,7 @@ class _OngoingTab extends StatelessWidget {
                     startInPlaceMode: run.betCount == 0,
                     betRepository: betRepository,
                   );
+                  onRefresh();
                 },
               ),
             );
@@ -299,11 +335,13 @@ class _CompletedTab extends StatelessWidget {
   final Future<List<CompletedRunEntity>> future;
   final String username;
   final RunsRepository runsRepository;
+  final Set<String> joinedChallengeIds;
 
   const _CompletedTab({
     required this.future,
     required this.username,
     required this.runsRepository,
+    required this.joinedChallengeIds,
   });
 
   @override
@@ -326,12 +364,14 @@ class _CompletedTab extends StatelessWidget {
             return _ProfileRunCard(
               title: run.challengeTitle,
               subtitle: 'Final streak: ${run.finalScore} days',
+              slug: run.challengeSlug,
               streak: run.finalScore,
               challengeId: run.challengeId,
+              isAlreadyJoined: joinedChallengeIds.contains(run.challengeId),
               runsRepository: runsRepository,
               trailing: _BetButton(
-                betCount: 0, // No bets on completed runs shown here usually, or fixed UI
-                onTap: () {}, // Handled differently if needed
+                betCount: 0,
+                onTap: () {},
                 isCompleted: true,
                 finalScore: run.finalScore,
               ),
@@ -348,16 +388,20 @@ class _CompletedTab extends StatelessWidget {
 class _ProfileRunCard extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String? slug;
   final int streak;
   final String challengeId;
+  final bool isAlreadyJoined;
   final RunsRepository runsRepository;
   final Widget trailing;
 
   const _ProfileRunCard({
     required this.title,
     required this.subtitle,
+    this.slug,
     required this.streak,
     required this.challengeId,
+    required this.isAlreadyJoined,
     required this.runsRepository,
     required this.trailing,
   });
@@ -407,72 +451,115 @@ class _ProfileRunCard extends StatelessWidget {
           const SizedBox(height: LWSpacing.md),
           const Divider(height: 1),
           const SizedBox(height: LWSpacing.sm),
-          _JoinSection(challengeId: challengeId, runsRepository: runsRepository),
+          _JoinSection(
+            challengeId: challengeId,
+            challengeTitle: title,
+            challengeSlug: slug,
+            isAlreadyJoined: isAlreadyJoined,
+            runsRepository: runsRepository,
+          ),
         ],
       ),
     );
   }
 }
 
-class _JoinSection extends StatelessWidget {
+class _JoinSection extends StatefulWidget {
   final String challengeId;
+  final String challengeTitle;
+  final String? challengeSlug;
+  final bool isAlreadyJoined;
   final RunsRepository runsRepository;
 
-  const _JoinSection({required this.challengeId, required this.runsRepository});
+  const _JoinSection({
+    required this.challengeId,
+    required this.challengeTitle,
+    this.challengeSlug,
+    required this.isAlreadyJoined,
+    required this.runsRepository,
+  });
+
+  @override
+  State<_JoinSection> createState() => _JoinSectionState();
+}
+
+class _JoinSectionState extends State<_JoinSection> {
+  late bool _joined;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _joined = widget.isAlreadyJoined;
+  }
+
+  Future<void> _join() async {
+    if (_loading || _joined) return;
+    setState(() => _loading = true);
+    try {
+      await widget.runsRepository.joinChallenge(
+        widget.challengeId,
+        title: widget.challengeTitle,
+        slug: widget.challengeSlug ?? '',
+      );
+      if (mounted) setState(() { _joined = true; _loading = false; });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().contains('ALREADY_JOINED')
+                ? "You're already running this challenge!"
+                : "Couldn't join — please try again."),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
 
-    return BlocBuilder<CheckinBloc, CheckinState>(
-      builder: (context, state) {
-        final isAlreadyJoined = state is CheckinLoaded &&
-            state.runs.any((r) => r.challengeId == challengeId);
-
-        if (isAlreadyJoined) {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_rounded, size: 16, color: lw.feedbackPositive),
-              const SizedBox(width: 6),
-              Text(
-                'You are in this challenge',
-                style: LWTypography.smallNormalMedium.copyWith(color: lw.feedbackPositive),
-              ),
-            ],
-          );
-        }
-
-        return GestureDetector(
-          onTap: () {
-            // Optimistic join
-            runsRepository.addRun(ActiveRunEntity(
-              runId: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-              challengeId: challengeId,
-              challengeTitle: '', // will be enriched by repo
-              challengeSlug: '',
-              currentStreak: 0,
-              startDate: '',
-              hasCheckedInToday: false,
-              lastCheckinDay: null,
-            ));
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                LwIcon('misc_plus', size: 14, color: lw.brandPrimary),
-                const SizedBox(width: 8),
-                Text(
-                  'Start this challenge too',
-                  style: LWTypography.smallNormalBold.copyWith(color: lw.brandPrimary),
-                ),
-              ],
-            ),
+    if (_joined) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 16, color: lw.feedbackPositive),
+          const SizedBox(width: 6),
+          Text(
+            'You are in this challenge',
+            style: LWTypography.smallNormalMedium.copyWith(color: lw.feedbackPositive),
           ),
-        );
-      },
+        ],
+      );
+    }
+
+    if (_loading) {
+      return const SizedBox(
+        height: 24,
+        child: Center(child: SizedBox(width: 16, height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _join,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            LwIcon('misc_plus', size: 14, color: lw.brandPrimary),
+            const SizedBox(width: 8),
+            Text(
+              'Start this challenge too',
+              style: LWTypography.smallNormalBold.copyWith(color: lw.brandPrimary),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
