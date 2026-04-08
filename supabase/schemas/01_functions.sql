@@ -53,6 +53,7 @@ begin
       and r.status = 'ongoing'
       and r.user_id != p_user_id
       and r.visibility = 'public'
+      and c.visibility = 'public'
       and not exists (select 1 from public.dismissed_runs dr where dr.user_id = p_user_id and dr.run_id = r.id and dr.expires_at > now())
       -- Hide if user already has an ongoing or completed run for this challenge
       and not exists (select 1 from public.runs r2 where r2.user_id = p_user_id and r2.challenge_id = r.challenge_id)
@@ -67,6 +68,7 @@ begin
       and r.status = 'ongoing'
       and r.user_id != p_user_id
       and r.visibility = 'public'
+      and c.visibility = 'public'
       and u.username != 'challenger0'
       and not exists (select 1 from public.dismissed_runs dr where dr.user_id = p_user_id and dr.run_id = r.id and dr.expires_at > now())
       -- Hide if user already has an ongoing or completed run for this challenge
@@ -80,6 +82,8 @@ begin
     join public.users u on r.user_id = u.id
     where u.username = 'challenger0'
       and c.created_by is null
+      and r.visibility = 'public'
+      and c.visibility = 'public'
       and (r.user_id != p_user_id or p_user_id is null)
       -- Hide if user already has an ongoing or completed run for this challenge
       and not exists (select 1 from public.runs r2 where r2.user_id = p_user_id and r2.challenge_id = r.challenge_id)
@@ -477,7 +481,7 @@ begin
   end if;
 
   insert into public.challenges (title, description, slug, visibility, created_by, image_asset)
-  values (p_title, p_description, p_slug, p_visibility::public.visibility_type, auth.uid(), p_image_asset)
+  values (p_title, p_description, p_slug, p_visibility::public.visibility_type, auth.uid(), coalesce(p_image_asset, 'assets/pictures/challenge_default_1080.jpg'))
   returning id into v_challenge_id;
 
   insert into public.runs (challenge_id, user_id, start_date, current_streak, status, visibility)
@@ -722,6 +726,7 @@ grant execute on function public.grant_premium(uuid) to authenticated;
 -- 9. join_challenge
 -- -----------------------------------------------------------------------------
 -- Atomic join: inserts run and increments participant count.
+-- Secures against joining private challenges unless you are the creator.
 drop function if exists public.join_challenge(uuid);
 create or replace function public.join_challenge(p_challenge_id uuid)
 returns uuid
@@ -731,9 +736,28 @@ set search_path = public
 as $$
 declare
   v_run_id uuid;
+  v_visibility public.visibility_type;
+  v_creator_id uuid;
   v_today date := (now() at time zone 'UTC')::date;
 begin
-  -- Don't allow multiple ongoing runs for the same challenge
+  -- 1. Fetch challenge info and check visibility
+  -- Since this is a SECURITY DEFINER function, it bypasses RLS and can see the challenge record.
+  select visibility, created_by 
+  into v_visibility, v_creator_id
+  from public.challenges 
+  where id = p_challenge_id;
+
+  if v_visibility is null then
+    raise exception 'CHALLENGE_NOT_FOUND';
+  end if;
+
+  -- 2. Security: Only allow joining private challenges if the user is the creator.
+  -- We use coalesce on auth.uid() to avoid null comparison issues, though standard SQL handles this.
+  if v_visibility = 'private' and coalesce(v_creator_id, '00000000-0000-0000-0000-000000000000'::uuid) != auth.uid() then
+    raise exception 'CHALLENGE_PRIVATE';
+  end if;
+
+  -- 3. Don't allow multiple ongoing runs for the same challenge
   if exists (
     select 1 from public.runs 
     where user_id = auth.uid() 
@@ -743,12 +767,12 @@ begin
     raise exception 'ALREADY_JOINED';
   end if;
 
-  -- Create the run
+  -- 4. Create the run (inherits challenge visibility)
   insert into public.runs (challenge_id, user_id, start_date, status, current_streak, visibility)
-  values (p_challenge_id, auth.uid(), v_today, 'ongoing', 0, 'public'::public.visibility_type)
+  values (p_challenge_id, auth.uid(), v_today, 'ongoing', 0, v_visibility)
   returning id into v_run_id;
 
-  -- Update participant counts
+  -- 5. Update participant counts
   update public.challenges
   set 
     current_participant_count = current_participant_count + 1,

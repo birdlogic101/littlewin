@@ -50,7 +50,7 @@ class RunRemoteDataSource {
             challenge_id,
             current_streak,
             start_date,
-            challenges!inner(title, slug),
+            challenges!inner(title, slug, image_asset),
             checkins(check_in_day_utc),
             bets(id)
           ''')
@@ -122,6 +122,7 @@ class RunRemoteDataSource {
       hasCheckedInToday: hasCheckedInToday,
       lastCheckinDay: lastCheckinDay,
       betCount: betCount,
+      imageAsset: challenge['image_asset'] as String? ?? 'assets/pictures/challenge_default_1080.jpg',
     );
   }
 
@@ -142,7 +143,7 @@ class RunRemoteDataSource {
           final_score,
           start_date,
           updated_at,
-          challenges!inner(title, slug)
+          challenges!inner(title, slug, image_asset)
         ''')
         .eq('user_id', userId)
         .eq('status', 'completed')
@@ -164,6 +165,7 @@ class RunRemoteDataSource {
       finalScore: (row['final_score'] as int?) ?? 0,
       startDate: (row['start_date'] as String).substring(0, 10),
       endDate: endDate,
+      imageAsset: challenge['image_asset'] as String? ?? 'assets/pictures/challenge_default_1080.jpg',
     );
   }
 

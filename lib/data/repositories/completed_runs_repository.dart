@@ -40,9 +40,21 @@ class CompletedRunsRepository {
     if (_datasource == null) return;
     try {
       final remoteRuns = await _datasource.fetchMyCompletedRuns();
+      
+      _runs.clear();
       for (final run in remoteRuns) {
-        addRun(run); // deduplicates by runId
+        // We use the internal list directly here to avoid multiple stream
+        // emissions in a loop. deduplication isn't strictly needed for a 
+        // fresh clear() but kept for safety.
+        if (!_runs.any((r) => r.runId == run.runId)) {
+          _runs.add(run);
+        }
       }
+      
+      // Sort newest first as per repository design (addRun uses insert(0))
+      _runs.sort((a, b) => b.endDate.compareTo(a.endDate));
+      
+      _controller.add(List.unmodifiable(_runs));
     } catch (e) {
       // ignore: avoid_print
       print('[CompletedRunsRepository] initialize error (non-fatal): $e');

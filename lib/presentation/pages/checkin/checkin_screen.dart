@@ -13,6 +13,8 @@ import '../../widgets/self_bet_invite_dialog.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/active_run_entity.dart';
 import '../../../data/repositories/bet_repository.dart';
+import '../../widgets/lw_empty_state.dart';
+import '../../widgets/create_challenge_sheet.dart';
 
 /// The Check-in tab — shows the user's active runs with one-tap check-in.
 ///
@@ -152,7 +154,7 @@ class _CheckinScreenState extends State<CheckinScreen>
       },
       builder: (context, state) {
         return ColoredBox(
-          color: lw.backgroundApp,
+          color: lw.backgroundApp, // skyWhite
           child: switch (state) {
             CheckinInitial() || CheckinLoading() => const _LoadingView(),
             CheckinFailure(:final message) => _ErrorView(message: message),
@@ -192,6 +194,7 @@ class _LoadedView extends StatelessWidget {
     final lw = LWThemeExtension.of(context);
     return Column(
       children: [
+        // Tab bar stays white
         Container(
           color: lw.backgroundApp,
           child: TabBar(
@@ -211,13 +214,17 @@ class _LoadedView extends StatelessWidget {
             ],
           ),
         ),
+        // Content area uses skyLighter background
         Expanded(
-          child: TabBarView(
-            controller: tabController,
-            children: [
-              _buildRunList(context, lw, isPending: true),
-              _buildRunList(context, lw, isPending: false),
-            ],
+          child: ColoredBox(
+            color: LWColors.skyLighter,
+            child: TabBarView(
+              controller: tabController,
+              children: [
+                _buildRunList(context, lw, isPending: true),
+                _buildRunList(context, lw, isPending: false),
+              ],
+            ),
           ),
         ),
       ],
@@ -238,7 +245,10 @@ class _LoadedView extends StatelessWidget {
       children: [
         Expanded(
           child: filtered.isEmpty
-              ? _EmptySegmentView(pending: isPending)
+              ? _EmptySegmentView(
+                  pending: isPending,
+                  betRepository: betRepository,
+                )
               : ListView.builder(
                   padding: const EdgeInsets.only(
                       top: LWSpacing.sm, bottom: LWSpacing.xxl),
@@ -366,42 +376,47 @@ class _LoadingView extends StatelessWidget {
 
 class _EmptySegmentView extends StatelessWidget {
   final bool pending;
-  const _EmptySegmentView({required this.pending});
+  final BetRepository betRepository;
+  const _EmptySegmentView({
+    required this.pending,
+    required this.betRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(LWSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              pending
-                  ? Icons.check_circle_outline_rounded
-                  : Icons.hourglass_empty_rounded,
-              size: 64,
-              color: lw.contentSecondary,
+    if (pending) {
+      return LWEmptyState(
+        title: 'All done for today 🥳',
+        subtitle: 'What else is on your mind?',
+        actions: [
+          LWEmptyStateAction(
+            label: 'Create challenge',
+            isPrimary: true,
+            isPremium: true,
+            onPressed: () => CreateChallengeSheet.show(
+              context,
+              betRepository: betRepository,
             ),
-            const SizedBox(height: LWSpacing.lg),
-            Text(
-              pending ? 'All done for today! 🎉' : 'Nothing checked in yet',
-              style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+          ),
+        ],
+      );
+    } else {
+      return LWEmptyState(
+        title: 'Nothing done yet',
+        subtitle: 'Tap the checkbox on a pending run.',
+        actions: [
+          LWEmptyStateAction(
+            label: 'Create challenge',
+            isPrimary: true,
+            isPremium: true,
+            onPressed: () => CreateChallengeSheet.show(
+              context,
+              betRepository: betRepository,
             ),
-            const SizedBox(height: LWSpacing.sm),
-            Text(
-              pending
-                  ? 'Explore new challenges to keep the streak going.'
-                  : 'Tap the check-in button on a pending run.',
-              style: LWTypography.regularNormalRegular
-                  .copyWith(color: lw.contentSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ],
+      );
+    }
   }
 }
 

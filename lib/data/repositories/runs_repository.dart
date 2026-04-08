@@ -137,6 +137,7 @@ class RunsRepository {
       currentStreak: 0,
       startDate: today,
       hasCheckedInToday: false,
+      imageAsset: imageAsset ?? 'assets/pictures/challenge_default_1080.jpg',
     );
 
     await addRun(tempRun);

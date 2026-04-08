@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/design_system.dart';
@@ -30,20 +31,27 @@ class LwIcon extends StatelessWidget {
     if (shadows == null || shadows!.isEmpty) return svg;
 
     return Stack(
+      clipBehavior: ui.Clip.none,
       children: [
         for (final shadow in shadows!)
           Positioned(
             left: shadow.offset.dx,
             top: shadow.offset.dy,
-            child: Opacity(
-              opacity: shadow.color.opacity,
-              child: SvgPicture.asset(
-                'assets/icons/$name.svg',
-                width: size,
-                height: size,
-                colorFilter: ColorFilter.mode(
-                  shadow.color.withOpacity(1.0),
-                  BlendMode.srcIn,
+            child: ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(
+                sigmaX: shadow.blurRadius / 2,
+                sigmaY: shadow.blurRadius / 2,
+              ),
+              child: Opacity(
+                opacity: shadow.color.opacity,
+                child: SvgPicture.asset(
+                  'assets/icons/$name.svg',
+                  width: size,
+                  height: size,
+                  colorFilter: ColorFilter.mode(
+                    shadow.color.withOpacity(1.0),
+                    BlendMode.srcIn,
+                  ),
                 ),
               ),
             ),

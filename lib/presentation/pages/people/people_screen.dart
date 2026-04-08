@@ -11,6 +11,7 @@ import '../../../data/repositories/runs_repository.dart';
 import '../../../data/repositories/bet_repository.dart';
 import '../../widgets/lw_button.dart';
 import '../../../core/theme/design_system.dart';
+import '../../widgets/lw_empty_state.dart';
 
 /// The People tab — Followed / Followers lists with search.
 class PeopleScreen extends StatefulWidget {
@@ -72,8 +73,9 @@ class _PeopleScreenState extends State<PeopleScreen>
           color: lw.backgroundApp,
           child: Column(
             children: [
-              // ── Tab bar ────────────────────────────────────────────────
+              // ── Tab bar (Fixed height for screen-to-screen consistency)
               Container(
+                height: 48,
                 color: lw.backgroundApp,
                 child: TabBar(
                   controller: _tabController,
@@ -167,7 +169,9 @@ class _PeopleScreenState extends State<PeopleScreen>
     if (users.isEmpty) {
       return _EmptyView(
         hasQuery: _searchController.text.trim().isNotEmpty,
+        activeTab: state.activeTab,
         onInvite: () {
+          // TODO: Implement actual invite/share logic
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Invite logic coming soon!')),
           );
@@ -217,57 +221,61 @@ class _LoadingView extends StatelessWidget {
 
 class _EmptyView extends StatelessWidget {
   final bool hasQuery;
+  final PeopleTab activeTab;
   final VoidCallback? onInvite;
   final VoidCallback? onFind;
 
   const _EmptyView({
     required this.hasQuery,
+    required this.activeTab,
     this.onInvite,
     this.onFind,
   });
 
   @override
   Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(LWSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.person_off_outlined,
-                size: 80, color: lw.contentSecondary.withOpacity(0.6)),
-            const SizedBox(height: LWSpacing.lg),
-            Text(
-              hasQuery ? 'No users found' : 'No one here yet',
-              style: LWTypography.title4.copyWith(color: lw.contentPrimary),
-            ),
-            const SizedBox(height: LWSpacing.sm),
-            Text(
-              hasQuery
-                  ? 'Try a different username.'
-                  : 'Follow people to see them here.',
-              style: LWTypography.regularNoneRegular
-                  .copyWith(color: lw.contentSecondary),
-              textAlign: TextAlign.center,
-            ),
-            if (!hasQuery) ...[
-              const SizedBox(height: LWSpacing.xxl),
-              LwButton.primary(
-                label: 'Invite Someone',
-                onPressed: onInvite,
-                width: double.infinity,
+    if (hasQuery) {
+      final lw = LWThemeExtension.of(context);
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(LWSpacing.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person_off_outlined,
+                  size: 80, color: lw.contentSecondary.withOpacity(0.6)),
+              const SizedBox(height: LWSpacing.lg),
+              Text(
+                'No users found',
+                style: LWTypography.title4.copyWith(color: lw.contentPrimary),
               ),
-              const SizedBox(height: LWSpacing.md),
-              LwButton.secondary(
-                label: 'Find User',
-                onPressed: onFind,
-                width: double.infinity,
+              const SizedBox(height: LWSpacing.sm),
+              Text(
+                'Try a different username.',
+                style: LWTypography.regularNoneRegular
+                    .copyWith(color: lw.contentSecondary),
+                textAlign: TextAlign.center,
               ),
             ],
-          ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return LWEmptyState(
+      title: 'No one here yet 👻',
+      subtitle: 'Together we go further.',
+      actions: [
+        LWEmptyStateAction(
+          label: 'Invite someone',
+          isPrimary: true,
+          onPressed: onInvite,
+        ),
+        LWEmptyStateAction(
+          label: 'Find user',
+          onPressed: onFind,
+        ),
+      ],
     );
   }
 }

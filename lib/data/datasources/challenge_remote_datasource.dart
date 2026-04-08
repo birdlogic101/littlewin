@@ -34,11 +34,14 @@ class ChallengeRemoteDataSource {
       'p_visibility': visibility,
       'p_slug': slug,
       'p_image_asset': imageAsset,
-    }) as Map<String, dynamic>;
+    });
+
+    // Handle potential differences in Map types returned by Supabase SDK.
+    final data = (result as Map).cast<String, dynamic>();
 
     return ChallengeCreationResult(
-      challengeId: result['challenge_id'] as String,
-      runId: result['run_id'] as String,
+      challengeId: data['challenge_id']?.toString() ?? '',
+      runId: data['run_id']?.toString() ?? '',
       challengeTitle: title,
     );
   }

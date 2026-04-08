@@ -7,11 +7,19 @@ import '../../widgets/run_record_card.dart';
 import '../../widgets/challenge_history_sheet.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/challenge_record.dart';
+import '../../../data/repositories/bet_repository.dart';
+import '../../widgets/lw_empty_state.dart';
+import '../../widgets/create_challenge_sheet.dart';
 
 /// The Records tab — shows the user's completed runs, grouped by challenge.
 class RecordsScreen extends StatefulWidget {
+  final BetRepository betRepository;
   final VoidCallback? onChallengeRestarted;
-  const RecordsScreen({super.key, this.onChallengeRestarted});
+  const RecordsScreen({
+    super.key,
+    required this.betRepository,
+    this.onChallengeRestarted,
+  });
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -53,19 +61,20 @@ class _RecordsScreenState extends State<RecordsScreen> {
             RecordsRestartAlreadyActive() =>
               const _LoadingView(),
             RecordsFailure(:final message) => _ErrorView(message: message),
-            RecordsLoaded(:final runs) => () {
-                // Group flat completed list by challenge for the card display.
-                final groups = ChallengeRecord.fromRuns(runs);
-
-                if (groups.isEmpty) return const _EmptyView();
+            RecordsLoaded(:final runs) => ColoredBox(
+                color: LWColors.skyLighter,
+                child: () {
+                  // Group flat completed list by challenge for the card display.
+                  final groups = ChallengeRecord.fromRuns(runs);
 
                 return CustomScrollView(
                   slivers: [
-                    // ── Filter chip row
+                    // ── Filter chip row (White header area, fixed height to match tabs)
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                            LWSpacing.lg, LWSpacing.md, LWSpacing.lg, LWSpacing.md),
+                      child: Container(
+                        height: 48,
+                        color: lw.backgroundApp, // white
+                        padding: const EdgeInsets.fromLTRB(LWSpacing.lg, 0, LWSpacing.lg, 4),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: _FilterChip(),
@@ -73,8 +82,28 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       ),
                     ),
 
-                    // ── Challenge group cards
-                    SliverList.builder(
+                    if (groups.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: LWEmptyState(
+                          title: 'No records yet 🏆',
+                          subtitle: 'Your best streaks belong here.',
+                          actions: [
+                            LWEmptyStateAction(
+                              label: 'Create challenge',
+                              isPrimary: true,
+                              isPremium: true,
+                              onPressed: () => CreateChallengeSheet.show(
+                                context,
+                                betRepository: widget.betRepository,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      // ── Challenge group cards
+                      SliverList.builder(
                       itemCount: groups.length,
                       itemBuilder: (context, index) {
                         final g = groups[index];
@@ -104,9 +133,11 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     ),
                     const SliverToBoxAdapter(
                         child: SizedBox(height: LWSpacing.xxl)),
+                    ],
                   ],
                 );
-              }(),
+                }(),
+              ),
           },
         );
       },
@@ -165,38 +196,7 @@ class _LoadingView extends StatelessWidget {
   }
 }
 
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
-
-  @override
-  Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(LWSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.emoji_events_outlined,
-                size: 64, color: lw.contentSecondary),
-            const SizedBox(height: LWSpacing.lg),
-            Text(
-              'No records yet',
-              style: LWTypography.title4.copyWith(color: lw.contentPrimary),
-            ),
-            const SizedBox(height: LWSpacing.sm),
-            Text(
-              'Complete a run to see your scores here.',
-              style: LWTypography.regularNormalRegular
-                  .copyWith(color: lw.contentSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _EmptyView was removed and replaced by LWEmptyState inline above.
 
 class _ErrorView extends StatelessWidget {
   final String message;

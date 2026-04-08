@@ -357,20 +357,30 @@ class _PlaceBetView extends StatelessWidget {
         return Column(
           children: [
 
-            // Use small top padding now that the parent header is used
-            const SizedBox(height: LWSpacing.lg),
+            // ── Header (Close button)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(LWSpacing.md, 0, 0, 0),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 28, color: LWColors.inkLight),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
 
-            const SizedBox(height: LWSpacing.lg),
+            const Spacer(),
 
             // ── Streak selector (fixed at top, compact)
             _StreakSelector(state: state),
 
-            const SizedBox(height: 32),
+            const Spacer(),
 
             // ── Reward / stake section
-            Expanded(
-              child: _StakeSection(state: state, isPremium: isPremium),
-            ),
+            _StakeSection(state: state, isPremium: isPremium),
+
+            const Spacer(),
 
             // ── Error message
             if (state.submitStatus == BetSubmitStatus.error &&
@@ -416,24 +426,18 @@ class _StreakSelector extends StatelessWidget {
       children: [
         // Section Title
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 32 + LWSpacing.xs),
-            Expanded(
-              child: Text(
-                'Streak',
-                style: LWTypography.title4.copyWith(
-                  color: LWColors.inkDark,
-                ),
-                textAlign: TextAlign.center,
+            Text(
+              'Streak',
+              style: LWTypography.title4.copyWith(
+                color: LWColors.inkDark,
+                fontSize: 20,
               ),
             ),
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: Icon(Icons.info_outline_rounded,
-                  size: 20, color: LWColors.skyDark),
-            ),
             const SizedBox(width: LWSpacing.xs),
+            Icon(Icons.info_outline_rounded,
+                size: 20, color: LWColors.skyDark),
           ],
         ),
         const SizedBox(height: LWSpacing.lg),
@@ -571,24 +575,18 @@ class _StakeSectionState extends State<_StakeSection> {
     return Column(
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 32 + LWSpacing.xs),
-            Expanded(
-              child: Text(
-                'Reward',
-                style: LWTypography.title4.copyWith(
-                  color: LWColors.inkDark,
-                ),
-                textAlign: TextAlign.center,
+            Text(
+              'Reward',
+              style: LWTypography.title4.copyWith(
+                color: LWColors.inkDark,
+                fontSize: 20,
               ),
             ),
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: Icon(Icons.info_outline_rounded,
-                  size: 20, color: LWColors.skyDark),
-            ),
             const SizedBox(width: LWSpacing.xs),
+            Icon(Icons.info_outline_rounded,
+                size: 20, color: LWColors.skyDark),
           ],
         ),
         const SizedBox(height: LWSpacing.lg),
@@ -623,34 +621,34 @@ class _StakeSectionState extends State<_StakeSection> {
         ),
         const SizedBox(height: LWSpacing.sm),
 
-        // Stakes list — scrollable within the remaining space
-        Expanded(
-          child: filteredStakes.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(LWSpacing.xl),
-                    child: Text(
-                      'No stakes in this category yet.',
-                      style: LWTypography.smallTightRegular
-                          .copyWith(color: lw.contentSecondary),
-                    ),
+        // Stakes list — shrink-wrapped for vertical centering
+        filteredStakes.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(LWSpacing.xl),
+                  child: Text(
+                    'No stakes in this category yet.',
+                    style: LWTypography.smallTightRegular
+                        .copyWith(color: lw.contentSecondary),
                   ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: filteredStakes.length,
-                  itemBuilder: (ctx, i) {
-                    final stake = filteredStakes[i];
-                    final isSelected = stake.id == widget.state.selectedStakeId;
-                    return _StakeRow(
-                      stake: stake,
-                      isSelected: isSelected,
-                      onTap: () =>
-                          ctx.read<BetBloc>().add(BetStakeSelected(stake.id)),
-                    );
-                  },
                 ),
-        ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: filteredStakes.length,
+                itemBuilder: (ctx, i) {
+                  final stake = filteredStakes[i];
+                  final isSelected = stake.id == widget.state.selectedStakeId;
+                  return _StakeRow(
+                    stake: stake,
+                    isSelected: isSelected,
+                    onTap: () =>
+                        ctx.read<BetBloc>().add(BetStakeSelected(stake.id)),
+                  );
+                },
+              ),
       ],
     );
   }

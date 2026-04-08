@@ -32,7 +32,7 @@ import '../../data/datasources/run_remote_datasource.dart';
 import '../widgets/create_challenge_sheet.dart';
 import '../widgets/add_person_sheet.dart';
 import '../widgets/bet_won_modal.dart';
-import '../widgets/notifications_bottom_sheet.dart';
+import '../widgets/notifications_drawer.dart';
 import '../../core/di/injection.dart';
 
 /// Root shell of the app.
@@ -273,7 +273,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                                   showCreate: true,
                                   notificationCount: count,
                                   onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                                  onNotificationsTap: () => NotificationsBottomSheet.show(context),
+                                  onNotificationsTap: () => _scaffoldKey.currentState?.openEndDrawer(),
                                   onCreateTap: isPremium
                                       ? () => CreateChallengeSheet.show(
                                             innerContext,
@@ -292,15 +292,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         backgroundColor: lw.backgroundApp,
                         elevation: LWElevation.none,
                         centerTitle: true,
-                        leading: _currentIndex == 0
-                            ? IconButton(
-                                onPressed: () =>
-                                    _scaffoldKey.currentState?.openDrawer(),
-                                icon: LwIcon('misc_menu_lines',
-                                    size: LWComponents.appBar.iconSizeSmall,
-                                    color: lw.contentPrimary),
-                              )
-                            : null,
+                        automaticallyImplyLeading: false,
+                        leading: null,
                           title: _AppBarTitle(
                             index: _currentIndex,
                             lw: lw,
@@ -312,7 +305,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                                   padding: const EdgeInsets.only(right: LWSpacing.lg),
                                   child: Text(
                                     _utcTimeLeft,
-                                    style: LWTypography.largeNormalRegular.copyWith(
+                                    style: LWTypography.regularNormalRegular.copyWith(
                                       color: LWColors.skyBase,
                                       fontFeatures: const [
                                         FontFeature.tabularFigures()
@@ -344,6 +337,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   ExploreScreen(betRepository: _betRepository),
                   CheckinScreen(betRepository: _betRepository),
                   RecordsScreen(
+                    betRepository: _betRepository,
                     onChallengeRestarted: () => _switchTab(1),
                   ),
                   PeopleScreen(
@@ -353,6 +347,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   ),
                 ],
               ),
+              endDrawer: const NotificationsDrawer(),
               bottomNavigationBar: _LwBottomNav(
                 currentIndex: _currentIndex,
                 onTap: _switchTab,
@@ -361,7 +356,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 activeColor: lw.contentPrimary,
                 inactiveColor: lw.contentSecondary.withOpacity(0.5),
               ),
-              floatingActionButton: _currentIndex == 1
+              floatingActionButton: (_currentIndex == 1 || _currentIndex == 2)
                   ? FloatingActionButton(
                       onPressed: () {
                         // Same logic as LwAppBar + button

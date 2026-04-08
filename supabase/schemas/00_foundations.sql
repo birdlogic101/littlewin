@@ -62,15 +62,21 @@ create table if not exists public.challenges (
   top_streak int default 0 not null,
   image_asset varchar(255) null
 );
-alter table public.challenges enable row level security;
 
--- Ensure image_asset column exists for existing tables
-do $$
+-- Maintenance: Ensure challenges.image_asset column exists.
+do $$ 
 begin
-  if not exists (select 1 from information_schema.columns where table_name='challenges' and column_name='image_asset') then
-    alter table public.challenges add column image_asset varchar(255);
+  if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='challenges' and column_name='image_asset') then
+    alter table public.challenges add column image_asset varchar(255) default 'assets/pictures/challenge_default_1080.jpg' not null;
+  else
+    -- If it exists but might be null, set the default and fill existing nulls
+    alter table public.challenges alter column image_asset set default 'assets/pictures/challenge_default_1080.jpg';
+    update public.challenges set image_asset = 'assets/pictures/challenge_default_1080.jpg' where image_asset is null;
+    alter table public.challenges alter column image_asset set not null;
+  -- If it exists but is just varchar(255), we're good.
   end if;
 end $$;
+alter table public.challenges enable row level security;
 
 create index if not exists challenges_created_at_idx on public.challenges (created_at);
 create index if not exists challenges_slug_idx on public.challenges (slug);
@@ -127,6 +133,14 @@ create table if not exists public.stakes (
   created_at timestamp with time zone default now() not null,
   created_by uuid references public.users(id) on delete set null
 );
+
+-- Maintenance: Ensure stakes.emoji column exists.
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='stakes' and column_name='emoji') then
+    alter table public.stakes add column emoji varchar(10) null;
+  end if;
+end $$;
 alter table public.stakes enable row level security;
 
 -- 2.6 bets

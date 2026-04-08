@@ -44,7 +44,7 @@ class LwAppBar extends StatelessWidget implements PreferredSizeWidget {
         onPressed: onMenuTap,
         icon: LwIcon(
           'misc_menu_lines',
-          size: LWComponents.appBar.iconSizeSmall,
+          size: LWComponents.appBar.iconSize,
           color: lw.contentPrimary,
         ),
       ),

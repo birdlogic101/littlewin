@@ -23,34 +23,39 @@ class CreateChallengeBloc
     CreateChallengeSubmitted event,
     Emitter<CreateChallengeState> emit,
   ) async {
-    emit(const CreateChallengeLoading());
-    final result = await _createChallenge(CreateChallengeParams(
-      title: event.title,
-      description: event.description,
-      visibility: event.visibility,
-      imageAsset: event.imageAsset,
-    ));
-    result.fold(
-      (failure) => emit(CreateChallengeFailure(failure.message)),
-      (success) {
-        // Inject the run into the repository so it's immediately available in the UI
-        final today = DateTime.now().toUtc();
-        final dateStr =
-            '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    try {
+      emit(const CreateChallengeLoading());
+      final result = await _createChallenge(CreateChallengeParams(
+        title: event.title,
+        description: event.description,
+        visibility: event.visibility,
+        imageAsset: event.imageAsset,
+      ));
 
-        _runsRepository.injectRun(ActiveRunEntity(
-          runId: success.runId,
-          challengeId: success.challengeId,
-          challengeTitle: success.challengeTitle,
-          challengeSlug: '', // Slug is used for joining, not required here
-          currentStreak: 0,
-          startDate: dateStr,
-          hasCheckedInToday: false,
-          imageAsset: event.imageAsset,
-        ));
+      await result.fold(
+        (failure) async => emit(CreateChallengeFailure(failure.message)),
+        (success) async {
+          // Inject the run into the repository so it's immediately available in the UI
+          final today = DateTime.now().toUtc();
+          final dateStr =
+              '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-        emit(CreateChallengeSuccess(success));
-      },
-    );
+          _runsRepository.injectRun(ActiveRunEntity(
+            runId: success.runId,
+            challengeId: success.challengeId,
+            challengeTitle: success.challengeTitle,
+            challengeSlug: '', // Slug is used for joining, not required here
+            currentStreak: 0,
+            startDate: dateStr,
+            hasCheckedInToday: false,
+            imageAsset: event.imageAsset ?? 'assets/pictures/challenge_default_1080.jpg',
+          ));
+
+          emit(CreateChallengeSuccess(success));
+        },
+      );
+    } catch (e) {
+      emit(CreateChallengeFailure('Unexpected error: $e'));
+    }
   }
 }

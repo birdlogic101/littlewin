@@ -422,9 +422,9 @@ class _BottomContent extends StatelessWidget {
                     fontSize: 28,
                     shadows: [
                       Shadow(
-                        blurRadius: 16,
-                        color: Colors.black.withValues(alpha: 0.5),
-                        offset: const Offset(0, 4),
+                        blurRadius: 12,
+                        color: Colors.black.withValues(alpha: 0.6),
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
@@ -444,7 +444,7 @@ class _BottomContent extends StatelessWidget {
                     shadows: [
                       Shadow(
                         blurRadius: 12,
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: Colors.black.withValues(alpha: 0.6),
                         offset: const Offset(0, 2),
                       ),
                     ],
