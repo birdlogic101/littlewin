@@ -323,7 +323,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                                 icon: LwIcon(
                                   'misc_add_contact',
                                   size: LWComponents.appBar.iconSize,
-                                  color: lw.contentPrimary,
+                                  color: LWColors.inkLighter,
                                 ),
                               ),
                             if (_currentIndex != 1 && _currentIndex != 3)

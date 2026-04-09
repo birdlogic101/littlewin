@@ -135,6 +135,13 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                         streak: widget.run.currentStreak,
                         size: 90,
                         numberColor: Colors.white,
+                        numberShadows: const [
+                          Shadow(
+                            blurRadius: 6,
+                            color: Color(0xB3000000), // 0.7 alpha
+                            offset: Offset(0, 1),
+                          ),
+                        ],
                         subLabel: 'DAY STREAK',
                       ),
                     ],
@@ -422,9 +429,9 @@ class _BottomContent extends StatelessWidget {
                     fontSize: 28,
                     shadows: [
                       Shadow(
-                        blurRadius: 12,
-                        color: Colors.black.withValues(alpha: 0.6),
-                        offset: const Offset(0, 2),
+                        blurRadius: 6,
+                        color: Colors.black.withValues(alpha: 0.7),
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
@@ -443,9 +450,9 @@ class _BottomContent extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.9),
                     shadows: [
                       Shadow(
-                        blurRadius: 12,
-                        color: Colors.black.withValues(alpha: 0.6),
-                        offset: const Offset(0, 2),
+                        blurRadius: 6,
+                        color: Colors.black.withValues(alpha: 0.7),
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),

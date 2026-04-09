@@ -23,6 +23,9 @@ class PngStreakRing extends StatelessWidget {
   /// Optional text shown below the number (e.g. "DAY STREAK").
   final String? subLabel;
 
+  /// Optional text shadows for the streak number (e.g. on photo backgrounds).
+  final List<Shadow>? numberShadows;
+
   const PngStreakRing({
     super.key,
     required this.streak,
@@ -30,6 +33,7 @@ class PngStreakRing extends StatelessWidget {
     this.numberColor,
     this.fontSize,
     this.subLabel,
+    this.numberShadows,
   });
 
   @override
@@ -59,7 +63,7 @@ class PngStreakRing extends StatelessWidget {
                   style: LWTypography.largeNoneBold.copyWith(
                     fontSize: effectiveFontSize,
                     color: numberColor ?? LWColors.inkBase,
-                    shadows: const [],
+                    shadows: numberShadows ?? const [],
                   ),
                 ),
               ),

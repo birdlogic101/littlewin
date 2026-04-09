@@ -102,6 +102,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         ),
                       )
                     else ...[
+                      // ── Gap at the top (Align with Check-in list padding)
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: LWSpacing.sm),
+                      ),
                       // ── Challenge group cards
                       SliverList.builder(
                       itemCount: groups.length,
@@ -146,6 +150,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
 }
 
 // ── Filter chip ──────────────────────────────────────────────────────────────
+
+
 
 class _FilterChip extends StatelessWidget {
   @override

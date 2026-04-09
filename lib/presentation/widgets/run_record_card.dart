@@ -44,7 +44,7 @@ class RunRecordCard extends StatelessWidget {
           PngStreakRing(
             streak: record.bestScore,
             size: 50, // Standardized size
-            numberColor: lw.contentPrimary,
+            numberColor: LWColors.inkBase,
           ),
           const SizedBox(width: LWSpacing.md),
 
@@ -138,21 +138,17 @@ class _RetryButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 24, // Aligned with Check-in toggle weight
+          width: 24, // Matches Check-in toggle weight
           height: 24,
           decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: lw.borderStrong,
-              width: 1.5,
-            ),
+            color: lw.brandSubtle, // PrimaryLightest
+            shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: Icon(
             Icons.refresh_rounded,
-            size: 16, // Proportional to 24x24 container
-            color: lw.contentSecondary.withOpacity(0.8),
+            size: 16,
+            color: lw.brandPrimary, // PrimaryBase
           ),
         ),
       ),

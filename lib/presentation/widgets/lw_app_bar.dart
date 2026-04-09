@@ -45,7 +45,7 @@ class LwAppBar extends StatelessWidget implements PreferredSizeWidget {
         icon: LwIcon(
           'misc_menu_lines',
           size: LWComponents.appBar.iconSize,
-          color: lw.contentPrimary,
+          color: LWColors.inkLighter,
         ),
       ),
       title: _Wordmark(),
@@ -91,7 +91,7 @@ class _SvgBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(LWRadius.pill),
         child: Padding(
           padding: const EdgeInsets.all(LWSpacing.md),
-          child: LwIcon(iconName, size: size, color: lw.contentPrimary),
+          child: LwIcon(iconName, size: size, color: LWColors.inkLighter),
         ),
       ),
     );
@@ -105,7 +105,7 @@ class _Wordmark extends StatelessWidget {
     return SvgPicture.asset(
       'assets/misc/littlewin_logo_text.svg',
       height: 16,
-      colorFilter: ColorFilter.mode(lw.contentPrimary, BlendMode.srcIn),
+      colorFilter: const ColorFilter.mode(LWColors.inkDark, BlendMode.srcIn),
     );
   }
 }
@@ -130,7 +130,7 @@ class _NotificationBtn extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               LwIcon('misc_bell',
-                  size: LWComponents.appBar.iconSize, color: lw.contentPrimary),
+                  size: LWComponents.appBar.iconSize, color: LWColors.inkLighter),
               if (count > 0)
                 Positioned(
                   right: -4,
