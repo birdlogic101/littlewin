@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
@@ -71,6 +72,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Timer? _rolloverTimer;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+  ];
 
   /// The UTC day string seen on last foreground event / cold start.
   late String _lastSeenUtcDay;
@@ -158,8 +166,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _rolloverTimer?.cancel();
     _utcTimer?.cancel();
-    _runsRepository.dispose();
-    _completedRunsRepository.dispose();
     _exploreBloc.close();
     _checkinBloc.close();
     _recordsBloc.close();
@@ -249,105 +255,69 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         builder: (innerContext) {
           return PopScope(
             canPop: false,
+            onPopInvokedWithResult: (didPop, result) async {
+              if (didPop) return;
+              final currentNav = _navigatorKeys[_currentIndex].currentState;
+              if (currentNav != null && currentNav.canPop()) {
+                currentNav.pop();
+              } else {
+                if (_currentIndex != 0) {
+                  _switchTab(0);
+                } else {
+                  SystemNavigator.pop();
+                }
+              }
+            },
             child: Scaffold(
-                key: _scaffoldKey,
-                backgroundColor: lw.backgroundApp,
-              extendBodyBehindAppBar: _currentIndex == 0,
+              key: _scaffoldKey,
+              backgroundColor: lw.backgroundApp,
+              extendBodyBehindAppBar: false,
               drawer: const ProfileDrawer(),
-              appBar: _currentIndex == 0
-                  ? PreferredSize(
-                      preferredSize: const Size.fromHeight(64),
-                      child: BlocBuilder<AuthBloc, AuthState>(
-                        builder: (context, authState) {
-                            final isPremium = authState is AuthAuthenticated
-                                ? authState.user.isPremium
-                                : false;
-                            
-                            return BlocBuilder<NotificationsBloc, NotificationsState>(
-                              builder: (context, notificationState) {
-                                final count = notificationState is NotificationsLoaded
-                                    ? notificationState.unreadCount
-                                    : 0;
-                                    
-                                return LwAppBar(
-                                  showCreate: true,
-                                  notificationCount: count,
-                                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                                  onNotificationsTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-                                  onCreateTap: isPremium
-                                      ? () => CreateChallengeSheet.show(
-                                            innerContext,
-                                            betRepository: _betRepository,
-                                          )
-                                      : () => ProfileDrawer.showUpgradeDialog(context),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                    )
-                  : PreferredSize(
-                      preferredSize: const Size.fromHeight(64),
-                      child: AppBar(
-                        backgroundColor: lw.backgroundApp,
-                        elevation: LWElevation.none,
-                        centerTitle: true,
-                        automaticallyImplyLeading: false,
-                        leading: null,
-                          title: _AppBarTitle(
-                            index: _currentIndex,
-                            lw: lw,
-                          ),
-                          actions: [
-                            if (_currentIndex == 1)
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: LWSpacing.lg),
-                                  child: Text(
-                                    _utcTimeLeft,
-                                    style: LWTypography.regularNormalRegular.copyWith(
-                                      color: LWColors.skyBase,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures()
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (_currentIndex == 3)
-                              IconButton(
-                                onPressed: () => AddPersonSheet.show(
-                                  innerContext,
-                                  repository: _peopleRepository,
-                                ),
-                                icon: LwIcon(
-                                  'misc_add_contact',
-                                  size: LWComponents.appBar.iconSize,
-                                  color: LWColors.inkLighter,
-                                ),
-                              ),
-                            if (_currentIndex != 1 && _currentIndex != 3)
-                              const SizedBox(width: 48),
-                          ],
-                        ),
-                      ),
+              endDrawer: const NotificationsDrawer(),
               body: IndexedStack(
                 index: _currentIndex,
                 children: [
-                  ExploreScreen(betRepository: _betRepository),
-                  CheckinScreen(betRepository: _betRepository),
-                  RecordsScreen(
-                    betRepository: _betRepository,
-                    onChallengeRestarted: () => _switchTab(1),
+                  Navigator(
+                    key: _navigatorKeys[0],
+                    onGenerateRoute: (_) => MaterialPageRoute(
+                      builder: (_) => ExploreScreen(
+                        betRepository: _betRepository,
+                        runsRepository: _runsRepository,
+                        onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                        onOpenNotifications: () => _scaffoldKey.currentState?.openEndDrawer(),
+                      ),
+                    ),
                   ),
-                  PeopleScreen(
-                    peopleRepository: _peopleRepository,
-                    runsRepository: _runsRepository,
-                    betRepository: _betRepository,
+                  Navigator(
+                    key: _navigatorKeys[1],
+                    onGenerateRoute: (_) => MaterialPageRoute(
+                      builder: (_) => CheckinScreen(
+                        betRepository: _betRepository,
+                        utcTimeLeft: _utcTimeLeft,
+                      ),
+                    ),
+                  ),
+                  Navigator(
+                    key: _navigatorKeys[2],
+                    onGenerateRoute: (_) => MaterialPageRoute(
+                      builder: (_) => RecordsScreen(
+                        betRepository: _betRepository,
+                        onChallengeRestarted: () => _switchTab(1),
+                      ),
+                    ),
+                  ),
+                  Navigator(
+                    key: _navigatorKeys[3],
+                    onGenerateRoute: (_) => MaterialPageRoute(
+                      builder: (_) => PeopleScreen(
+                        peopleRepository: _peopleRepository,
+                        runsRepository: _runsRepository,
+                        betRepository: _betRepository,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              endDrawer: const NotificationsDrawer(),
               bottomNavigationBar: _LwBottomNav(
                 currentIndex: _currentIndex,
                 onTap: _switchTab,
@@ -356,31 +326,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 activeColor: lw.contentPrimary,
                 inactiveColor: lw.contentSecondary.withOpacity(0.5),
               ),
-              floatingActionButton: (_currentIndex == 1 || _currentIndex == 2)
-                  ? FloatingActionButton(
-                      onPressed: () {
-                        // Same logic as LwAppBar + button
-                        final authState = context.read<AuthBloc>().state;
-                        final isPremium = authState is AuthAuthenticated
-                            ? authState.user.isPremium
-                            : false;
-
-                        if (isPremium) {
-                          CreateChallengeSheet.show(
-                            context,
-                            betRepository: _betRepository,
-                          );
-                        } else {
-                          ProfileDrawer.showUpgradeDialog(context);
-                        }
-                      },
-                      backgroundColor: Colors.white,
-                      foregroundColor: lw.contentPrimary,
-                      elevation: 4,
-                      shape: const CircleBorder(),
-                      child: const Icon(Icons.add_rounded, size: 32),
-                    )
-                  : null,
             ),
           );
         },

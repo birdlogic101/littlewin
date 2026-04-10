@@ -14,6 +14,10 @@ import '../../data/repositories/bet_repository.dart';
 import 'custom_stake_sheet.dart';
 import 'lw_button.dart';
 import 'profile_drawer.dart';
+import '../../core/di/injection.dart';
+import '../../domain/entities/people_user_entity.dart';
+import '../pages/people/view_user_screen.dart';
+import '../../data/repositories/runs_repository.dart';
 
 enum _BetViewMode { list, place }
 
@@ -836,10 +840,28 @@ class _BetRow extends StatelessWidget {
           const SizedBox(width: LWSpacing.md),
 
           // 2. Avatar
-          const CircleAvatar(
-            radius: 18,
-            // TODO(profile-picture): Support custom avatars here once implemented.
-            backgroundImage: AssetImage('assets/avatars/avatar_blank.jpg'),
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ViewUserScreen(
+                    user: PeopleUserEntity(
+                      userId: bet.bettorId,
+                      username: bet.bettorUsername ?? 'Anonymous',
+                      avatarId: null, // Custom avatars later
+                      isFollowing: false,
+                      ongoingRunCount: 0,
+                    ),
+                    runsRepository: getIt<RunsRepository>(),
+                  ),
+                ),
+              );
+            },
+            child: const CircleAvatar(
+              radius: 18,
+              // TODO(profile-picture): Support custom avatars here once implemented.
+              backgroundImage: AssetImage('assets/avatars/avatar_blank.jpg'),
+            ),
           ),
           const SizedBox(width: LWSpacing.md),
 

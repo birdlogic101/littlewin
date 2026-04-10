@@ -12,6 +12,7 @@ sealed class ExploreState extends Equatable {
     required int cycleIndex,
     DateTime? lastJoinedAt,
     String? joinError,
+    String? joiningRunId,
   }) = ExploreLoaded;
   const factory ExploreState.failure({required String message}) =
       ExploreFailure;
@@ -38,13 +39,13 @@ class ExploreLoaded extends ExploreState {
   /// Current position in the fallback pool cycle.
   final int cycleIndex;
 
-  /// Set to [DateTime.now()] each time the user joins a run.
-  /// [home_page.dart] listens for changes to this field and switches to
-  /// the Check-in tab automatically.
+  /// Set while the user is joining a run to show a loader and prevent duplicates.
+  final String? joiningRunId;
+
+  /// Timestamp of the last successful join.
   final DateTime? lastJoinedAt;
 
-  /// Non-null when an attempt to join failed — the screen shows a snackbar
-  /// and the card is retained in the feed so the user can retry.
+  /// Error message if a join request failed.
   final String? joinError;
 
   const ExploreLoaded({
@@ -53,10 +54,34 @@ class ExploreLoaded extends ExploreState {
     required this.cycleIndex,
     this.lastJoinedAt,
     this.joinError,
+    this.joiningRunId,
   });
 
+  ExploreLoaded copyWith({
+    List<ExploreRunEntity>? runs,
+    List<ExploreRunEntity>? fallbackPool,
+    int? cycleIndex,
+    DateTime? lastJoinedAt,
+    String? joinError,
+    Object? joiningRunId = _unset,
+  }) {
+    return ExploreLoaded(
+      runs: runs ?? this.runs,
+      fallbackPool: fallbackPool ?? this.fallbackPool,
+      cycleIndex: cycleIndex ?? this.cycleIndex,
+      lastJoinedAt: lastJoinedAt ?? this.lastJoinedAt,
+      joinError: joinError ?? this.joinError,
+      joiningRunId: joiningRunId == _unset
+          ? this.joiningRunId
+          : joiningRunId as String?,
+    );
+  }
+
+  static const _unset = Object();
+
   @override
-  List<Object?> get props => [runs, fallbackPool, cycleIndex, lastJoinedAt, joinError];
+  List<Object?> get props =>
+      [runs, fallbackPool, cycleIndex, lastJoinedAt, joinError, joiningRunId];
 }
 
 class ExploreFailure extends ExploreState {

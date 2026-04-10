@@ -979,3 +979,75 @@ begin
   -- permission to manage auth schema from this function.
 end;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- 14. debug_wipe_data
+-- -----------------------------------------------------------------------------
+-- Wipes all production and social data for testing. 
+-- Keeps challenger0 (00000000-0000-0000-0000-000000000000) data by default.
+-- DANGER: ONLY USE IN DEVELOPMENT.
+-- -----------------------------------------------------------------------------
+drop function if exists public.debug_wipe_data(boolean);
+create or replace function public.debug_wipe_data(p_keep_challenger0 boolean default true)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_sys_id uuid := '00000000-0000-0000-0000-000000000000';
+begin
+  -- 1. Wipe Social
+  delete from public.follows;
+  delete from public.notifications;
+  delete from public.dismissed_challenges;
+  delete from public.dismissed_runs;
+
+  -- 2. Wipe Bets and Checkins (dependencies)
+  if p_keep_challenger0 then
+    delete from public.bets where bettor_id != v_sys_id;
+    delete from public.checkins where run_id in (select id from public.runs where user_id != v_sys_id);
+    delete from public.runs where user_id != v_sys_id;
+  else
+    delete from public.bets;
+    delete from public.checkins;
+    delete from public.runs;
+  end if;
+
+  -- 3. [Optional] Reset Challenge counts
+  update public.challenges
+  set current_participant_count = (select count(*) from public.runs where challenge_id = public.challenges.id and status = 'ongoing');
+
+end;
+$$;
+
+grant execute on function public.debug_wipe_data(boolean) to authenticated;
+
+
+-- 15. ensure_user_profile
+-- -----------------------------------------------------------------------------
+-- Self-healing function that ensures the current user has a record in 
+-- public.users. Re-runs the fallback logic if missing.
+drop function if exists public.ensure_user_profile();
+create or replace function public.ensure_user_profile()
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_username text;
+begin
+  if v_uid is null then return; end if;
+
+  if not exists (select 1 from public.users where id = v_uid) then
+    -- Re-run the fallback logic from handle_new_user
+    v_username := 'user_' || substring(v_uid::text, 1, 8);
+    
+    insert into public.users (id, username)
+    values (v_uid, v_username)
+    on conflict (id) do nothing;
+  end if;
+end;
+$$;
+
+grant execute on function public.ensure_user_profile() to authenticated;

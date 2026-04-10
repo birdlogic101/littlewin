@@ -120,8 +120,15 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
     final current = state;
     if (current is! ExploreLoaded) return;
 
+    // Guard: ignore if a join for ANY run is already in flight.
+    if (current.joiningRunId != null) return;
+
+    // Show loading state for THIS specific run
+    emit(current.copyWith(joiningRunId: event.runId, joinError: null));
+
     // Find the run being joined so we can convert it to an ActiveRunEntity
-    final exploreRun = current.runs.where((r) => r.runId == event.runId).firstOrNull;
+    final exploreRun =
+        current.runs.where((r) => r.runId == event.runId).firstOrNull;
 
     if (exploreRun != null) {
       try {
@@ -132,56 +139,40 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
           imageAsset: exploreRun.imageAsset,
         );
 
-        // RPC succeeded (and repository stream was updated)
-        // Remove the run from the explore list so we don't see it again.
+        // Success: remove from feed & signal join happened
         final updatedRuns =
             current.runs.where((r) => r.runId != event.runId).toList();
 
-        emit(ExploreState.loaded(
+        emit(current.copyWith(
           runs: updatedRuns,
-          fallbackPool: current.fallbackPool,
-          cycleIndex: current.cycleIndex,
           lastJoinedAt: DateTime.now().toUtc(),
+          joiningRunId: null,
         ));
+
+        // Buffer: if running low, append more fallback content instantly.
+        if (updatedRuns.length < 3 && current.fallbackPool.isNotEmpty) {
+          add(const ExploreLoadMoreRequested());
+        }
+        return;
       } on AlreadyParticipatingException {
-        // User already has an active run for this challenge — keep the card in
-        // the feed and inform them via a snackbar.
-        emit(ExploreState.loaded(
-          runs: current.runs,
-          fallbackPool: current.fallbackPool,
-          cycleIndex: current.cycleIndex,
-          lastJoinedAt: current.lastJoinedAt,
+        emit(current.copyWith(
           joinError: "You're already running this challenge!",
+          joiningRunId: null,
         ));
         return;
       } catch (e) {
         // ignore: avoid_print
-        print('[ExploreBloc] addRun error: $e');
-        // Keep the card in the feed so the user can retry.
-        emit(ExploreState.loaded(
-          runs: current.runs,
-          fallbackPool: current.fallbackPool,
-          cycleIndex: current.cycleIndex,
-          lastJoinedAt: current.lastJoinedAt,
+        print('[ExploreBloc] joinChallenge error: $e');
+        emit(current.copyWith(
           joinError: "Couldn't join — please try again.",
+          joiningRunId: null,
         ));
         return;
       }
     }
 
-    // Success: remove from Explore feed & signal join happened
-    final updated = current.runs.where((r) => r.runId != event.runId).toList();
-    emit(ExploreState.loaded(
-      runs: updated,
-      fallbackPool: current.fallbackPool,
-      cycleIndex: current.cycleIndex,
-      lastJoinedAt: DateTime.now(),
-    ));
-
-    // Buffer: if running low, append more fallback content instantly.
-    if (updated.length < 3 && current.fallbackPool.isNotEmpty) {
-      add(const ExploreLoadMoreRequested());
-    }
+    // exploreRun was null (should be rare)
+    emit(current.copyWith(joiningRunId: null));
   }
 
   Future<void> _onClearJoinError(

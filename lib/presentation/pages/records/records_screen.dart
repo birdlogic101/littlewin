@@ -8,8 +8,11 @@ import '../../widgets/challenge_history_sheet.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/challenge_record.dart';
 import '../../../data/repositories/bet_repository.dart';
+import '../../bloc/auth/auth_bloc.dart';
+import '../../bloc/auth/auth_state.dart';
 import '../../widgets/lw_empty_state.dart';
 import '../../widgets/create_challenge_sheet.dart';
+import '../../widgets/profile_drawer.dart';
 
 /// The Records tab — shows the user's completed runs, grouped by challenge.
 class RecordsScreen extends StatefulWidget {
@@ -52,18 +55,39 @@ class _RecordsScreenState extends State<RecordsScreen> {
         }
       },
       builder: (context, state) {
-        return ColoredBox(
-          color: lw.backgroundApp,
-          child: switch (state) {
-            RecordsInitial() ||
-            RecordsLoading() ||
-            RecordsRestartSuccess() ||
-            RecordsRestartAlreadyActive() =>
-              const _LoadingView(),
-            RecordsFailure(:final message) => _ErrorView(message: message),
-            RecordsLoaded(:final runs) => ColoredBox(
-                color: LWColors.skyLighter,
-                child: () {
+        final authState = context.read<AuthBloc>().state;
+        final isPremium = authState is AuthAuthenticated ? authState.user.isPremium : false;
+
+        return Scaffold(
+          backgroundColor: lw.backgroundApp,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(64),
+            child: AppBar(
+              backgroundColor: lw.backgroundApp,
+              elevation: LWElevation.none,
+              centerTitle: true,
+              automaticallyImplyLeading: false,
+              leading: null,
+              title: Text(
+                'Records',
+                style: LWTypography.largeNoneRegular.copyWith(
+                  color: LWColors.inkBase,
+                ),
+              ),
+            ),
+          ),
+          body: ColoredBox(
+            color: lw.backgroundApp,
+            child: switch (state) {
+              RecordsInitial() ||
+              RecordsLoading() ||
+              RecordsRestartSuccess() ||
+              RecordsRestartAlreadyActive() =>
+                const _LoadingView(),
+              RecordsFailure(:final message) => _ErrorView(message: message),
+              RecordsLoaded(:final runs) => ColoredBox(
+                  color: LWColors.skyLighter,
+                  child: () {
                   // Group flat completed list by challenge for the card display.
                   final groups = ChallengeRecord.fromRuns(runs);
 
@@ -142,7 +166,22 @@ class _RecordsScreenState extends State<RecordsScreen> {
                 );
                 }(),
               ),
-          },
+            },
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              if (isPremium) {
+                CreateChallengeSheet.show(context, betRepository: widget.betRepository);
+              } else {
+                ProfileDrawer.showUpgradeDialog(context);
+              }
+            },
+            backgroundColor: Colors.white,
+            foregroundColor: lw.contentPrimary,
+            elevation: 4,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.add_rounded, size: 32),
+          ),
         );
       },
     );

@@ -17,16 +17,22 @@ class ExploreRunCard extends StatefulWidget {
   final ExploreRunEntity run;
   final VoidCallback onDismiss;
   final VoidCallback onJoin;
+  final bool isJoining;
 
   /// Called when the bet (star) icon is tapped. Opens RunBetsSheet.
   final VoidCallback? onBetTap;
+
+  /// Called when the user avatar is tapped.
+  final VoidCallback? onAvatarTap;
 
   const ExploreRunCard({
     super.key,
     required this.run,
     required this.onDismiss,
     required this.onJoin,
+    this.isJoining = false,
     this.onBetTap,
+    this.onAvatarTap,
   });
 
   @override
@@ -60,6 +66,7 @@ class _ExploreRunCardState extends State<ExploreRunCard>
   }
 
   void _onHorizontalDragUpdate(DragUpdateDetails d) {
+    if (widget.isJoining) return;
     setState(() => _dragX += d.delta.dx);
   }
 
@@ -129,7 +136,8 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                     children: [
                       _UserBadge(
                           username: widget.run.username,
-                          avatarId: widget.run.avatarId),
+                          avatarId: widget.run.avatarId,
+                          onAvatarTap: widget.onAvatarTap),
                       const Spacer(),
                       PngStreakRing(
                         streak: widget.run.currentStreak,
@@ -157,6 +165,7 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                     isCompleted: widget.run.isCompleted,
                     onDismiss: widget.onDismiss,
                     onJoin: widget.onJoin,
+                    isJoining: widget.isJoining,
                     onBetTap: widget.onBetTap,
                     recentBetCount: widget.run.recentBetCount,
                   ),
@@ -333,14 +342,19 @@ class _BottomGradient extends StatelessWidget {
 class _UserBadge extends StatelessWidget {
   final String username;
   final int? avatarId;
-  const _UserBadge({required this.username, this.avatarId});
+  final VoidCallback? onAvatarTap;
+  const _UserBadge({required this.username, this.avatarId, this.onAvatarTap});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _Avatar(avatarId: avatarId),
+        GestureDetector(
+          onTap: onAvatarTap,
+          behavior: HitTestBehavior.opaque,
+          child: _Avatar(avatarId: avatarId),
+        ),
         const SizedBox(width: LWSpacing.sm),
         Text(
           username,
@@ -391,6 +405,7 @@ class _BottomContent extends StatelessWidget {
   final String title;
   final String? description;
   final bool isCompleted;
+  final bool isJoining;
   final VoidCallback onDismiss;
   final VoidCallback onJoin;
   final VoidCallback? onBetTap;
@@ -399,6 +414,7 @@ class _BottomContent extends StatelessWidget {
     required this.title,
     this.description,
     required this.isCompleted,
+    required this.isJoining,
     required this.onDismiss,
     required this.onJoin,
     this.onBetTap,
@@ -475,7 +491,8 @@ class _BottomContent extends StatelessWidget {
               Expanded(
                 child: LwButton(
                   label: 'Join',
-                  onPressed: onJoin,
+                  onPressed: isJoining ? null : onJoin,
+                  isLoading: isJoining,
                   variant: LWButtonVariant.action,
                   size: LWButtonSize.medium,
                 ),

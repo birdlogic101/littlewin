@@ -54,7 +54,10 @@ class CompletedRunsRepository {
       // Sort newest first as per repository design (addRun uses insert(0))
       _runs.sort((a, b) => b.endDate.compareTo(a.endDate));
       
-      _controller.add(List.unmodifiable(_runs));
+      
+      if (!_controller.isClosed) {
+        _controller.add(List.unmodifiable(_runs));
+      }
     } catch (e) {
       // ignore: avoid_print
       print('[CompletedRunsRepository] initialize error (non-fatal): $e');
@@ -67,7 +70,9 @@ class CompletedRunsRepository {
   void addRun(CompletedRunEntity run) {
     if (_runs.any((r) => r.runId == run.runId)) return;
     _runs.insert(0, run);
-    _controller.add(List.unmodifiable(_runs));
+    if (!_controller.isClosed) {
+      _controller.add(List.unmodifiable(_runs));
+    }
   }
 
   void dispose() => _controller.close();

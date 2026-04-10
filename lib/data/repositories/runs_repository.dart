@@ -73,7 +73,9 @@ class RunsRepository {
       _runs
         ..clear()
         ..addAll(remoteRuns);
-      _controller.add(List.unmodifiable(_runs));
+      if (!_controller.isClosed) {
+        _controller.add(List.unmodifiable(_runs));
+      }
       // Apply client-side completion pass for any remaining gaps
       processCompletions(_todayUtc(), completedRepo);
     } catch (e) {
@@ -115,7 +117,9 @@ class RunsRepository {
     }
 
     _runs.insert(0, toStore);
-    _controller.add(List.unmodifiable(_runs));
+    if (!_controller.isClosed) {
+      _controller.add(List.unmodifiable(_runs));
+    }
   }
 
   /// High-level method to join a challenge by ID.
@@ -148,7 +152,9 @@ class RunsRepository {
   void injectRun(ActiveRunEntity run) {
     if (_runs.any((r) => r.runId == run.runId)) return;
     _runs.insert(0, run);
-    _controller.add(List.unmodifiable(_runs));
+    if (!_controller.isClosed) {
+      _controller.add(List.unmodifiable(_runs));
+    }
   }
 
   /// Fetches a batch of public runs for the Explore screen.
@@ -183,7 +189,9 @@ class RunsRepository {
     final idx = _runs.indexWhere((r) => r.runId == updated.runId);
     if (idx == -1) return;
     _runs[idx] = updated;
-    _controller.add(List.unmodifiable(_runs));
+    if (!_controller.isClosed) {
+      _controller.add(List.unmodifiable(_runs));
+    }
   }
 
   /// Records a check-in for [runId] on today's UTC day.
@@ -239,7 +247,9 @@ class RunsRepository {
       hasCheckedInToday: true,
       lastCheckinDay: today,
     );
-    _controller.add(List.unmodifiable(_runs));
+    if (!_controller.isClosed) {
+      _controller.add(List.unmodifiable(_runs));
+    }
 
     // Persist to Supabase via RPC
     if (_datasource != null) {
@@ -260,7 +270,9 @@ class RunsRepository {
             lastCheckinDay: today,
           );
           _runs[idx] = updatedRun;
-          _controller.add(List.unmodifiable(_runs));
+          if (!_controller.isClosed) {
+            _controller.add(List.unmodifiable(_runs));
+          }
         }
         
         return resolution;
@@ -272,7 +284,9 @@ class RunsRepository {
         final currentIdx = _runs.indexWhere((r) => r.runId == runId);
         if (currentIdx != -1) {
           _runs[currentIdx] = originalRun;
-          _controller.add(List.unmodifiable(_runs));
+          if (!_controller.isClosed) {
+            _controller.add(List.unmodifiable(_runs));
+          }
         }
         rethrow;
       }
@@ -349,7 +363,7 @@ class RunsRepository {
     }
 
     _runs.removeWhere((r) => toRemove.contains(r.runId));
-    if (toRemove.isNotEmpty) {
+    if (toRemove.isNotEmpty && !_controller.isClosed) {
       _controller.add(List.unmodifiable(_runs));
     }
   }
@@ -369,7 +383,9 @@ class RunsRepository {
         changed = true;
       }
     }
-    if (changed) _controller.add(List.unmodifiable(_runs));
+    if (changed && !_controller.isClosed) {
+      _controller.add(List.unmodifiable(_runs));
+    }
   }
 
   void dispose() => _controller.close();

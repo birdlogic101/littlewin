@@ -6,10 +6,12 @@ import '../../bloc/people/people_state.dart';
 import '../../widgets/user_card.dart';
 import '../../widgets/add_person_sheet.dart';
 import '../../widgets/user_runs_sheet.dart';
+import 'view_user_screen.dart';
 import '../../../data/repositories/people_repository.dart';
 import '../../../data/repositories/runs_repository.dart';
 import '../../../data/repositories/bet_repository.dart';
 import '../../widgets/lw_button.dart';
+import '../../widgets/lw_icon.dart';
 import '../../../core/theme/design_system.dart';
 import '../../widgets/lw_empty_state.dart';
 
@@ -69,9 +71,37 @@ class _PeopleScreenState extends State<PeopleScreen>
 
     return BlocBuilder<PeopleBloc, PeopleState>(
       builder: (context, state) {
-        return ColoredBox(
-          color: lw.backgroundApp,
-          child: Column(
+        return Scaffold(
+          backgroundColor: lw.backgroundApp,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(64),
+            child: AppBar(
+              backgroundColor: lw.backgroundApp,
+              elevation: LWElevation.none,
+              centerTitle: true,
+              automaticallyImplyLeading: false,
+              leading: null,
+              title: Text(
+                'People',
+                style: LWTypography.largeNoneRegular.copyWith(
+                  color: LWColors.inkBase,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  onPressed: _openAddPersonSheet,
+                  icon: LwIcon(
+                    'misc_add_contact',
+                    size: LWComponents.appBar.iconSize,
+                    color: LWColors.inkLighter,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          body: ColoredBox(
+            color: lw.backgroundApp,
+            child: Column(
             children: [
               // ── Tab bar (Fixed height for screen-to-screen consistency)
               Container(
@@ -159,6 +189,7 @@ class _PeopleScreenState extends State<PeopleScreen>
               ),
             ],
           ),
+        ),
         );
       },
     );
@@ -191,13 +222,13 @@ class _PeopleScreenState extends State<PeopleScreen>
           onFollowToggle: () => context
               .read<PeopleBloc>()
               .add(PeopleFollowToggled(userId: user.userId, user: user)),
-          onTap: () => UserRunsSheet.show(
-            context,
-            userId: user.userId,
-            username: user.username,
-            avatarId: user.avatarId,
-            runsRepository: widget.runsRepository,
-            betRepository: widget.betRepository,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ViewUserScreen(
+                user: user,
+                runsRepository: widget.runsRepository,
+              ),
+            ),
           ),
         );
       },

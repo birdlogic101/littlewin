@@ -7,6 +7,16 @@ import '../../widgets/explore_run_card.dart';
 import '../../widgets/run_bets_sheet.dart';
 import '../../../core/theme/design_system.dart';
 import '../../../data/repositories/bet_repository.dart';
+import '../../bloc/auth/auth_bloc.dart';
+import '../../bloc/auth/auth_state.dart';
+import '../../bloc/notifications/notifications_bloc.dart';
+import '../../bloc/notifications/notifications_state.dart';
+import '../../widgets/lw_app_bar.dart';
+import '../../widgets/create_challenge_sheet.dart';
+import '../../widgets/profile_drawer.dart';
+import '../../../domain/entities/people_user_entity.dart';
+import '../people/view_user_screen.dart';
+import '../../../data/repositories/runs_repository.dart';
 
 /// The Explore screen — home tab of the app.
 ///
@@ -14,7 +24,17 @@ import '../../../data/repositories/bet_repository.dart';
 /// The user swipes up/down to browse, taps Join or Dismiss on each card.
 class ExploreScreen extends StatefulWidget {
   final BetRepository betRepository;
-  const ExploreScreen({super.key, required this.betRepository});
+  final RunsRepository runsRepository;
+  final VoidCallback onOpenMenu;
+  final VoidCallback onOpenNotifications;
+
+  const ExploreScreen({
+    super.key,
+    required this.betRepository,
+    required this.runsRepository,
+    required this.onOpenMenu,
+    required this.onOpenNotifications,
+  });
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -68,10 +88,43 @@ class _ExploreScreenState extends State<ExploreScreen> {
         }
       },
       builder: (context, state) {
-        return switch (state) {
-          ExploreInitial() || ExploreLoading() => const _LoadingView(),
-          ExploreFailure(:final message) => _ErrorView(message: message),
-          ExploreLoaded(:final runs) => runs.isEmpty
+        return Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(64),
+            child: BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, authState) {
+                final isPremium = authState is AuthAuthenticated
+                    ? authState.user.isPremium
+                    : false;
+
+                return BlocBuilder<NotificationsBloc, NotificationsState>(
+                  builder: (context, notificationState) {
+                    final count = notificationState is NotificationsLoaded
+                        ? notificationState.unreadCount
+                        : 0;
+
+                    return LwAppBar(
+                      showCreate: true,
+                      notificationCount: count,
+                      onMenuTap: widget.onOpenMenu,
+                      onNotificationsTap: widget.onOpenNotifications,
+                      onCreateTap: isPremium
+                          ? () => CreateChallengeSheet.show(
+                                context,
+                                betRepository: widget.betRepository,
+                              )
+                          : () => ProfileDrawer.showUpgradeDialog(context),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          body: switch (state) {
+            ExploreInitial() || ExploreLoading() => const _LoadingView(),
+            ExploreFailure(:final message) => _ErrorView(message: message),
+            ExploreLoaded(:final runs) => runs.isEmpty
               ? const _EmptyView()
               : PageView.builder(
                   controller: _pageController
@@ -91,6 +144,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 return ExploreRunCard(
                   key: ValueKey(run.runId),
                   run: run,
+                  isJoining: state.joiningRunId == run.runId,
                   onDismiss: () {
                     context
                         .read<ExploreBloc>()
@@ -116,10 +170,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         .read<ExploreBloc>()
                         .add(ExploreRunBetPlaced(runId: run.runId)),
                   ),
+                  onAvatarTap: () {
+                    final tempUser = PeopleUserEntity(
+                      userId: run.userId,
+                      username: run.username,
+                      avatarId: run.avatarId,
+                      isFollowing: false,
+                      ongoingRunCount: 0,
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ViewUserScreen(
+                          user: tempUser,
+                          runsRepository: widget.runsRepository,
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
-        };
+          },
+        );
       },
     );
   }

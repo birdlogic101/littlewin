@@ -38,7 +38,7 @@ END $$;
 -- 2.1 users
 create table if not exists public.users (
   id uuid references auth.users on delete cascade not null primary key,
-  username varchar(20) unique not null,
+  username varchar(50) unique not null,
   email varchar(255) null,
   avatar_id int null check (avatar_id between 1 and 10),
   roles app_role[] default '{basic}',
@@ -174,7 +174,7 @@ create table if not exists public.notifications (
   message varchar(255) not null,
   type notif_type not null,
   deep_link varchar(255) null,
-  unique_hash varchar(64) unique null,
+  unique_hash varchar(128) unique null,
   created_at timestamp with time zone default now() not null,
   read_at timestamp with time zone null,
   status notif_status default 'pending' not null
@@ -235,14 +235,17 @@ alter table public.app_config enable row level security;
 
 -- users
 drop policy if exists "Users can update own profile" on public.users;
+drop policy if exists "Users can update their own profile" on public.users;
 create policy "Users can update own profile" on public.users for update using (auth.uid() = id);
 
 drop policy if exists "Users can read public profiles" on public.users;
-create policy "Users can read public profiles" on public.users for select using (true);
+drop policy if exists "Users can read all profiles" on public.users;
+create policy "Users can read all profiles" on public.users for select using (true);
 
 -- challenges
 drop policy if exists "Read public challenges" on public.challenges;
-create policy "Read public challenges" on public.challenges for select using (visibility = 'public');
+drop policy if exists "Challenges are readable by all" on public.challenges;
+create policy "Challenges are readable by all" on public.challenges for select using (true);
 
 drop policy if exists "Creator can read own private challenges" on public.challenges;
 create policy "Creator can read own private challenges" on public.challenges for select using (created_by = auth.uid());
@@ -254,10 +257,12 @@ create policy "Premium users can create challenges" on public.challenges for ins
 
 -- runs
 drop policy if exists "Users manage own runs" on public.runs;
+drop policy if exists "Users can update their own runs" on public.runs;
 create policy "Users manage own runs" on public.runs for all using (user_id = auth.uid());
 
 drop policy if exists "Read public runs" on public.runs;
-create policy "Read public runs" on public.runs for select using (visibility = 'public');
+drop policy if exists "Runs are readable by all" on public.runs;
+create policy "Runs are readable by all" on public.runs for select using (true);
 
 -- checkins
 drop policy if exists "Manage own checkins via run" on public.checkins;
@@ -266,22 +271,21 @@ create policy "Manage own checkins via run" on public.checkins for all using (
 );
 
 drop policy if exists "Read checkins of public/own runs" on public.checkins;
-create policy "Read checkins of public/own runs" on public.checkins for select using (
-  exists (select 1 from public.runs where id = run_id and (visibility = 'public' or user_id = auth.uid()))
-);
+create policy "Read checkins of public/own runs" on public.checkins for select using (true);
 
 -- bets
 drop policy if exists "Users manage own bets" on public.bets;
+drop policy if exists "Users can place bets" on public.bets;
 create policy "Users manage own bets" on public.bets for all using (bettor_id = auth.uid());
 
 drop policy if exists "Read bets on public/own runs" on public.bets;
-create policy "Read bets on public/own runs" on public.bets for select using (
-  exists (select 1 from public.runs where id = run_id and (visibility = 'public' or user_id = auth.uid()))
-);
+drop policy if exists "Bets are readable by all" on public.bets;
+create policy "Bets are readable by all" on public.bets for select using (true);
 
 -- stakes
 drop policy if exists "Read all stakes" on public.stakes;
-create policy "Read all stakes" on public.stakes for select using (true);
+drop policy if exists "Stakes are readable by all" on public.stakes;
+create policy "Stakes are readable by all" on public.stakes for select using (true);
 
 drop policy if exists "Premium users create stakes" on public.stakes;
 create policy "Premium users create stakes" on public.stakes for insert with check (
@@ -322,6 +326,8 @@ begin
     new.raw_user_meta_data->>'full_name',
     'user_' || substring(new.id::text, 1, 8)
   );
+  -- Truncate to 50 chars just in case metadata is very long
+  v_username := left(v_username, 50);
 
   insert into public.users (id, username, email)
   values (new.id, v_username, new.email)
@@ -353,13 +359,16 @@ begin
   insert into public.notifications (user_id, message, type, deep_link, unique_hash)
   values (
     new.followed_id,
-    v_follower_name || ' followed you!',
+    coalesce(v_follower_name, 'Someone') || ' followed you!',
     'new_follower',
     '/people',
     'follow_' || new.follower_id || '_' || new.followed_id
   )
   on conflict (unique_hash) do nothing;
   
+  return new;
+exception when others then
+  -- Never let notification failure roll back the actual follow
   return new;
 end;
 $$;
@@ -375,34 +384,7 @@ grant all on all tables in schema public to authenticated;
 grant all on all sequences in schema public to authenticated;
 grant all on all functions in schema public to authenticated;
 
--- 6. Row Level Security (RLS) Policies
--- Essential for enabling client-side joined queries!
-
--- 6.1 Users
-create policy "Users can read all profiles" on public.users
-  for select using (true);
-create policy "Users can update their own profile" on public.users
-  for update using (auth.uid() = id);
-
--- 6.2 Challenges
-create policy "Challenges are readable by all" on public.challenges
-  for select using (true);
-
--- 6.3 Runs
-create policy "Runs are readable by all" on public.runs
-  for select using (true);
-create policy "Users can update their own runs" on public.runs
-  for update using (auth.uid() = user_id);
-
--- 6.4 Stakes
-create policy "Stakes are readable by all" on public.stakes
-  for select using (true);
-
--- 6.5 Bets
-create policy "Bets are readable by all" on public.bets
-  for select using (true);
-create policy "Users can place bets" on public.bets
-  for insert with check (auth.uid() = bettor_id);
+-- 6. [REDUNDANT SECTION REMOVED]
 
 -- 7. Seed Default Stakes
 insert into public.stakes (id, title, category, emoji)

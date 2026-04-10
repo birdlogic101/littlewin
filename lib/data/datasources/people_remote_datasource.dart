@@ -76,20 +76,34 @@ class PeopleRemoteDataSource {
   Future<void> follow(String userId) async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) return;
-    await _client.from('follows').insert({
-      'follower_id': uid,
-      'followed_id': userId,
-    });
+    try {
+      // Pre-flight check: ensure the current user has a public profile record.
+      // This handles "zombie" accounts that exist in Auth but not in public.users.
+      await _client.rpc('ensure_user_profile');
+
+      await _client.from('follows').insert({
+        'follower_id': uid,
+        'followed_id': userId,
+      });
+    } catch (e) {
+      print('[PeopleRemoteDataSource] Follow failed for user $userId (follower $uid): $e');
+      rethrow;
+    }
   }
 
   Future<void> unfollow(String userId) async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) return;
-    await _client
-        .from('follows')
-        .delete()
-        .eq('follower_id', uid)
-        .eq('followed_id', userId);
+    try {
+      await _client
+          .from('follows')
+          .delete()
+          .eq('follower_id', uid)
+          .eq('followed_id', userId);
+    } catch (e) {
+      print('[PeopleRemoteDataSource] Unfollow failed for user $userId (follower $uid): $e');
+      rethrow;
+    }
   }
 
   /// Returns the set of userIds the current user follows (for enriching search results).

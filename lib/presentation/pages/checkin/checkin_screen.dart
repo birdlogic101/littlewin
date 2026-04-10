@@ -14,7 +14,9 @@ import '../../../core/theme/design_system.dart';
 import '../../../domain/entities/active_run_entity.dart';
 import '../../../data/repositories/bet_repository.dart';
 import '../../widgets/lw_empty_state.dart';
+import '../../widgets/lw_empty_state.dart';
 import '../../widgets/create_challenge_sheet.dart';
+import '../../widgets/profile_drawer.dart';
 
 /// The Check-in tab — shows the user's active runs with one-tap check-in.
 ///
@@ -26,7 +28,8 @@ import '../../widgets/create_challenge_sheet.dart';
 /// disappears into Done after [_exitDuration].
 class CheckinScreen extends StatefulWidget {
   final BetRepository betRepository;
-  const CheckinScreen({super.key, required this.betRepository});
+  final String utcTimeLeft;
+  const CheckinScreen({super.key, required this.betRepository, required this.utcTimeLeft});
 
   @override
   State<CheckinScreen> createState() => _CheckinScreenState();
@@ -153,19 +156,69 @@ class _CheckinScreenState extends State<CheckinScreen>
         await BetWonModal.show(ctx, resolution: resolution);
       },
       builder: (context, state) {
-        return ColoredBox(
-          color: lw.backgroundApp, // skyWhite
-          child: switch (state) {
-            CheckinInitial() || CheckinLoading() => const _LoadingView(),
-            CheckinFailure(:final message) => _ErrorView(message: message),
-            CheckinLoaded(:final runs) => _LoadedView(
-                runs: runs,
-                tabController: _tabController,
-                exiting: _exiting,
-                onCheckin: (run) => _handleCheckin(context, run),
-                betRepository: widget.betRepository,
+        final authState = context.read<AuthBloc>().state;
+        final isPremium = authState is AuthAuthenticated ? authState.user.isPremium : false;
+
+        return Scaffold(
+          backgroundColor: lw.backgroundApp,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(64),
+            child: AppBar(
+              backgroundColor: lw.backgroundApp,
+              elevation: LWElevation.none,
+              centerTitle: true,
+              automaticallyImplyLeading: false,
+              leading: null,
+              title: Text(
+                'Check in',
+                style: LWTypography.largeNoneRegular.copyWith(
+                  color: LWColors.inkBase,
+                ),
               ),
-          },
+              actions: [
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: LWSpacing.lg),
+                    child: Text(
+                      widget.utcTimeLeft,
+                      style: LWTypography.regularNormalRegular.copyWith(
+                        color: LWColors.skyBase,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          body: ColoredBox(
+            color: lw.backgroundApp, // skyWhite
+            child: switch (state) {
+              CheckinInitial() || CheckinLoading() => const _LoadingView(),
+              CheckinFailure(:final message) => _ErrorView(message: message),
+              CheckinLoaded(:final runs) => _LoadedView(
+                  runs: runs,
+                  tabController: _tabController,
+                  exiting: _exiting,
+                  onCheckin: (run) => _handleCheckin(context, run),
+                  betRepository: widget.betRepository,
+                ),
+            },
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              if (isPremium) {
+                CreateChallengeSheet.show(context, betRepository: widget.betRepository);
+              } else {
+                ProfileDrawer.showUpgradeDialog(context);
+              }
+            },
+            backgroundColor: Colors.white,
+            foregroundColor: lw.contentPrimary,
+            elevation: 4,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.add_rounded, size: 32),
+          ),
         );
       },
     );

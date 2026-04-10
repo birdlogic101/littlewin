@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/people_user_entity.dart';
 import '../../core/theme/design_system.dart';
+import 'lw_icon.dart';
 
 enum UserCardMode {
   /// Used in the Followed / Followers tab lists.
@@ -72,17 +73,27 @@ class UserCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (mode == UserCardMode.listRow && user.ongoingRunCount > 0) ...[
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Text('🔥', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${user.ongoingRunCount} ongoing',
-                          style: LWTypography.smallNormalRegular
-                              .copyWith(color: lw.contentSecondary),
-                        ),
-                      ],
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: LWColors.skyLightest,
+                        borderRadius: BorderRadius.circular(LWRadius.pill),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LwIcon('misc_streak', size: 14, color: lw.brandPrimary),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${user.ongoingRunCount}',
+                            style: LWTypography.smallNoneBold.copyWith(
+                              color: lw.brandPrimary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ],
@@ -115,7 +126,7 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = LWComponents.avatar.md;
+    const size = 48.0;
     return Container(
       width: size,
       height: size,

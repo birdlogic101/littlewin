@@ -15,6 +15,8 @@ class RunRecordCard extends StatelessWidget {
   final VoidCallback? onShare;
   final VoidCallback? onRetry;
   final VoidCallback? onViewHistory;
+  final String? actionLabel;
+  final String? actionIcon;
 
   const RunRecordCard({
     super.key,
@@ -22,6 +24,8 @@ class RunRecordCard extends StatelessWidget {
     this.onShare,
     this.onRetry,
     this.onViewHistory,
+    this.actionLabel,
+    this.actionIcon,
   });
 
   @override
@@ -106,17 +110,27 @@ class RunRecordCard extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: () {}, // TODO: implement more actions menu
-                icon: Icon(
-                  Icons.more_vert_rounded,
-                  size: 20,
-                  color: lw.contentSecondary.withValues(alpha: 0.6),
+              if (actionLabel == null)
+                IconButton(
+                  onPressed: () {}, // TODO: implement more actions menu
+                  icon: Icon(
+                    Icons.more_vert_rounded,
+                    size: 20,
+                    color: lw.contentSecondary.withValues(alpha: 0.6),
+                  ),
+                  splashRadius: 20,
                 ),
-                splashRadius: 20,
-              ),
               const SizedBox(width: LWSpacing.xs),
-              _RetryButton(onTap: onRetry),
+              if (actionLabel != null)
+                actionLabel == 'Join'
+                    ? _JoinButton(onTap: onRetry ?? () {})
+                    : _PillAction(
+                        icon: actionIcon ?? 'misc_plus',
+                        label: actionLabel!,
+                        onTap: onRetry ?? () {},
+                      )
+              else
+                _RetryButton(onTap: onRetry),
             ],
           ),
         ],
@@ -156,35 +170,67 @@ class _RetryButton extends StatelessWidget {
   }
 }
 
-class _IconBtn extends StatelessWidget {
-  final String semanticLabel;
-  final IconData iconData;
-  final VoidCallback? onTap;
-  final Color color;
+class _PillAction extends StatelessWidget {
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
 
-  const _IconBtn({
-    required this.semanticLabel,
-    required this.color,
-    required this.iconData,
-    this.onTap,
+  const _PillAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: semanticLabel,
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 24,
-          height: 38,
-          child: Icon(
-            iconData,
-            size: 20,
-            color: color.withOpacity(0.4),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: LWColors.skyLightest,
+          borderRadius: BorderRadius.circular(LWRadius.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LwIcon(icon, size: 14, color: LWColors.primaryBase),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: LWTypography.smallNoneBold.copyWith(
+                color: LWColors.primaryBase,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _JoinButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _JoinButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: LWColors.skyLighter,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: LwIcon(
+          'misc_join',
+          size: 14,
+          color: LWColors.inkLight,
         ),
       ),
     );
