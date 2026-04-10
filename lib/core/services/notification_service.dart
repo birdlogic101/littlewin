@@ -30,15 +30,20 @@ class NotificationService {
   }
 
   Future<void> requestPermissions() async {
-    NotificationSettings settings = await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      NotificationSettings settings = await _fcm.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      final token = await _fcm.getToken();
-      await _authRemoteDataSource.updateFcmToken(token);
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        final token = await _fcm.getToken();
+        await _authRemoteDataSource.updateFcmToken(token);
+      }
+    } catch (e) {
+      // Ignore errors on unsupported platforms or missing configs
+      print('NotificationService requestPermissions error: $e');
     }
   }
 

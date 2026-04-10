@@ -72,7 +72,7 @@ class _BetWonModalState extends State<BetWonModal>
     final res = widget.resolution;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: lw.backgroundApp,
       body: Stack(
         children: [
           // ── Confetti layer
@@ -88,7 +88,7 @@ class _BetWonModalState extends State<BetWonModal>
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 80),
+                const Spacer(flex: 3),
 
                 // Challenge title
                 Padding(
@@ -96,9 +96,8 @@ class _BetWonModalState extends State<BetWonModal>
                       horizontal: LWSpacing.xl),
                   child: Text(
                     res.challengeTitle,
-                    style: LWTypography.title2.copyWith(
+                    style: LWTypography.title3.copyWith(
                       color: lw.contentPrimary,
-                      fontWeight: FontWeight.w800,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 2,
@@ -110,22 +109,23 @@ class _BetWonModalState extends State<BetWonModal>
 
                 // Streak ring (PNG asset + number overlay)
                 SizedBox(
-                  width: 150,
-                  height: 150,
+                  width: 160,
+                  height: 160,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Image.asset(
                         'assets/misc/streak_ring_218x128.png',
-                        width: 150,
-                        height: 150,
+                        width: 160,
+                        height: 160,
                         fit: BoxFit.contain,
                       ),
                       Text(
                         '${res.newStreak}',
                         style: LWTypography.title1.copyWith(
                           color: lw.contentPrimary,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 64,
+                          height: 1.0,
                         ),
                       ),
                     ],
@@ -137,48 +137,53 @@ class _BetWonModalState extends State<BetWonModal>
                 // "DAYS COMPLETED!" (or YOU WON!)
                 Text(
                   widget.isBettorView ? 'YOU WON!' : 'DAYS COMPLETED !',
-                  style: LWTypography.title4.copyWith(
-                    color: lw.contentPrimary,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
+                  style: LWTypography.smallNoneBold.copyWith(
+                    color: lw.contentSecondary,
+                    letterSpacing: 0.5,
                   ),
                 ),
 
-                const SizedBox(height: LWSpacing.xxl),
+                const Spacer(flex: 2),
 
                 // Rewards section
                 if (res.wonBets.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: LWSpacing.md),
-                        child: Text(
-                          'REWARDS',
-                          style: LWTypography.smallNormalRegular.copyWith(
-                            color: lw.contentSecondary,
-                            letterSpacing: 1.5,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: LWSpacing.xl),
+                    child: Row(
+                      children: [
+                        Expanded(child: Divider(color: lw.borderSubtle)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: LWSpacing.md),
+                          child: Text(
+                            'REWARDS',
+                            style: LWTypography.tinyNormalMedium.copyWith(
+                              color: lw.contentSecondary,
+                              letterSpacing: 1.0,
+                            ),
                           ),
                         ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
+                        Expanded(child: Divider(color: lw.borderSubtle)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: LWSpacing.sm),
+                  const SizedBox(height: LWSpacing.lg),
                   Flexible(
+                    flex: 4,
                     child: ListView.builder(
                       shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: LWSpacing.lg),
+                          horizontal: LWSpacing.xl),
                       itemCount: res.wonBets.length,
                       itemBuilder: (_, i) =>
                           _RewardRow(entry: res.wonBets[i]),
                     ),
                   ),
+                  const SizedBox(height: LWSpacing.xl),
+                ] else ...[
+                  const Spacer(flex: 3),
                 ],
-
-                const Spacer(),
 
                 // Continue button
                 Padding(
@@ -213,14 +218,15 @@ class _RewardRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
 
-
     final displayName = entry.isSelfBet
         ? 'You'
         : (entry.bettorUsername ?? 'Someone');
 
+    final isGift = entry.stakeCategory?.name == 'gift';
+    final svgAsset = isGift ? 'assets/icons/tag_stake_gift.svg' : 'assets/icons/tag_stake_plan.svg';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: LWSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: LWSpacing.md),
       child: Row(
         children: [
           // Bettor avatar
@@ -229,42 +235,29 @@ class _RewardRow extends StatelessWidget {
             username: displayName,
             isSelf: entry.isSelfBet,
           ),
-          const SizedBox(width: LWSpacing.md),
+          const SizedBox(width: LWSpacing.lg),
 
           // Stake icon
-          if (entry.stakeTitle != null && entry.stakeId == null)
-            Image.asset(
-              'assets/icons/stake-gift_box.png',
-              height: 24,
-              width: 24,
-              errorBuilder: (_, __, ___) => SvgPicture.asset(
-                'assets/misc/littlewin_logo_text.svg',
-                height: 18,
-                colorFilter: ColorFilter.mode(lw.brandPrimary, BlendMode.srcIn),
-              ),
-            )
-          else
-            SvgPicture.asset(
-              'assets/misc/littlewin_logo_text.svg',
-              height: 18,
-              colorFilter: ColorFilter.mode(lw.brandPrimary, BlendMode.srcIn),
-            ),
-          const SizedBox(width: LWSpacing.sm),
+          SvgPicture.asset(
+            svgAsset,
+            height: 20,
+            width: 20,
+            colorFilter: ColorFilter.mode(lw.contentSecondary, BlendMode.srcIn),
+          ),
+          const SizedBox(width: LWSpacing.md),
 
           // Stake name
           Expanded(
             child: Text(
               entry.stakeTitle ?? 'No stake',
               style: LWTypography.regularNormalRegular.copyWith(
-                color: entry.stakeTitle != null
-                    ? lw.contentPrimary
-                    : lw.contentSecondary,
+                color: lw.contentSecondary,
               ),
             ),
           ),
 
           // ⋮ placeholder (no action for MLP)
-          Icon(Icons.more_vert_rounded, size: 20, color: lw.borderSubtle),
+          Icon(Icons.more_vert_rounded, size: 20, color: lw.contentSecondary.withOpacity(0.5)),
         ],
       ),
     );
@@ -380,11 +373,11 @@ class _ConfettiPiece {
         shape = rng.nextInt(3);
 
   static const _colors = [
-    Color(0xFF80D8F0), // blue
-    Color(0xFFFFD54F), // yellow
-    Color(0xFFFF8A80), // pink/red
-    Color(0xFFA5D6A7), // green
-    Color(0xFFCE93D8), // purple
+    Color(0xFF32B9D4), // deeper teal/cyan
+    Color(0xFFFFCC33), // golden yellow
+    Color(0xFFFF4558), // bright red/pink
+    Color(0xFF86E0F8), // light cyan
+    Color(0xFFFF909D), // light pink
   ];
 
   void draw(Canvas canvas, Size size_, double progress) {

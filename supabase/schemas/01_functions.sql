@@ -858,21 +858,37 @@ security definer
 as $$
 declare
   v_payload json;
+  v_url text;
+  v_key text;
 begin
-  v_payload := json_build_object('record', row_to_json(new));
-  
-  -- Invoke the Edge Function via pg_net
-  -- Note: The URL assumes the local/hosted Supabase convention.
-  -- The auth header uses the SERVICE_ROLE_KEY which must be set in the database vault or passed securely.
-  perform net.http_post(
-    url := (select value from public.app_config where key = 'PUSH_FUNCTION_URL')::text,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (select value from public.app_config where key = 'SERVICE_ROLE_KEY')
-    )::jsonb,
-    body := v_payload::json
-  );
-  
+  -- ── 1. Read config (safely) ─────────────────────────────────────────────
+  select value into v_url from public.app_config where key = 'PUSH_FUNCTION_URL';
+  select value into v_key from public.app_config where key = 'SERVICE_ROLE_KEY';
+
+  -- Skip push if not configured (local dev, missing keys, etc.)
+  if v_url is null or v_key is null or v_key = 'your-service-role-key-here' then
+    return new;
+  end if;
+
+  -- ── 2. Attempt push via pg_net (best-effort) ────────────────────────────
+  begin
+    v_payload := json_build_object('record', row_to_json(new));
+
+    perform net.http_post(
+      url     := v_url,
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_key
+      ),
+      body    := v_payload::json
+    );
+  exception when others then
+    -- Push delivery is best-effort. If pg_net is missing, misconfigured,
+    -- or the Edge Function is unreachable, we must NOT crash the parent
+    -- transaction (which could be a check-in or bet settlement).
+    raise notice 'handle_new_notification: push skipped — %', SQLERRM;
+  end;
+
   return new;
 end;
 $$;

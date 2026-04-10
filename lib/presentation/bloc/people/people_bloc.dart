@@ -122,12 +122,19 @@ class PeopleBloc extends Bloc<PeopleEvent, PeopleState> {
         await _repository.unfollow(event.userId);
       } else {
         await _repository.follow(event.userId);
-        getIt<NotificationService>().requestPermissions();
+        
+        // requestPermissions can throw synchronously on unsupported platforms
+        try {
+          getIt<NotificationService>().requestPermissions();
+        } catch (e) {
+          print('[PeopleBloc] Notification permission soft-fail: $e');
+        }
       }
       
       // Post-action refresh to get accurate run counts etc.
       add(const PeopleFetchRequested());
     } catch (e) {
+      print('[PeopleBloc] _onFollowToggled error: $e');
       // Revert optimistic update on error.
       // Easiest is to just fetch fresh state.
       add(const PeopleFetchRequested());
