@@ -28,70 +28,91 @@ class NotificationsBottomSheet extends StatelessWidget {
     final lw = LWThemeExtension.of(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      decoration: BoxDecoration(
-        color: lw.backgroundApp,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(LWRadius.lg),
-        ),
+    return Material(
+      color: lw.backgroundApp,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(LWRadius.lg),
       ),
-      child: Column(
-        children: [
-          _buildHeader(context, lw),
-          Expanded(
-            child: BlocBuilder<NotificationsBloc, NotificationsState>(
-              builder: (context, state) {
-                if (state is NotificationsLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state is NotificationsError) {
-                  return Center(child: Text(state.message));
-                }
-                if (state is NotificationsLoaded) {
-                  if (state.notifications.isEmpty) {
-                    return _buildEmptyState(lw);
-                  }
-                  return ListView.separated(
-                    padding: EdgeInsets.fromLTRB(
-                      LWSpacing.lg,
-                      0,
-                      LWSpacing.lg,
-                      bottomPadding + LWSpacing.lg,
-                    ),
-                    itemCount: state.notifications.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.sm),
-                    itemBuilder: (context, index) {
-                      return _NotificationTile(notification: state.notifications[index]);
-                    },
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: Column(
+          children: [
+            // ── Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: LWSpacing.md),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: LWColors.skyBase,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-          ),
-        ],
+            _buildHeader(context, lw),
+            const Divider(height: 1),
+            Expanded(
+              child: BlocBuilder<NotificationsBloc, NotificationsState>(
+                builder: (context, state) {
+                  if (state is NotificationsLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (state is NotificationsError) {
+                    return Center(child: Text(state.message));
+                  }
+                  if (state is NotificationsLoaded) {
+                    if (state.notifications.isEmpty) {
+                      return _buildEmptyState(lw);
+                    }
+                    return ListView.separated(
+                      padding: EdgeInsets.fromLTRB(
+                        LWSpacing.lg,
+                        0,
+                        LWSpacing.lg,
+                        bottomPadding + LWSpacing.lg,
+                      ),
+                      itemCount: state.notifications.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.sm),
+                      itemBuilder: (context, index) {
+                        return _NotificationTile(notification: state.notifications[index]);
+                      },
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context, LWThemeExtension lw) {
     return Padding(
-      padding: const EdgeInsets.all(LWSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+          LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Notifications',
-            style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+          Expanded(
+            child: Text(
+              'Notifications',
+              style: LWTypography.largeNoneBold.copyWith(
+                color: LWColors.inkBase,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
-              context.read<NotificationsBloc>().add(const NotificationsMarkAllAsReadRequested());
+              context.read<NotificationsBloc>().add(
+                  const NotificationsMarkAllAsReadRequested());
             },
             child: Text(
-              'Mark all as read',
-              style: LWTypography.smallNormalMedium.copyWith(color: lw.brandPrimary),
+              'Mark all read',
+              style: LWTypography.smallNoneMedium.copyWith(
+                color: lw.brandPrimary,
+              ),
             ),
           ),
         ],

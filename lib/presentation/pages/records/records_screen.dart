@@ -65,6 +65,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
             child: AppBar(
               backgroundColor: lw.backgroundApp,
               elevation: LWElevation.none,
+              toolbarHeight: 64,
               centerTitle: true,
               automaticallyImplyLeading: false,
               leading: null,
@@ -98,7 +99,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       child: Container(
                         height: 48,
                         color: lw.backgroundApp, // white
-                        padding: const EdgeInsets.fromLTRB(LWSpacing.lg, 0, LWSpacing.lg, 4),
+                        padding: const EdgeInsets.symmetric(horizontal: LWSpacing.lg),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: _FilterChip(),

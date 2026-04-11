@@ -116,48 +116,72 @@ class _SheetBodyState extends State<_SheetBody> {
     final isLoading =
         context.watch<CreateChallengeBloc>().state is CreateChallengeLoading;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: lw.backgroundApp,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        LWSpacing.lg,
-        LWSpacing.lg,
-        LWSpacing.lg,
-        bottomInset + LWSpacing.xl,
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle bar
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: LWSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: lw.borderSubtle,
-                    borderRadius: BorderRadius.circular(2),
+    return Material(
+      color: lw.backgroundApp,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(LWRadius.lg)),
+      clipBehavior: Clip.hardEdge,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Drag handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: LWSpacing.md),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: LWColors.skyBase,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
 
-              // Header
-              Row(
-                children: [
-                  const Text('⚡', style: TextStyle(fontSize: 22)),
-                  const SizedBox(width: LWSpacing.sm),
-                  Text('Create a Challenge',
-                      style: LWTypography.title4
-                          .copyWith(color: lw.contentPrimary)),
-                ],
-              ),
-              const SizedBox(height: LWSpacing.xl),
+                // ── Header: title + close
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Create a challenge',
+                          style: LWTypography.largeNoneBold.copyWith(
+                            color: LWColors.inkBase,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Padding(
+                          padding: const EdgeInsets.all(LWSpacing.sm),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 24,
+                            color: LWColors.skyDark,
+                            weight: 300,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // ── Body
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      LWSpacing.xl, LWSpacing.lg, LWSpacing.xl, LWSpacing.xl),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
 
               // Title field
               _FieldLabel(label: 'Title *', lw: lw),
@@ -257,7 +281,11 @@ class _SheetBodyState extends State<_SheetBody> {
                               .copyWith(color: Colors.white)),
                 ),
               ),
-            ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

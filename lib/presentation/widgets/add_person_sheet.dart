@@ -85,103 +85,135 @@ class _AddPersonSheetState extends State<AddPersonSheet> {
     final lw = LWThemeExtension.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: lw.backgroundApp,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(LWRadius.lg),
-        ),
+    return Material(
+      color: lw.backgroundApp,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(LWRadius.lg),
       ),
-      padding: EdgeInsets.fromLTRB(
-        LWSpacing.lg, LWSpacing.md, LWSpacing.lg,
-        bottomInset + LWSpacing.xxl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: LWComponents.modal.dragHandleWidth,
-              height: LWComponents.modal.dragHandleHeight,
-              decoration: BoxDecoration(
-                color: lw.borderSubtle,
-                borderRadius:
-                    BorderRadius.circular(LWComponents.modal.dragHandleRadius),
+      clipBehavior: Clip.hardEdge,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset + LWSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: LWSpacing.md),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: LWColors.skyBase,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: LWSpacing.lg),
 
-          // Title
-          Text(
-            'Add people',
-            style: LWTypography.title4
-                .copyWith(color: lw.contentPrimary, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: LWSpacing.lg),
+            // ── Header: title + close
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Add people',
+                      style: LWTypography.largeNoneBold.copyWith(
+                        color: LWColors.inkBase,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Padding(
+                      padding: const EdgeInsets.all(LWSpacing.sm),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 24,
+                        color: LWColors.skyDark,
+                        weight: 300,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-          // Search field
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            textInputAction: TextInputAction.search,
-            onChanged: _onQueryChanged,
-            decoration: InputDecoration(
-              hintText: 'Search by username…',
-              prefixIcon: Icon(Icons.search_rounded,
-                  color: lw.contentSecondary, size: 20),
-              suffixIcon: _controller.text.isNotEmpty
-                  ? GestureDetector(
-                      onTap: () {
-                        _controller.clear();
-                        setState(() => _results = []);
-                      },
-                      child: Icon(Icons.clear_rounded,
-                          color: lw.contentSecondary, size: 18),
+            const Divider(height: 1),
+
+            // ── Body
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  LWSpacing.xl, LWSpacing.lg, LWSpacing.xl, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search field
+                  TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _onQueryChanged,
+                    decoration: InputDecoration(
+                      hintText: 'Search by username…',
+                      prefixIcon: Icon(Icons.search_rounded,
+                          color: lw.contentSecondary, size: 20),
+                      suffixIcon: _controller.text.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                _controller.clear();
+                                setState(() => _results = []);
+                              },
+                              child: Icon(Icons.clear_rounded,
+                                  color: lw.contentSecondary, size: 18),
+                            )
+                          : null,
+                    ),
+                  ),
+
+                  const SizedBox(height: LWSpacing.md),
+
+                  // Results
+                  if (_loading)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: LWSpacing.xl),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                            color: lw.brandPrimary, strokeWidth: 2),
+                      ),
                     )
-                  : null,
-            ),
-          ),
-
-          const SizedBox(height: LWSpacing.md),
-
-          // Results
-          if (_loading)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: LWSpacing.xl),
-              child: Center(
-                child: CircularProgressIndicator(
-                    color: lw.brandPrimary, strokeWidth: 2),
-              ),
-            )
-          else if (_controller.text.isNotEmpty && _results.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: LWSpacing.xl),
-              child: Center(
-                child: Text(
-                  'No users found for "${_controller.text}"',
-                  style: LWTypography.regularNormalRegular
-                      .copyWith(color: lw.contentSecondary),
-                ),
-              ),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 320),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _results.length,
-                itemBuilder: (_, i) => UserCard(
-                  key: ValueKey(_results[i].userId),
-                  user: _results[i],
-                  mode: UserCardMode.searchResult,
-                  onFollowToggle: () => _onFollowToggle(_results[i]),
-                ),
+                  else if (_controller.text.isNotEmpty && _results.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: LWSpacing.xl),
+                      child: Center(
+                        child: Text(
+                          'No users found for "${_controller.text}"',
+                          style: LWTypography.regularNormalRegular
+                              .copyWith(color: lw.contentSecondary),
+                        ),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _results.length,
+                        itemBuilder: (_, i) => UserCard(
+                          key: ValueKey(_results[i].userId),
+                          user: _results[i],
+                          mode: UserCardMode.searchResult,
+                          onFollowToggle: () => _onFollowToggle(_results[i]),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -166,6 +166,7 @@ class _CheckinScreenState extends State<CheckinScreen>
             child: AppBar(
               backgroundColor: lw.backgroundApp,
               elevation: LWElevation.none,
+              toolbarHeight: 64,
               centerTitle: true,
               automaticallyImplyLeading: false,
               leading: null,
@@ -249,6 +250,7 @@ class _LoadedView extends StatelessWidget {
       children: [
         // Tab bar stays white
         Container(
+          height: 48,
           color: lw.backgroundApp,
           child: TabBar(
             controller: tabController,

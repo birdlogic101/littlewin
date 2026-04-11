@@ -39,7 +39,7 @@ class RunActiveCard extends StatelessWidget {
           // 1. Streak Ring
           PngStreakRing(
             streak: run.currentStreak,
-            size: 50,
+            size: 68,
             numberColor: LWColors.inkBase,
           ),
           const SizedBox(width: LWSpacing.md),

@@ -30,48 +30,48 @@ class ChallengeHistorySheet extends StatelessWidget {
     final lw = LWThemeExtension.of(context);
     final size = MediaQuery.of(context).size;
 
-    return Container(
-      height: size.height * 0.8,
-      decoration: BoxDecoration(
-        color: lw.backgroundApp,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(LWRadius.lg)),
-      ),
-      child: Column(
-        children: [
-          // ── Header Section ──────────────────────────────────────────────
-          const SizedBox(height: LWSpacing.md),
-          Center(
-            child: Container(
-              width: LWComponents.modal.dragHandleWidth,
-              height: LWComponents.modal.dragHandleHeight,
-              decoration: BoxDecoration(
-                color: lw.borderSubtle,
-                borderRadius: BorderRadius.circular(LWComponents.modal.dragHandleRadius),
+    return Material(
+      color: lw.backgroundApp,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(LWRadius.lg)),
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        height: size.height * 0.8,
+        child: Column(
+          children: [
+            // ── Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: LWSpacing.md),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: LWColors.skyBase,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: LWSpacing.md),
-          
-          _Header(
-            title: record.challengeTitle,
-            onClose: () => Navigator.pop(context),
-          ),
-          
-          const Divider(height: 1),
 
-          // ── History List ────────────────────────────────────────────────
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(LWSpacing.lg),
-              itemCount: record.runs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.md),
-              itemBuilder: (context, index) {
-                final run = record.runs[index];
-                return _HistoryRunCard(run: run);
-              },
+            _Header(
+              title: record.challengeTitle,
+              onClose: () => Navigator.pop(context),
             ),
-          ),
-        ],
+
+            const Divider(height: 1),
+
+            // ── History List ────────────────────────────────────────────────
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.all(LWSpacing.lg),
+                itemCount: record.runs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.md),
+                itemBuilder: (context, index) {
+                  final run = record.runs[index];
+                  return _HistoryRunCard(run: run);
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -88,10 +88,9 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: LWSpacing.lg, vertical: LWSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+          LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
       child: Row(
         children: [
           Expanded(
@@ -100,21 +99,34 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: LWTypography.regularNormalBold.copyWith(color: lw.contentPrimary),
+                  style: LWTypography.largeNoneBold.copyWith(
+                    color: LWColors.inkBase,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   'Challenge History',
-                  style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
+                  style: LWTypography.smallNoneRegular.copyWith(
+                    color: LWColors.inkLighter,
+                    fontWeight: FontWeight.w300,
+                  ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: onClose,
-            icon: const Icon(Icons.close_rounded),
-            color: lw.contentSecondary,
+          // Close icon: 24×24, skyDark, weight ≈ stroke 1.5
+          GestureDetector(
+            onTap: onClose,
+            child: Padding(
+              padding: const EdgeInsets.all(LWSpacing.sm),
+              child: const Icon(
+                Icons.close_rounded,
+                size: 24,
+                color: LWColors.skyDark,
+                weight: 300,
+              ),
+            ),
           ),
         ],
       ),

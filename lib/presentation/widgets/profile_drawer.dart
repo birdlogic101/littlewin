@@ -474,110 +474,149 @@ class _EditUsernameSheetState extends State<_EditUsernameSheet> {
           }
         }
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: lw.backgroundApp,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.fromLTRB(
-            LWSpacing.lg, LWSpacing.lg, LWSpacing.lg, bottomInset + LWSpacing.xl),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle bar
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: LWSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: lw.borderSubtle,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                'Edit Username',
-                style: LWTypography.title4
-                    .copyWith(color: lw.contentPrimary),
-              ),
-              const SizedBox(height: LWSpacing.sm),
-              Text(
-                'This is how other players see you.',
-                style: LWTypography.smallNormalRegular
-                    .copyWith(color: lw.contentSecondary),
-              ),
-              const SizedBox(height: LWSpacing.lg),
-              TextFormField(
-                controller: _controller,
-                autofocus: true,
-                maxLength: 30,
-                inputFormatters: [
-                  // No spaces allowed
-                  FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'e.g. shady_cookie_400',
-                  counterStyle: LWTypography.smallNormalRegular
-                      .copyWith(color: lw.contentSecondary),
-                  filled: true,
-                  fillColor: lw.backgroundCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(LWRadius.md),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(LWRadius.md),
-                    borderSide: BorderSide(color: lw.brandPrimary, width: 2),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(LWRadius.md),
-                    borderSide: BorderSide(color: lw.feedbackNegative, width: 1.5),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(LWRadius.md),
-                    borderSide: BorderSide(color: lw.feedbackNegative, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: LWSpacing.md, vertical: LWSpacing.md),
-                ),
-                validator: (value) {
-                  final v = value?.trim() ?? '';
-                  if (v.isEmpty) return 'Username cannot be empty';
-                  if (v.length < 3) return 'Must be at least 3 characters';
-                  return null;
-                },
-              ),
-              const SizedBox(height: LWSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _save,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: lw.brandPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: LWSpacing.md),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(LWRadius.md),
+      child: Material(
+        color: lw.backgroundApp,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(LWRadius.lg)),
+        clipBehavior: Clip.hardEdge,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Drag handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: LWSpacing.md),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: LWColors.skyBase,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  child: _saving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(
-                          'Save',
-                          style: LWTypography.regularNormalMedium
-                              .copyWith(color: Colors.white),
-                        ),
                 ),
-              ),
-            ],
+
+                // ── Header: title + close
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Edit Username',
+                          style: LWTypography.largeNoneBold.copyWith(
+                            color: LWColors.inkBase,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Padding(
+                          padding: const EdgeInsets.all(LWSpacing.sm),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 24,
+                            color: LWColors.skyDark,
+                            weight: 300,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // ── Body
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      LWSpacing.xl, LWSpacing.lg, LWSpacing.xl, LWSpacing.xxl),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This is how other players see you.',
+                        style: LWTypography.smallNoneRegular.copyWith(
+                          color: LWColors.inkLighter,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                      const SizedBox(height: LWSpacing.lg),
+                      TextFormField(
+                        controller: _controller,
+                        autofocus: true,
+                        maxLength: 30,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                        ],
+                        decoration: InputDecoration(
+                          hintText: 'e.g. shady_cookie_400',
+                          counterStyle: LWTypography.smallNormalRegular
+                              .copyWith(color: lw.contentSecondary),
+                          filled: true,
+                          fillColor: lw.backgroundCard,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(LWRadius.md),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(LWRadius.md),
+                            borderSide: BorderSide(color: lw.brandPrimary, width: 2),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(LWRadius.md),
+                            borderSide: BorderSide(color: lw.feedbackNegative, width: 1.5),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(LWRadius.md),
+                            borderSide: BorderSide(color: lw.feedbackNegative, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: LWSpacing.md, vertical: LWSpacing.md),
+                        ),
+                        validator: (value) {
+                          final v = value?.trim() ?? '';
+                          if (v.isEmpty) return 'Username cannot be empty';
+                          if (v.length < 3) return 'Must be at least 3 characters';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: LWSpacing.lg),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _saving ? null : _save,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: lw.brandPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: LWSpacing.md),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(LWRadius.md),
+                            ),
+                          ),
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(
+                                  'Save',
+                                  style: LWTypography.regularNormalMedium
+                                      .copyWith(color: Colors.white),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

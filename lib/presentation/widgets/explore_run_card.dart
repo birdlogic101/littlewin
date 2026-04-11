@@ -521,65 +521,84 @@ class _BottomContent extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: lw.backgroundApp,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(LWRadius.lg),
-          ),
+      builder: (_) => Material(
+        color: lw.backgroundApp,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(LWRadius.lg),
         ),
+        clipBehavior: Clip.hardEdge,
         child: SafeArea(
           top: false,
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Proportional to content
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle for aesthetics
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: LWSpacing.md),
-                decoration: BoxDecoration(
-                  color: lw.interactiveDisabled,
-                  borderRadius: LWRadius.full,
+              // ── Drag handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: LWSpacing.md),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: LWColors.skyBase,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
+
+              // ── Header row: title + close
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        // Large/None/Thick (18/18)
+                        style: LWTypography.largeNoneBold.copyWith(
+                          color: LWColors.inkBase,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Close icon: 24×24, skyDark, weight ≈ stroke 1.5
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Padding(
+                        padding: const EdgeInsets.all(LWSpacing.sm),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 24,
+                          color: LWColors.skyDark,
+                          weight: 300,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // ── Description body
               Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(
                     LWSpacing.xl,
-                    LWSpacing.md,
+                    LWSpacing.lg,
                     LWSpacing.xl,
                     LWSpacing.xxl,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: LWTypography.title3
-                                  .copyWith(color: lw.contentPrimary),
-                            ),
-                          ),
-                          const SizedBox(width: LWSpacing.md),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: LwIcon('misc_cross', color: lw.contentPrimary),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: LWSpacing.xl),
-                      Text(
-                        description ?? 'No description available.',
-                        style: LWTypography.regularNormalRegular
-                            .copyWith(color: lw.contentSecondary, height: 1.5),
-                      ),
-                    ],
+                  child: Text(
+                    description ?? 'No description available.',
+                    // Small/None/Thin (14/14)
+                    style: LWTypography.smallNoneRegular.copyWith(
+                      color: LWColors.inkLighter,
+                      fontWeight: FontWeight.w300,
+                    ),
                   ),
                 ),
               ),
@@ -589,6 +608,7 @@ class _BottomContent extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class _CircleAction extends StatelessWidget {

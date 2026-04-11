@@ -40,76 +40,66 @@ class UserCard extends StatelessWidget {
       onTap: mode == UserCardMode.listRow ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        margin: const EdgeInsets.symmetric(
-          horizontal: LWSpacing.lg,
-          vertical: LWSpacing.xs,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: LWSpacing.lg,
-          vertical: LWSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: lw.backgroundCard,
-          borderRadius: BorderRadius.circular(LWRadius.md),
-          border: Border.all(color: lw.borderSubtle, width: 1),
-        ),
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: LWSpacing.lg),
         child: Row(
           children: [
             // ── Avatar ───────────────────────────────────────────────────
             _UserAvatar(avatarId: user.avatarId),
             const SizedBox(width: LWSpacing.md),
-
-            // ── Username + optional sub-label ────────────────────────────
+    
+            // ── Username + sub-label ─────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     user.username,
-                    style: LWTypography.regularNormalBold
-                        .copyWith(color: lw.contentPrimary),
+                    style: LWTypography.smallNoneBold
+                        .copyWith(color: LWColors.inkBase),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (mode == UserCardMode.listRow && user.ongoingRunCount > 0) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: LWColors.skyLightest,
-                        borderRadius: BorderRadius.circular(LWRadius.pill),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          LwIcon('misc_streak', size: 14, color: lw.brandPrimary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${user.ongoingRunCount}',
-                            style: LWTypography.smallNoneBold.copyWith(
-                              color: lw.brandPrimary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+                  const SizedBox(height: 4),
+                  // Ongoing runs pill: always visible, 20px height
+                  Container(
+                    height: 20,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: LWColors.skyLightest,
+                      borderRadius: BorderRadius.circular(LWRadius.pill),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const LwIcon('misc_streak', size: 16, color: LWColors.skyDark),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${user.ongoingRunCount}',
+                          style: LWTypography.smallNoneRegular.copyWith(
+                            color: LWColors.skyDark,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-
+    
             const SizedBox(width: LWSpacing.md),
-
+    
             // ── Trailing action ───────────────────────────────────────────
             if (mode == UserCardMode.searchResult)
               _FollowButton(isFollowing: user.isFollowing, onTap: onFollowToggle)
             else
-              Padding(
-                padding: const EdgeInsets.only(right: LWSpacing.xs),
-                child: Icon(Icons.chevron_right_rounded,
-                    color: lw.contentSecondary, size: 20),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: LWColors.skyDark,
+                size: 24,
+                weight: 300,
               ),
           ],
         ),
@@ -130,13 +120,9 @@ class _UserAvatar extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
         color: LWColors.skyLight,
-        border: Border.all(
-          color: LWThemeExtension.of(context).borderSubtle,
-          width: 1.5,
-        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: avatarId != null

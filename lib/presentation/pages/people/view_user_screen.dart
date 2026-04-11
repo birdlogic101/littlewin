@@ -78,9 +78,10 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
             preferredSize: const Size.fromHeight(64),
             child: AppBar(
               backgroundColor: lw.backgroundApp,
-              elevation: 0,
+              elevation: LWElevation.none,
+              toolbarHeight: 64,
               centerTitle: false,
-              titleSpacing: 16,
+              titleSpacing: 0,
               leading: GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 behavior: HitTestBehavior.opaque,
@@ -291,7 +292,7 @@ class _OngoingCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          PngStreakRing(streak: run.currentStreak, size: 50, numberColor: LWColors.inkBase),
+          PngStreakRing(streak: run.currentStreak, size: 68, numberColor: LWColors.inkBase),
           const SizedBox(width: LWSpacing.md),
           Expanded(
             child: Column(
@@ -351,10 +352,10 @@ Widget build(BuildContext context) {
     onTap: onTap,
     behavior: HitTestBehavior.opaque,
     child: Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: LWColors.skyLighter,
+      width: 32,
+      height: 32,
+      decoration: const BoxDecoration(
+        color: LWColors.skyLightest,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,

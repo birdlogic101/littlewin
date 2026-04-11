@@ -12,19 +12,12 @@ import 'png_streak_ring.dart';
 import 'lw_icon.dart';
 
 /// A bottom sheet that displays a user's profile info (ongoing and completed runs).
-///
-/// Allows other users to:
-/// - View ongoing runs and place bets.
-/// - View completed runs and see streak records.
-/// - Join any challenge the profile user is/was in.
 class UserRunsSheet extends StatefulWidget {
   final String userId;
   final String username;
   final int? avatarId;
   final RunsRepository runsRepository;
   final BetRepository betRepository;
-  // Set of challengeIds the current viewer already participates in.
-  // Resolved from CheckinBloc before the modal opens (modal has no BLoC tree).
   final Set<String> joinedChallengeIds;
 
   const UserRunsSheet({
@@ -45,8 +38,6 @@ class UserRunsSheet extends StatefulWidget {
     required RunsRepository runsRepository,
     required BetRepository betRepository,
   }) {
-    // Resolve which challengeIds the viewer already participates in, while
-    // we still have access to the BlocProvider tree (before modal opens).
     final checkinState = context.read<CheckinBloc>().state;
     final joinedChallengeIds = checkinState is CheckinLoaded
         ? checkinState.runs.map((r) => r.challengeId).toSet()
@@ -71,7 +62,8 @@ class UserRunsSheet extends StatefulWidget {
   State<UserRunsSheet> createState() => _UserRunsSheetState();
 }
 
-class _UserRunsSheetState extends State<UserRunsSheet> with SingleTickerProviderStateMixin {
+class _UserRunsSheetState extends State<UserRunsSheet>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late Future<List<ActiveRunEntity>> _ongoingFuture;
   late Future<List<CompletedRunEntity>> _completedFuture;
@@ -92,7 +84,8 @@ class _UserRunsSheetState extends State<UserRunsSheet> with SingleTickerProvider
 
   void _refreshCompleted() {
     setState(() {
-      _completedFuture = widget.runsRepository.fetchUserCompletedRuns(widget.userId);
+      _completedFuture =
+          widget.runsRepository.fetchUserCompletedRuns(widget.userId);
     });
   }
 
@@ -107,75 +100,74 @@ class _UserRunsSheetState extends State<UserRunsSheet> with SingleTickerProvider
     final lw = LWThemeExtension.of(context);
     final size = MediaQuery.of(context).size;
 
-    return Container(
-      height: size.height * 0.9,
-      decoration: BoxDecoration(
-        color: lw.backgroundApp,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(LWRadius.lg)),
-      ),
-      child: Column(
-        children: [
-          // ── Header Section ──────────────────────────────────────────────
-          const SizedBox(height: LWSpacing.md),
-          Center(
-            child: Container(
-              width: LWComponents.modal.dragHandleWidth,
-              height: LWComponents.modal.dragHandleHeight,
-              decoration: BoxDecoration(
-                color: lw.borderSubtle,
-                borderRadius: BorderRadius.circular(LWComponents.modal.dragHandleRadius),
+    return Material(
+      color: lw.backgroundApp,
+      borderRadius:
+          const BorderRadius.vertical(top: Radius.circular(LWRadius.lg)),
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        height: size.height * 0.9,
+        child: Column(
+          children: [
+            // ── Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: LWSpacing.md),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: LWColors.skyBase,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: LWSpacing.md),
-          
-          _ProfileHeader(
-            username: widget.username,
-            avatarId: widget.avatarId,
-            onClose: () => Navigator.pop(context),
-          ),
-          
-          const SizedBox(height: LWSpacing.sm),
-          
-          TabBar(
-            controller: _tabController,
-            labelStyle: LWTypography.regularNormalBold,
-            unselectedLabelStyle: LWTypography.regularNormalRegular,
-            labelColor: lw.contentPrimary,
-            unselectedLabelColor: lw.contentSecondary,
-            indicatorColor: lw.brandPrimary,
-            indicatorWeight: 3,
-            indicatorSize: TabBarIndicatorSize.label,
-            tabs: const [
-              Tab(text: 'Ongoing'),
-              Tab(text: 'Completed'),
-            ],
-          ),
-          const Divider(height: 1),
 
-          // ── Tab Content ──────────────────────────────────────────────────
-          Expanded(
-            child: TabBarView(
+            _ProfileHeader(
+              username: widget.username,
+              avatarId: widget.avatarId,
+              onClose: () => Navigator.pop(context),
+            ),
+
+            TabBar(
               controller: _tabController,
-              children: [
-                _OngoingTab(
-                  future: _ongoingFuture,
-                  username: widget.username,
-                  runsRepository: widget.runsRepository,
-                  betRepository: widget.betRepository,
-                  joinedChallengeIds: widget.joinedChallengeIds,
-                  onRefresh: _refreshOngoing,
-                ),
-                _CompletedTab(
-                  future: _completedFuture,
-                  username: widget.username,
-                  runsRepository: widget.runsRepository,
-                  joinedChallengeIds: widget.joinedChallengeIds,
-                ),
+              labelStyle: LWTypography.regularNormalBold,
+              unselectedLabelStyle: LWTypography.regularNormalRegular,
+              labelColor: lw.contentPrimary,
+              unselectedLabelColor: lw.contentSecondary,
+              indicatorColor: lw.brandPrimary,
+              indicatorWeight: 3,
+              indicatorSize: TabBarIndicatorSize.label,
+              tabs: const [
+                Tab(text: 'Ongoing'),
+                Tab(text: 'Completed'),
               ],
             ),
-          ),
-        ],
+            const Divider(height: 1),
+
+            // ── Tab Content ──────────────────────────────────────────────────
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _OngoingTab(
+                    future: _ongoingFuture,
+                    username: widget.username,
+                    runsRepository: widget.runsRepository,
+                    betRepository: widget.betRepository,
+                    joinedChallengeIds: widget.joinedChallengeIds,
+                    onRefresh: _refreshOngoing,
+                  ),
+                  _CompletedTab(
+                    future: _completedFuture,
+                    username: widget.username,
+                    runsRepository: widget.runsRepository,
+                    joinedChallengeIds: widget.joinedChallengeIds,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -196,36 +188,54 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: LWSpacing.lg, vertical: LWSpacing.sm),
-      child: Row(
-        children: [
-          _Avatar(avatarId: avatarId, size: 48),
-          const SizedBox(width: LWSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '@$username',
-                  style: LWTypography.regularNormalBold.copyWith(color: lw.contentPrimary),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
+          child: Row(
+            children: [
+              _Avatar(avatarId: avatarId, size: 48),
+              const SizedBox(width: LWSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '@$username',
+                      style: LWTypography.largeNoneBold.copyWith(
+                        color: LWColors.inkBase,
+                      ),
+                    ),
+                    Text(
+                      'Member since 2026',
+                      style: LWTypography.smallNoneRegular.copyWith(
+                        color: LWColors.inkLighter,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Member since 2026', // Static for now
-                  style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
+              ),
+              // Close icon: 24×24, skyDark, weight ≈ stroke 1.5
+              GestureDetector(
+                onTap: onClose,
+                child: Padding(
+                  padding: const EdgeInsets.all(LWSpacing.sm),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 24,
+                    color: LWColors.skyDark,
+                    weight: 300,
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          IconButton(
-            onPressed: onClose,
-            icon: const Icon(Icons.close_rounded),
-            color: lw.contentSecondary,
-          ),
-        ],
-      ),
+        ),
+        const Divider(height: 1),
+      ],
     );
   }
 }
@@ -253,7 +263,8 @@ class _Avatar extends StatelessWidget {
           ? Image.asset(
               'assets/avatars/avatar_$avatarId.png',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded, color: Colors.white70),
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.person_rounded, color: Colors.white70),
             )
           : const Icon(Icons.person_rounded, color: Colors.white70),
     );
@@ -288,7 +299,9 @@ class _OngoingTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         final runs = snapshot.data ?? [];
-        if (runs.isEmpty) return _EmptyView(message: '@$username has no ongoing runs.');
+        if (runs.isEmpty) {
+          return _EmptyView(message: '@$username has no ongoing runs.');
+        }
 
         return ListView.separated(
           padding: const EdgeInsets.all(LWSpacing.lg),
@@ -296,8 +309,7 @@ class _OngoingTab extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.lg),
           itemBuilder: (context, index) {
             final run = runs[index];
-            final isJoined =
-                joinedChallengeIds.contains(run.challengeId);
+            final isJoined = joinedChallengeIds.contains(run.challengeId);
             return _ProfileRunCard(
               title: run.challengeTitle,
               subtitle: 'Current streak: ${run.currentStreak} days',
@@ -353,7 +365,10 @@ class _CompletedTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         final runs = snapshot.data ?? [];
-        if (runs.isEmpty) return _EmptyView(message: '@$username has not completed any challenges yet.');
+        if (runs.isEmpty) {
+          return _EmptyView(
+              message: '@$username has not completed any challenges yet.');
+        }
 
         return ListView.separated(
           padding: const EdgeInsets.all(LWSpacing.lg),
@@ -433,13 +448,15 @@ class _ProfileRunCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: LWTypography.regularNormalBold.copyWith(color: lw.contentPrimary),
+                      style: LWTypography.regularNormalBold
+                          .copyWith(color: lw.contentPrimary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       subtitle,
-                      style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
+                      style: LWTypography.smallNormalRegular
+                          .copyWith(color: lw.contentSecondary),
                     ),
                   ],
                 ),
@@ -502,7 +519,12 @@ class _JoinSectionState extends State<_JoinSection> {
         title: widget.challengeTitle,
         slug: widget.challengeSlug ?? '',
       );
-      if (mounted) setState(() { _joined = true; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _joined = true;
+          _loading = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
@@ -530,7 +552,8 @@ class _JoinSectionState extends State<_JoinSection> {
           const SizedBox(width: 6),
           Text(
             'You are in this challenge',
-            style: LWTypography.smallNormalMedium.copyWith(color: lw.feedbackPositive),
+            style: LWTypography.smallNormalMedium
+                .copyWith(color: lw.feedbackPositive),
           ),
         ],
       );
@@ -539,8 +562,11 @@ class _JoinSectionState extends State<_JoinSection> {
     if (_loading) {
       return const SizedBox(
         height: 24,
-        child: Center(child: SizedBox(width: 16, height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2))),
+        child: Center(
+            child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))),
       );
     }
 
@@ -555,7 +581,8 @@ class _JoinSectionState extends State<_JoinSection> {
             const SizedBox(width: 8),
             Text(
               'Start this challenge too',
-              style: LWTypography.smallNormalBold.copyWith(color: lw.brandPrimary),
+              style:
+                  LWTypography.smallNormalBold.copyWith(color: lw.brandPrimary),
             ),
           ],
         ),
@@ -660,7 +687,8 @@ class _EmptyView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: LWTypography.regularNormalRegular.copyWith(color: lw.contentSecondary),
+              style: LWTypography.regularNormalRegular
+                  .copyWith(color: lw.contentSecondary),
             ),
           ],
         ),

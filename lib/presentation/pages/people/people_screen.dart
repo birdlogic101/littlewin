@@ -78,6 +78,7 @@ class _PeopleScreenState extends State<PeopleScreen>
             child: AppBar(
               backgroundColor: lw.backgroundApp,
               elevation: LWElevation.none,
+              toolbarHeight: 64,
               centerTitle: true,
               automaticallyImplyLeading: false,
               leading: null,
@@ -126,58 +127,51 @@ class _PeopleScreenState extends State<PeopleScreen>
               ),
 
               // ── Search bar ─────────────────────────────────────────────
-              if (state is PeopleLoaded) ...[
-                if (state.followedUsers.length > 20 ||
-                    state.followersUsers.length > 20 ||
-                    _searchController.text.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      LWSpacing.lg,
-                      LWSpacing.lg,
-                      LWSpacing.lg,
-                      LWSpacing.sm,
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      textInputAction: TextInputAction.search,
-                      onChanged: (q) => context
-                          .read<PeopleBloc>()
-                          .add(PeopleSearchChanged(query: q)),
-                      style: LWTypography.smallTightRegular
-                          .copyWith(color: lw.contentPrimary),
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        hintStyle: LWTypography.smallTightRegular
-                            .copyWith(color: lw.contentSecondary),
-                        filled: true,
-                        fillColor: lw.backgroundSurface,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 12),
-                        prefixIcon: Icon(Icons.search_rounded,
-                            color: lw.contentSecondary, size: 22),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(LWRadius.sm),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(LWRadius.sm),
-                          borderSide: BorderSide.none,
-                        ),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? GestureDetector(
-                                onTap: () {
-                                  _searchController.clear();
-                                  context.read<PeopleBloc>().add(
-                                      const PeopleSearchChanged(query: ''));
-                                },
-                                child: Icon(Icons.clear_rounded,
-                                    color: lw.contentSecondary, size: 18),
-                              )
-                            : null,
+              if (state is PeopleLoaded)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: LWSpacing.lg,
+                    vertical: LWSpacing.md,
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (q) => context
+                        .read<PeopleBloc>()
+                        .add(PeopleSearchChanged(query: q)),
+                    style: LWTypography.smallTightRegular
+                        .copyWith(color: lw.contentPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Search',
+                      hintStyle: LWTypography.smallTightRegular
+                          .copyWith(color: lw.contentSecondary),
+                      filled: true,
+                      fillColor: lw.backgroundSurface,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      prefixIcon: Icon(Icons.search_rounded,
+                          color: lw.contentSecondary, size: 22),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(LWRadius.md),
+                        borderSide: BorderSide.none,
                       ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(LWRadius.md),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                _searchController.clear();
+                                context.read<PeopleBloc>().add(
+                                    const PeopleSearchChanged(query: ''));
+                              },
+                              child: Icon(Icons.clear_rounded,
+                                  color: lw.contentSecondary, size: 18),
+                            )
+                          : null,
                     ),
                   ),
-              ],
+                ),
 
               // ── Tab content ────────────────────────────────────────────
               Expanded(
