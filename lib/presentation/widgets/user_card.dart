@@ -40,7 +40,7 @@ class UserCard extends StatelessWidget {
       onTap: mode == UserCardMode.listRow ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 56,
+        height: 64, // Increased height for breathing room
         padding: const EdgeInsets.symmetric(horizontal: LWSpacing.lg),
         child: Row(
           children: [
@@ -61,11 +61,11 @@ class UserCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6), // Increased spacing
                   // Ongoing runs pill: always visible, 20px height
                   Container(
                     height: 20,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: LWColors.skyLightest,
                       borderRadius: BorderRadius.circular(LWRadius.pill),
@@ -77,9 +77,9 @@ class UserCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           '${user.ongoingRunCount}',
-                          style: LWTypography.smallNoneRegular.copyWith(
+                          style: LWTypography.smallNoneBold.copyWith(
                             color: LWColors.skyDark,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                       ],

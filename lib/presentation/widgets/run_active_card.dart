@@ -25,7 +25,7 @@ class RunActiveCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(
-        horizontal: LWSpacing.lg,
+        horizontal: 8,
         vertical: LWSpacing.xs,
       ),
       padding: const EdgeInsets.all(12),
@@ -39,7 +39,7 @@ class RunActiveCard extends StatelessWidget {
           // 1. Streak Ring
           PngStreakRing(
             streak: run.currentStreak,
-            size: 68,
+            size: 64,
             numberColor: LWColors.inkBase,
           ),
           const SizedBox(width: LWSpacing.md),
@@ -52,13 +52,13 @@ class RunActiveCard extends StatelessWidget {
               children: [
                 Text(
                   run.challengeTitle,
-                  style: LWTypography.regularNoneRegular.copyWith(
+                  style: LWTypography.regularNoneBold.copyWith(
                     color: LWColors.inkBase,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8), // Increased gap
                 GestureDetector(
                   onTap: onBetTap,
                   behavior: HitTestBehavior.opaque,
@@ -99,18 +99,7 @@ class RunActiveCard extends StatelessWidget {
             ),
           ),
 
-          // 3. More Actions Button (Three-dots)
-          IconButton(
-            onPressed: () {}, // TODO(more-actions)
-            icon: Icon(
-              Icons.more_vert_rounded,
-              size: 20,
-              color: lw.contentSecondary.withValues(alpha: 0.6),
-            ),
-            splashRadius: 20,
-          ),
-
-          // 4. Checkin Status
+          // 3. Checkin Status (Replaced older toggle and menu)
           _CheckinToggle(
             isChecked: run.hasCheckedInToday || forceDone,
             onChanged: onCheckin == null ? null : (v) => onCheckin!(),
@@ -138,24 +127,24 @@ class _CheckinToggle extends StatelessWidget {
       onTap: onChanged == null ? null : () => onChanged!(!isChecked),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 24,
-        height: 24,
-        margin: const EdgeInsets.only(left: 4),
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isChecked ? lw.brandPrimary : LWColors.inkLighter,
-            width: 1.5,
-          ),
-          color: isChecked ? lw.brandPrimary : LWColors.skyLightest,
+          borderRadius: BorderRadius.circular(6), // Rounded Square per mockup
+          color: isChecked ? lw.brandPrimary : LWColors.skyLighter,
         ),
+        alignment: Alignment.center,
         child: isChecked
             ? const Icon(
-                Icons.check,
-                size: 16,
+                Icons.check_rounded,
+                size: 20,
                 color: Colors.white,
               )
-            : null,
+            : const Icon(
+                Icons.check_rounded,
+                size: 24,
+                color: LWColors.inkLight,
+              ),
       ),
     );
   }

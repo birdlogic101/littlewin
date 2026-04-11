@@ -107,11 +107,8 @@ class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
     Emitter<NotificationsState> emit,
   ) {
     if (state is NotificationsLoaded) {
-      final current = state as NotificationsLoaded;
-      emit(NotificationsLoaded(
-        notifications: current.notifications,
-        unreadCount: event.count,
-      ));
+      // Refresh the full list to get the new notification content
+      add(const NotificationsFetchRequested());
     } else if (state is NotificationsInitial) {
        // If we haven't fetched yet, we just stay initial but maybe we should trigger a fetch?
        // For now, let's just trigger a fetch if we see unread counts coming in

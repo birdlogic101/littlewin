@@ -51,7 +51,7 @@ class NotificationsBottomSheet extends StatelessWidget {
               ),
             ),
             _buildHeader(context, lw),
-            const Divider(height: 1),
+            // Divider removed for consistency with CreateChallengeSheet
             Expanded(
               child: BlocBuilder<NotificationsBloc, NotificationsState>(
                 builder: (context, state) {

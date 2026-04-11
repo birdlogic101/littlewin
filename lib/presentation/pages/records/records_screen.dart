@@ -100,8 +100,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         height: 48,
                         color: lw.backgroundApp, // white
                         padding: const EdgeInsets.symmetric(horizontal: LWSpacing.lg),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
+                        child: const Align(
+                          alignment: Alignment(-1.0, -0.5),
                           child: _FilterChip(),
                         ),
                       ),
@@ -194,6 +194,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
 
 class _FilterChip extends StatelessWidget {
+  const _FilterChip();
+
   @override
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);

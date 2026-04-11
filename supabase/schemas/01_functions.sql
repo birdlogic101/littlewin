@@ -867,6 +867,7 @@ begin
 
   -- Skip push if not configured (local dev, missing keys, etc.)
   if v_url is null or v_key is null or v_key = 'your-service-role-key-here' then
+    raise notice 'handle_new_notification: push skipped — missing internal config (PUSH_FUNCTION_URL or SERVICE_ROLE_KEY)';
     return new;
   end if;
 

@@ -204,9 +204,10 @@ class _PeopleScreenState extends State<PeopleScreen>
         onFind: _openAddPersonSheet,
       );
     }
-    return ListView.builder(
+    return ListView.separated(
       padding: const EdgeInsets.only(top: LWSpacing.sm, bottom: LWSpacing.xxl),
       itemCount: users.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, i) {
         final user = users[i];
         return UserCard(

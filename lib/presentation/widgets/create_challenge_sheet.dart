@@ -142,33 +142,15 @@ class _SheetBodyState extends State<_SheetBody> {
                   ),
                 ),
 
-                // ── Header: title + close
+                // ── Header: title only (drag-to-dismiss replaces close button)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
-                      LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Create a challenge',
-                          style: LWTypography.largeNoneBold.copyWith(
-                            color: LWColors.inkBase,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Padding(
-                          padding: const EdgeInsets.all(LWSpacing.sm),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            size: 24,
-                            color: LWColors.skyDark,
-                            weight: 300,
-                          ),
-                        ),
-                      ),
-                    ],
+                      LWSpacing.xl, LWSpacing.lg, LWSpacing.xl, LWSpacing.md),
+                  child: Text(
+                    'Create a challenge',
+                    style: LWTypography.largeNoneBold.copyWith(
+                      color: LWColors.inkBase,
+                    ),
                   ),
                 ),
 
@@ -184,7 +166,7 @@ class _SheetBodyState extends State<_SheetBody> {
                     children: [
 
               // Title field
-              _FieldLabel(label: 'Title *', lw: lw),
+              _FieldLabel(label: 'Title', lw: lw),
               const SizedBox(height: LWSpacing.sm),
               TextFormField(
                 controller: _titleCtrl,
@@ -203,7 +185,7 @@ class _SheetBodyState extends State<_SheetBody> {
               const SizedBox(height: LWSpacing.md),
 
               // Description field
-              _FieldLabel(label: 'Description (optional)', lw: lw),
+              _FieldLabel(label: 'Description', lw: lw),
               const SizedBox(height: LWSpacing.sm),
               TextFormField(
                 controller: _descCtrl,
@@ -211,7 +193,7 @@ class _SheetBodyState extends State<_SheetBody> {
                 maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: _inputDeco(lw,
-                    hint: 'What is this challenge about?'),
+                    hint: 'This is optional.'),
               ),
               const SizedBox(height: LWSpacing.md),
 
@@ -239,7 +221,7 @@ class _SheetBodyState extends State<_SheetBody> {
                           Text(
                             _isPublic
                                 ? 'Anyone can see and join'
-                                : 'Only you can see this challenge',
+                                : 'Only you can see this',
                             style: LWTypography.smallNormalRegular
                                 .copyWith(color: lw.contentSecondary),
                           ),

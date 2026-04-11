@@ -34,7 +34,7 @@ class RunRecordCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(
-        horizontal: LWSpacing.lg,
+        horizontal: 8,
         vertical: LWSpacing.xs,
       ),
       padding: const EdgeInsets.all(12), // Aligned with RunActiveCard
@@ -47,7 +47,7 @@ class RunRecordCard extends StatelessWidget {
         children: [
           PngStreakRing(
             streak: record.bestScore,
-            size: 68, // Updated to High-Fidelity size
+            size: 64, // Updated to Harmonized size
             numberColor: LWColors.inkBase,
           ),
           const SizedBox(width: LWSpacing.md),
@@ -59,16 +59,17 @@ class RunRecordCard extends StatelessWidget {
               onTap: onViewHistory,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     record.challengeTitle,
-                    style: LWTypography.regularNoneRegular.copyWith(
+                    style: LWTypography.regularNoneBold.copyWith(
                       color: LWColors.inkBase,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8), // Increased gap
                   GestureDetector(
                     onTap: onViewHistory,
                     behavior: HitTestBehavior.opaque,
@@ -110,17 +111,6 @@ class RunRecordCard extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (actionLabel == null)
-                IconButton(
-                  onPressed: () {}, // TODO: implement more actions menu
-                  icon: Icon(
-                    Icons.more_vert_rounded,
-                    size: 20,
-                    color: lw.contentSecondary.withValues(alpha: 0.6),
-                  ),
-                  splashRadius: 20,
-                ),
-              const SizedBox(width: LWSpacing.xs),
               if (actionLabel != null)
                 actionLabel == 'Join'
                     ? _JoinButton(onTap: onRetry ?? () {})
@@ -151,18 +141,19 @@ class _RetryButton extends StatelessWidget {
       button: true,
       child: GestureDetector(
         onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Container(
           width: 32,
           height: 32,
           decoration: const BoxDecoration(
-            color: LWColors.skyLightest, // SkyLighter
+            color: LWColors.skyLighter, // Harmonized Background
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(
-            Icons.refresh_rounded,
+          child: const LwIcon(
+            'misc_restart', // Using the new custom SVG to match Join icon
             size: 24,
-            color: LWColors.inkLight, // InkLight
+            color: LWColors.inkLight,
           ),
         ),
       ),
@@ -189,7 +180,7 @@ class _PillAction extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: LWColors.skyLightest,
+          color: LWColors.skyLighter,
           borderRadius: BorderRadius.circular(LWRadius.pill),
         ),
         child: Row(
@@ -210,6 +201,7 @@ class _PillAction extends StatelessWidget {
     );
   }
 }
+
 class _JoinButton extends StatelessWidget {
   final VoidCallback onTap;
   const _JoinButton({required this.onTap});
@@ -220,16 +212,16 @@ class _JoinButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
+        width: 32,
+        height: 32,
+        decoration: const BoxDecoration(
           color: LWColors.skyLighter,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: LwIcon(
+        child: const LwIcon(
           'misc_join',
-          size: 14,
+          size: 24,
           color: LWColors.inkLight,
         ),
       ),

@@ -161,19 +161,36 @@ class ProfileDrawer extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LWRadius.lg),
           ),
-          title: Row(
+          titlePadding: const EdgeInsets.fromLTRB(LWSpacing.xl, LWSpacing.xl, LWSpacing.xl, 0),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('✨', style: TextStyle(fontSize: 22)),
-              const SizedBox(width: LWSpacing.sm),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: lw.brandPrimary.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Text('✨', style: TextStyle(fontSize: 22)),
+                ),
+              ),
+              const SizedBox(height: LWSpacing.md),
               Text(
                 'Join Littlewin',
-                style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+                textAlign: TextAlign.center,
+                style: LWTypography.largeNormalBold.copyWith(
+                  color: lw.contentPrimary,
+                  fontSize: 20,
+                ),
               ),
             ],
           ),
           content: Text(
-            'To access premium features like custom rewards, please create a proper account first.',
-            style: LWTypography.regularNormalRegular.copyWith(color: lw.contentSecondary),
+            'Create an account to save your progress and access premium features like custom challenges.',
+            textAlign: TextAlign.center,
+            style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
           ),
           actions: [
             TextButton(
@@ -193,7 +210,7 @@ class ProfileDrawer extends StatelessWidget {
                   borderRadius: BorderRadius.circular(LWRadius.md),
                 ),
               ),
-              child: Text('Sign Up / Sign In',
+              child: Text('Sign Up',
                   style: LWTypography.regularNormalMedium.copyWith(color: Colors.white)),
             ),
           ],
@@ -238,24 +255,60 @@ class ProfileDrawer extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(LWRadius.lg),
             ),
-            title: Row(
+            titlePadding: const EdgeInsets.fromLTRB(LWSpacing.xl, LWSpacing.xl, LWSpacing.xl, 0),
+            contentPadding: const EdgeInsets.fromLTRB(LWSpacing.xl, LWSpacing.md, LWSpacing.xl, 0),
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('⚡', style: TextStyle(fontSize: 22)),
-                const SizedBox(width: LWSpacing.sm),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: lw.brandPrimary.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text('⚡', style: TextStyle(fontSize: 22)),
+                  ),
+                ),
+                const SizedBox(height: LWSpacing.md),
                 Text(
                   'Upgrade to Premium',
-                  style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+                  textAlign: TextAlign.center,
+                  style: LWTypography.largeNormalBold.copyWith(
+                    color: lw.contentPrimary,
+                    fontSize: 20,
+                  ),
                 ),
               ],
             ),
-            content: Text(
-              'Get full access to all features, including creating your own challenges.',
-              style: LWTypography.regularNormalRegular.copyWith(color: lw.contentSecondary),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Get full access to all exclusive features.',
+                  textAlign: TextAlign.center,
+                  style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
+                ),
+                const SizedBox(height: LWSpacing.xl),
+                const _PremiumFeature(
+                  icon: 'misc_plus',
+                  title: 'Create Own Challenges',
+                  description: 'Host your own runs and invite friends.',
+                ),
+                const SizedBox(height: LWSpacing.md),
+                const _PremiumFeature(
+                  icon: 'misc_bet',
+                  title: 'Custom Stakes',
+                  description: 'Define your own rewards for any run.',
+                ),
+                const SizedBox(height: LWSpacing.xl),
+              ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('Cancel',
+                child: Text('Not Now',
                     style: LWTypography.regularNormalMedium.copyWith(color: lw.contentSecondary)),
               ),
               BlocBuilder<AuthBloc, AuthState>(
@@ -270,6 +323,7 @@ class ProfileDrawer extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(LWRadius.md),
                       ),
+                      padding: const EdgeInsets.symmetric(horizontal: LWSpacing.xl),
                     ),
                     child: loading
                         ? const SizedBox(
@@ -277,7 +331,7 @@ class ProfileDrawer extends StatelessWidget {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : Text('Upgrade',
+                        : Text('Go Premium',
                             style: LWTypography.regularNormalMedium.copyWith(color: Colors.white)),
                   );
                 },
@@ -286,6 +340,53 @@ class ProfileDrawer extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PremiumFeature extends StatelessWidget {
+  final String icon;
+  final String title;
+  final String description;
+
+  const _PremiumFeature({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lw = LWThemeExtension.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(LWSpacing.xs),
+          decoration: BoxDecoration(
+            color: lw.brandPrimary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(LWRadius.sm),
+          ),
+          child: LwIcon(icon, size: 20, color: lw.brandPrimary),
+        ),
+        const SizedBox(width: LWSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: LWTypography.smallNormalBold.copyWith(color: lw.contentPrimary),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: LWTypography.tinyNormalRegular.copyWith(color: lw.contentSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

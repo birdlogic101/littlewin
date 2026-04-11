@@ -143,13 +143,7 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                         streak: widget.run.currentStreak,
                         size: 90,
                         numberColor: Colors.white,
-                        numberShadows: const [
-                          Shadow(
-                            blurRadius: 6,
-                            color: Color(0xB3000000), // 0.7 alpha
-                            offset: Offset(0, 1),
-                          ),
-                        ],
+                        numberShadows: _kCardShadow,
                         subLabel: 'DAY STREAK',
                       ),
                     ],
@@ -401,6 +395,14 @@ class _AvatarPlaceholder extends StatelessWidget {
   }
 }
 
+const _kCardShadow = [
+  Shadow(
+    blurRadius: 6,
+    color: Color(0x80000000), // 0.5 alpha
+    offset: Offset(0, 1),
+  ),
+];
+
 class _BottomContent extends StatelessWidget {
   final String title;
   final String? description;
@@ -410,6 +412,7 @@ class _BottomContent extends StatelessWidget {
   final VoidCallback onJoin;
   final VoidCallback? onBetTap;
   final int recentBetCount;
+
   const _BottomContent({
     required this.title,
     this.description,
@@ -443,13 +446,7 @@ class _BottomContent extends StatelessWidget {
                   style: LWTypography.title3.copyWith(
                     color: Colors.white,
                     fontSize: 28,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 6,
-                        color: Colors.black.withValues(alpha: 0.7),
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
+                    shadows: _kCardShadow,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -458,19 +455,13 @@ class _BottomContent extends StatelessWidget {
               GestureDetector(
                 onTap: () => _showDescription(context),
                 behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: LWSpacing.lg, top: 4),
+                child: const Padding(
+                  padding: EdgeInsets.only(left: LWSpacing.lg, top: 4),
                   child: LwIcon(
                     'misc_info_fill',
                     size: 26,
-                    color: Colors.white.withValues(alpha: 0.9),
-                    shadows: [
-                      Shadow(
-                        blurRadius: 6,
-                        color: Colors.black.withValues(alpha: 0.7),
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
+                    color: Colors.white,
+                    shadows: _kCardShadow,
                   ),
                 ),
               ),
@@ -546,42 +537,19 @@ class _BottomContent extends StatelessWidget {
                 ),
               ),
 
-              // ── Header row: title + close
+              // ── Header: title only (no close button — drag-to-dismiss)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        // Large/None/Thick (18/18)
-                        style: LWTypography.largeNoneBold.copyWith(
-                          color: LWColors.inkBase,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Close icon: 24×24, skyDark, weight ≈ stroke 1.5
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Padding(
-                        padding: const EdgeInsets.all(LWSpacing.sm),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 24,
-                          color: LWColors.skyDark,
-                          weight: 300,
-                        ),
-                      ),
-                    ),
-                  ],
+                    LWSpacing.xl, LWSpacing.lg, LWSpacing.xl, LWSpacing.lg),
+                child: Text(
+                  title,
+                  style: LWTypography.largeNoneBold.copyWith(
+                    color: LWColors.inkBase,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-
-              const Divider(height: 1),
 
               // ── Description body
               Flexible(
@@ -594,10 +562,10 @@ class _BottomContent extends StatelessWidget {
                   ),
                   child: Text(
                     description ?? 'No description available.',
-                    // Small/None/Thin (14/14)
                     style: LWTypography.smallNoneRegular.copyWith(
                       color: LWColors.inkLighter,
                       fontWeight: FontWeight.w300,
+                      height: 1.75, // open line-height for natural breathing room
                     ),
                   ),
                 ),

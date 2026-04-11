@@ -184,6 +184,19 @@ create index if not exists notifications_user_id_idx on public.notifications (us
 create index if not exists notifications_created_at_idx on public.notifications (created_at);
 create index if not exists notifications_type_idx on public.notifications (type);
 
+-- Enable Realtime for notifications
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables 
+    where pubname = 'supabase_realtime' 
+    and schemaname = 'public' 
+    and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end $$;
+
 -- 2.8 follows
 create table if not exists public.follows (
   id uuid default uuid_generate_v4() primary key,
@@ -372,6 +385,27 @@ exception when others then
   return new;
 end;
 $$;
+
+-- 4.3. handle_unfollow_cleanup
+-- Automatically removes the corresponding follow notification when someone unfollows.
+create or replace function public.handle_unfollow_cleanup()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  delete from public.notifications
+  where user_id = old.followed_id
+    and unique_hash = 'follow_' || old.follower_id || '_' || old.followed_id;
+  
+  return old;
+end;
+$$;
+
+drop trigger if exists on_follow_deleted on public.follows;
+create trigger on_follow_deleted
+  after delete on public.follows
+  for each row execute procedure public.handle_unfollow_cleanup();
 
 drop trigger if exists on_follow_created on public.follows;
 create trigger on_follow_created

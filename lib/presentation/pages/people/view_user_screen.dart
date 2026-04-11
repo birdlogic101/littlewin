@@ -465,7 +465,7 @@ class _FollowButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(LWRadius.pill),
           ),
           child: Text(
-            isFollowing ? 'Following' : 'Follow',
+            isFollowing ? 'Unfollow' : 'Follow',
             style: LWTypography.regularNormalBold.copyWith(
               color: textColor,
               fontSize: 14,

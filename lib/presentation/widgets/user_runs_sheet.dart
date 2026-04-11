@@ -304,7 +304,7 @@ class _OngoingTab extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(LWSpacing.lg),
+          padding: const EdgeInsets.symmetric(vertical: LWSpacing.lg),
           itemCount: runs.length,
           separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.lg),
           itemBuilder: (context, index) {
@@ -318,6 +318,7 @@ class _OngoingTab extends StatelessWidget {
               challengeId: run.challengeId,
               isAlreadyJoined: isJoined,
               runsRepository: runsRepository,
+              onRefresh: onRefresh,
               trailing: _BetButton(
                 betCount: run.betCount,
                 onTap: () async {
@@ -371,7 +372,7 @@ class _CompletedTab extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(LWSpacing.lg),
+          padding: const EdgeInsets.symmetric(vertical: LWSpacing.lg),
           itemCount: runs.length,
           separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.lg),
           itemBuilder: (context, index) {
@@ -384,6 +385,7 @@ class _CompletedTab extends StatelessWidget {
               challengeId: run.challengeId,
               isAlreadyJoined: joinedChallengeIds.contains(run.challengeId),
               runsRepository: runsRepository,
+              onRefresh: () {}, // Not needed for completed tab but required by constructor
               trailing: _BetButton(
                 betCount: 0,
                 onTap: () {},
@@ -409,6 +411,7 @@ class _ProfileRunCard extends StatelessWidget {
   final bool isAlreadyJoined;
   final RunsRepository runsRepository;
   final Widget trailing;
+  final VoidCallback onRefresh;
 
   const _ProfileRunCard({
     required this.title,
@@ -419,6 +422,7 @@ class _ProfileRunCard extends StatelessWidget {
     required this.isAlreadyJoined,
     required this.runsRepository,
     required this.trailing,
+    required this.onRefresh,
   });
 
   @override
@@ -426,54 +430,58 @@ class _ProfileRunCard extends StatelessWidget {
     final lw = LWThemeExtension.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(LWSpacing.md),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: lw.backgroundCard,
-        borderRadius: BorderRadius.circular(LWRadius.md),
-        border: Border.all(color: lw.borderSubtle),
+        borderRadius: BorderRadius.circular(LWRadius.lg),
+        border: Border.all(color: lw.borderSubtle, width: 1),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              PngStreakRing(
-                streak: streak,
-                size: 56,
-                numberColor: lw.contentPrimary,
-              ),
-              const SizedBox(width: LWSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: LWTypography.regularNormalBold
-                          .copyWith(color: lw.contentPrimary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      subtitle,
-                      style: LWTypography.smallNormalRegular
-                          .copyWith(color: lw.contentSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: LWSpacing.sm),
-              trailing,
-            ],
+          PngStreakRing(
+            streak: streak,
+            size: 64, // Harmonized size
+            numberColor: lw.contentPrimary,
           ),
-          const SizedBox(height: LWSpacing.md),
-          const Divider(height: 1),
-          const SizedBox(height: LWSpacing.sm),
-          _JoinSection(
-            challengeId: challengeId,
-            challengeTitle: title,
-            challengeSlug: slug,
-            isAlreadyJoined: isAlreadyJoined,
-            runsRepository: runsRepository,
+          const SizedBox(width: LWSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: LWTypography.regularNoneBold
+                      .copyWith(color: lw.contentPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8), // Increased gap
+                Text(
+                  subtitle,
+                  style: LWTypography.smallNoneRegular
+                      .copyWith(color: lw.contentSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: LWSpacing.xs),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              trailing,
+              if (!isAlreadyJoined) ...[
+                const SizedBox(width: LWSpacing.sm),
+                _JoinCircleButton(
+                  challengeId: challengeId,
+                  challengeTitle: title,
+                  challengeSlug: slug,
+                  runsRepository: runsRepository,
+                  onJoined: onRefresh,
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -481,37 +489,30 @@ class _ProfileRunCard extends StatelessWidget {
   }
 }
 
-class _JoinSection extends StatefulWidget {
+class _JoinCircleButton extends StatefulWidget {
   final String challengeId;
   final String challengeTitle;
   final String? challengeSlug;
-  final bool isAlreadyJoined;
   final RunsRepository runsRepository;
+  final VoidCallback onJoined;
 
-  const _JoinSection({
+  const _JoinCircleButton({
     required this.challengeId,
     required this.challengeTitle,
     this.challengeSlug,
-    required this.isAlreadyJoined,
     required this.runsRepository,
+    required this.onJoined,
   });
 
   @override
-  State<_JoinSection> createState() => _JoinSectionState();
+  State<_JoinCircleButton> createState() => _JoinCircleButtonState();
 }
 
-class _JoinSectionState extends State<_JoinSection> {
-  late bool _joined;
+class _JoinCircleButtonState extends State<_JoinCircleButton> {
   bool _loading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _joined = widget.isAlreadyJoined;
-  }
-
   Future<void> _join() async {
-    if (_loading || _joined) return;
+    if (_loading) return;
     setState(() => _loading = true);
     try {
       await widget.runsRepository.joinChallenge(
@@ -519,12 +520,7 @@ class _JoinSectionState extends State<_JoinSection> {
         title: widget.challengeTitle,
         slug: widget.challengeSlug ?? '',
       );
-      if (mounted) {
-        setState(() {
-          _joined = true;
-          _loading = false;
-        });
-      }
+      widget.onJoined();
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
@@ -542,26 +538,10 @@ class _JoinSectionState extends State<_JoinSection> {
 
   @override
   Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-
-    if (_joined) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_rounded, size: 16, color: lw.feedbackPositive),
-          const SizedBox(width: 6),
-          Text(
-            'You are in this challenge',
-            style: LWTypography.smallNormalMedium
-                .copyWith(color: lw.feedbackPositive),
-          ),
-        ],
-      );
-    }
-
     if (_loading) {
       return const SizedBox(
-        height: 24,
+        width: 32,
+        height: 32,
         child: Center(
             child: SizedBox(
                 width: 16,
@@ -572,19 +552,19 @@ class _JoinSectionState extends State<_JoinSection> {
 
     return GestureDetector(
       onTap: _join,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            LwIcon('misc_plus', size: 14, color: lw.brandPrimary),
-            const SizedBox(width: 8),
-            Text(
-              'Start this challenge too',
-              style:
-                  LWTypography.smallNormalBold.copyWith(color: lw.brandPrimary),
-            ),
-          ],
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: const BoxDecoration(
+          color: LWColors.skyLighter,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: const LwIcon(
+          'misc_join',
+          size: 24,
+          color: LWColors.inkLight,
         ),
       ),
     );

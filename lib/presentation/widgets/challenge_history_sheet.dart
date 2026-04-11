@@ -61,7 +61,7 @@ class ChallengeHistorySheet extends StatelessWidget {
             // ── History List ────────────────────────────────────────────────
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.all(LWSpacing.lg),
+                padding: const EdgeInsets.symmetric(vertical: LWSpacing.lg),
                 itemCount: record.runs.length,
                 separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.md),
                 itemBuilder: (context, index) {
@@ -144,32 +144,36 @@ class _HistoryRunCard extends StatelessWidget {
     final lw = LWThemeExtension.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(LWSpacing.md),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: lw.backgroundCard,
-        borderRadius: BorderRadius.circular(LWRadius.md),
-        border: Border.all(color: lw.borderSubtle),
+        borderRadius: BorderRadius.circular(LWRadius.lg),
+        border: Border.all(color: lw.borderSubtle, width: 1),
       ),
       child: Row(
         children: [
           PngStreakRing(
             streak: run.finalScore,
-            size: 52,
+            size: 64, // Harmonized size
             numberColor: lw.contentPrimary,
           ),
           const SizedBox(width: LWSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   'Final Score: ${run.finalScore} days',
-                  style: LWTypography.regularNormalBold.copyWith(color: lw.contentPrimary),
+                  style: LWTypography.regularNormalBold
+                      .copyWith(color: lw.contentPrimary),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 8), // Increased gap
                 Text(
                   '${run.startDate} to ${run.endDate}',
-                  style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
+                  style: LWTypography.smallNormalRegular
+                      .copyWith(color: lw.contentSecondary, fontSize: 12),
                 ),
               ],
             ),

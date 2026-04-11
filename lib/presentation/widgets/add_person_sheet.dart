@@ -110,33 +110,15 @@ class _AddPersonSheetState extends State<AddPersonSheet> {
               ),
             ),
 
-            // ── Header: title + close
+            // ── Header: title
             Padding(
               padding: const EdgeInsets.fromLTRB(
                   LWSpacing.xl, LWSpacing.lg, LWSpacing.sm, LWSpacing.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Add people',
-                      style: LWTypography.largeNoneBold.copyWith(
-                        color: LWColors.inkBase,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Padding(
-                      padding: const EdgeInsets.all(LWSpacing.sm),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size: 24,
-                        color: LWColors.skyDark,
-                        weight: 300,
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Add people',
+                style: LWTypography.largeNoneBold.copyWith(
+                  color: LWColors.inkBase,
+                ),
               ),
             ),
 

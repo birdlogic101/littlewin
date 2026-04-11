@@ -69,7 +69,9 @@ class NotificationsDrawer extends StatelessWidget {
         children: [
           Text(
             'Notifications',
-            style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+            style: LWTypography.largeNoneBold.copyWith(
+              color: LWColors.inkBase,
+            ),
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),

@@ -33,7 +33,7 @@ import '../../data/datasources/run_remote_datasource.dart';
 import '../widgets/create_challenge_sheet.dart';
 import '../widgets/add_person_sheet.dart';
 import '../widgets/bet_won_modal.dart';
-import '../widgets/notifications_drawer.dart';
+import '../widgets/notifications_bottom_sheet.dart';
 import '../../core/di/injection.dart';
 
 /// Root shell of the app.
@@ -273,7 +273,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               backgroundColor: lw.backgroundApp,
               extendBodyBehindAppBar: false,
               drawer: const ProfileDrawer(),
-              endDrawer: const NotificationsDrawer(),
               body: IndexedStack(
                 index: _currentIndex,
                 children: [
@@ -284,7 +283,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         betRepository: _betRepository,
                         runsRepository: _runsRepository,
                         onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
-                        onOpenNotifications: () => _scaffoldKey.currentState?.openEndDrawer(),
+                        onOpenNotifications: () => NotificationsBottomSheet.show(
+                          innerContext,
+                        ),
                       ),
                     ),
                   ),
