@@ -8,9 +8,6 @@ import '../../domain/entities/stake_entity.dart';
 import 'package:injectable/injectable.dart';
 
 /// Remote data source for all run-related Supabase operations.
-///
-/// All methods throw a [PostgrestException] on server errors — callers are
-/// responsible for catching and converting to domain failures.
 @lazySingleton
 class RunRemoteDataSource {
   final SupabaseClient _client;
@@ -19,13 +16,11 @@ class RunRemoteDataSource {
 
   // ── Reads ──────────────────────────────────────────────────────────────────
 
-  /// Fetches the current user's ongoing runs joined with challenge metadata
-  /// and the latest check-in date for each run.
-  ///
-  /// Returns a list of [ActiveRunEntity] ready to load into [RunsRepository].
+  /// Fetches the current user's ongoing runs joined with challenge metadata.
   Future<List<ActiveRunEntity>> fetchMyRuns() async {
     final user = _client.auth.currentUser;
     final userId = user?.id;
+    
     // ignore: avoid_print
     print('🚀 [RunRemoteDataSource] fetchMyRuns started. Auth state: ${user != null ? 'Logged in ($userId)' : 'Not logged in'}');
     
@@ -34,31 +29,40 @@ class RunRemoteDataSource {
       print('⚠️ [RunRemoteDataSource] No user ID, returning empty list');
       return [];
     }
-
     return fetchUserRuns(userId);
   }
 
   /// Fetches ongoing runs for a specific user.
+  ///
+  /// If [userId] is not the current user, filters for public challenges only.
   Future<List<ActiveRunEntity>> fetchUserRuns(String userId) async {
     try {
+      final currentUserId = _client.auth.currentUser?.id;
+      final isOwner = currentUserId != null && currentUserId == userId;
+
       // ignore: avoid_print
-      print('🚀 [RunRemoteDataSource] querying runs for user $userId...');
-      final rows = await _client
+      print('🚀 [RunRemoteDataSource] querying runs for user $userId (isOwner: $isOwner)...');
+
+      var query = _client
           .from('runs')
           .select('''
             id,
             challenge_id,
             current_streak,
             start_date,
-            challenges!inner(title, slug, image_asset),
+            challenges!inner(title, slug, image_asset, visibility),
             checkins(check_in_day_utc),
             bets(id)
           ''')
           .eq('user_id', userId)
-          .eq('status', 'ongoing')
-          .order('created_at')
-          .timeout(const Duration(seconds: 15));
+          .eq('status', 'ongoing');
 
+      // Privacy Filter: Only show public runs to other users
+      if (!isOwner) {
+        query = query.eq('challenges.visibility', 'public');
+      }
+
+      final rows = await query.order('created_at').timeout(const Duration(seconds: 15));
       final today = _todayUtc();
 
       final runs = <ActiveRunEntity>[];
@@ -67,32 +71,26 @@ class RunRemoteDataSource {
           runs.add(_mapActiveRun(row, today));
         } catch (e) {
           // ignore: avoid_print
-          print('[RunRemoteDataSource] row mapping error: $e');
-          // skip this single row if it's malformed
+          print('⚠️ [RunRemoteDataSource] row mapping error in fetchUserRuns: $e');
         }
       }
       return runs;
     } catch (e) {
       // ignore: avoid_print
-      print('[RunRemoteDataSource] fetchUserRuns fatal error: $e');
+      print('❌ [RunRemoteDataSource] fetchUserRuns fatal error: $e');
       rethrow;
     }
   }
 
   ActiveRunEntity _mapActiveRun(Map<String, dynamic> row, String today) {
-    final runId = row['id'] as String;
-    // start_date is a date string 'yyyy-MM-dd' or ISO. 
-    // Use safe substring or fallback.
     final rawStart = row['start_date']?.toString() ?? today;
     final startDate = rawStart.length >= 10 
         ? rawStart.substring(0, 10) 
         : rawStart;
     
     final challenge = row['challenges'] as Map<String, dynamic>? ?? {};
-    final title = challenge['title']?.toString() ?? 'Unknown Challenge';
-    final slug = challenge['slug']?.toString() ?? 'unknown-slug';
+    final isPublic = challenge['visibility']?.toString() == 'public';
 
-    // Derive lastCheckinDay from all checkin rows for this run
     final checkins = (row['checkins'] as List<dynamic>? ?? []);
     final checkinDays = checkins
         .map((c) {
@@ -108,20 +106,17 @@ class RunRemoteDataSource {
     final lastCheckinDay = checkinDays.isNotEmpty ? checkinDays.last : null;
     final hasCheckedInToday = lastCheckinDay == today;
 
-    // Count bets
-    final bets = (row['bets'] as List<dynamic>? ?? []);
-    final betCount = bets.length;
-
     return ActiveRunEntity(
-      runId: runId,
+      runId: row['id'] as String,
       challengeId: row['challenge_id'] as String? ?? '',
-      challengeTitle: title,
-      challengeSlug: slug,
+      challengeTitle: challenge['title']?.toString() ?? 'Unknown Challenge',
+      challengeSlug: challenge['slug']?.toString() ?? 'unknown-slug',
       currentStreak: row['current_streak'] as int? ?? 0,
       startDate: startDate,
       hasCheckedInToday: hasCheckedInToday,
       lastCheckinDay: lastCheckinDay,
-      betCount: betCount,
+      betCount: (row['bets'] as List<dynamic>? ?? []).length,
+      isPublic: isPublic,
       imageAsset: challenge['image_asset'] as String? ?? 'assets/pictures/challenge_default_1080.jpg',
     );
   }
@@ -134,28 +129,61 @@ class RunRemoteDataSource {
   }
 
   /// Fetches completed runs for a specific user.
+  ///
+  /// If [userId] is not the current user, filters for public challenges only.
   Future<List<CompletedRunEntity>> fetchUserCompletedRuns(String userId) async {
-    final rows = await _client
-        .from('runs')
-        .select('''
-          id,
-          challenge_id,
-          final_score,
-          start_date,
-          updated_at,
-          challenges!inner(title, slug, image_asset)
-        ''')
-        .eq('user_id', userId)
-        .eq('status', 'completed')
-        .order('updated_at', ascending: false);
+    try {
+      final currentUserId = _client.auth.currentUser?.id;
+      final isOwner = currentUserId != null && currentUserId == userId;
 
-    return rows.map<CompletedRunEntity>((row) => _mapCompletedRun(row)).toList();
+      // ignore: avoid_print
+      print('🚀 [RunRemoteDataSource] querying completed runs for user $userId (isOwner: $isOwner)...');
+
+      var query = _client
+          .from('runs')
+          .select('''
+            id,
+            challenge_id,
+            final_score,
+            start_date,
+            updated_at,
+            challenges!inner(title, slug, image_asset, visibility)
+          ''')
+          .eq('user_id', userId)
+          .eq('status', 'completed');
+
+      if (!isOwner) {
+        query = query.eq('challenges.visibility', 'public');
+      }
+
+      final rows = await query.order('updated_at', ascending: false);
+      
+      final runs = <CompletedRunEntity>[];
+      for (final row in rows) {
+        try {
+          runs.add(_mapCompletedRun(row));
+        } catch (e) {
+          // ignore: avoid_print
+          print('⚠️ [RunRemoteDataSource] row mapping error in fetchUserCompletedRuns: $e');
+        }
+      }
+      return runs;
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ [RunRemoteDataSource] fetchUserCompletedRuns error: $e');
+      rethrow;
+    }
   }
 
   CompletedRunEntity _mapCompletedRun(Map<String, dynamic> row) {
     final challenge = row['challenges'] as Map<String, dynamic>;
-    // updated_at is set to now() when settled — use its date as endDate
-    final endDate = (row['updated_at'] as String).substring(0, 10);
+    final isPublic = challenge['visibility']?.toString() == 'public';
+    
+    final rawUpdate = row['updated_at']?.toString() ?? _todayUtc();
+    final endDate = rawUpdate.length >= 10 ? rawUpdate.substring(0, 10) : rawUpdate;
+
+    final rawStart = row['start_date']?.toString() ?? _todayUtc();
+    final startDate = rawStart.length >= 10 ? rawStart.substring(0, 10) : rawStart;
 
     return CompletedRunEntity(
       runId: 'completed-${row['id']}',
@@ -163,13 +191,14 @@ class RunRemoteDataSource {
       challengeTitle: challenge['title'] as String,
       challengeSlug: challenge['slug'] as String,
       finalScore: (row['final_score'] as int?) ?? 0,
-      startDate: (row['start_date'] as String).substring(0, 10),
+      startDate: startDate,
       endDate: endDate,
+      isPublic: isPublic,
       imageAsset: challenge['image_asset'] as String? ?? 'assets/pictures/challenge_default_1080.jpg',
     );
   }
 
-  /// Fetches a batch of runs for the Explore screen using the priority-based RPC.
+  /// Fetches a batch of runs for the Explore screen.
   Future<List<ExploreRunEntity>> fetchExploreFeed({
     required int limit,
     required int offset,
@@ -182,10 +211,7 @@ class RunRemoteDataSource {
         'p_offset': offset,
       }) as List<dynamic>;
 
-      return rows.map<ExploreRunEntity>((r) {
-        // The SQL aliases `image_asset` as `image_url` — these are local
-        // asset paths, so map to `imageAsset` for correct rendering.
-        return ExploreRunEntity(
+      return rows.map<ExploreRunEntity>((r) => ExploreRunEntity(
           runId: r['run_id'] as String,
           challengeId: r['challenge_id'] as String,
           challengeTitle: r['challenge_title'] as String,
@@ -198,23 +224,19 @@ class RunRemoteDataSource {
           challengeDescription: r['challenge_description'] as String?,
           recentBetCount: r['recent_bet_count'] as int? ?? 0,
           isCompleted: r['is_completed'] as bool? ?? false,
-        );
-      }).toList();
+          isPremium: r['is_premium'] as bool? ?? false,
+        )).toList();
     } catch (e) {
       // ignore: avoid_print
-      print('[RunRemoteDataSource] fetchExploreFeed error: $e');
+      print('❌ [RunRemoteDataSource] fetchExploreFeed error: $e');
       rethrow;
     }
   }
 
-  /// Records a run dismissal to exclude it from the Explore feed for 14 days.
   Future<void> dismissRun(String runId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
-
-    final expiresAt =
-        DateTime.now().toUtc().add(const Duration(days: 14)).toIso8601String();
-
+    final expiresAt = DateTime.now().toUtc().add(const Duration(days: 14)).toIso8601String();
     await _client.from('dismissed_runs').upsert({
       'user_id': userId,
       'run_id': runId,
@@ -222,43 +244,28 @@ class RunRemoteDataSource {
     }, onConflict: 'user_id, run_id');
   }
 
-  // ── Writes ─────────────────────────────────────────────────────────────────
-
-  /// Creates a new ongoing run for the current user on [challengeId] atomically.
-  ///
-  /// Calls the `join_challenge` RPC which handles the run insertion and
-  /// challenge participant increment in a single transaction.
-  ///
-  /// Returns the newly created run's UUID.
   Future<String> createRun({required String challengeId}) async {
+    // ignore: avoid_print
+    print('🚀 [RunRemoteDataSource] joinChallenge RPC for $challengeId...');
     final result = await _client.rpc('join_challenge', params: {
       'p_challenge_id': challengeId,
     });
     return result as String;
   }
 
-  /// Records a check-in for today on [runId] via the server-side RPC.
-  ///
-  /// Returns a [BetResolutionEntity] if the new streak triggered any won bets,
-  /// or `null` if no bets were triggered.
-  ///
-  /// The RPC handles streak increment, checkin insert, bet settlement, and
-  /// notification creation atomically in a single round-trip.
   Future<BetResolutionEntity?> recordCheckin({
     required String runId,
     required String challengeTitle,
     required String todayUtc,
   }) async {
+    // ignore: avoid_print
+    print('🚀 [RunRemoteDataSource] recordCheckin RPC for $runId on $todayUtc...');
     final result = await _client.rpc('perform_checkin', params: {
       'p_run_id': runId,
       'p_day_utc': todayUtc,
     });
-
-    // RPC returns: { new_streak: int, triggered_bets: [...] }
     final json = result as Map<String, dynamic>;
-    final triggeredBets =
-        (json['triggered_bets'] as List<dynamic>? ?? []);
-
+    final triggeredBets = (json['triggered_bets'] as List<dynamic>? ?? []);
     if (triggeredBets.isEmpty) return null;
 
     final wonBets = triggeredBets.map<WonBetEntry>((b) {
@@ -289,31 +296,19 @@ class RunRemoteDataSource {
     );
   }
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
-
-  /// Calls the server-side [settle_runs] RPC for [todayUtc].
-  ///
-  /// This is fire-and-forget from the client perspective — any runs settled
-  /// here are removed from the active list on the next [fetchMyRuns] call.
-  ///
-  /// Never throws: errors are swallowed and logged so they never block the UI.
   Future<void> settleRuns(String todayUtc) async {
     try {
+      // ignore: avoid_print
+      print('🚀 [RunRemoteDataSource] settle_runs RPC for $todayUtc...');
       await _client.rpc('settle_runs', params: {'today_utc': todayUtc});
     } catch (e) {
-      // Settlement failure is non-fatal — the nightly pg_cron job is the
-      // safety net. Log only; never surface to the user.
       // ignore: avoid_print
-      print('[RunRemoteDataSource] settle_runs error (non-fatal): $e');
+      print('⚠️ [RunRemoteDataSource] settle_runs error (non-fatal): $e');
     }
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
   static String _todayUtc() {
     final now = DateTime.now().toUtc();
-    return '${now.year}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 }

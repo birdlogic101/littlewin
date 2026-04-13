@@ -12,8 +12,13 @@ import '../../bloc/people/people_bloc.dart';
 import '../../bloc/people/people_event.dart';
 import '../../bloc/people/people_state.dart';
 import '../../../domain/entities/challenge_record.dart';
+import '../../widgets/lw_card_action.dart';
 import '../../widgets/run_record_card.dart';
 import '../../widgets/challenge_history_sheet.dart';
+import '../../widgets/run_bets_sheet.dart';
+import '../../../data/repositories/bet_repository.dart';
+import '../../../core/di/injection.dart';
+import '../../widgets/lw_pill_action.dart';
 
 class ViewUserScreen extends StatefulWidget {
   final PeopleUserEntity user;
@@ -86,7 +91,7 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
                 onTap: () => Navigator.of(context).pop(),
                 behavior: HitTestBehavior.opaque,
                 child: Center(
-                  child: LwIcon('arrows_back', size: 24, color: LWColors.inkLight),
+                  child: LwIcon('arrows_back', size: 24, color: LWColors.skyDark),
                 ),
               ),
               title: Row(
@@ -99,11 +104,25 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
                       alignment: Alignment.centerLeft,
                       // Subtle offset to counteract visual downward bias of smallNoneBold
                       padding: const EdgeInsets.only(bottom: 1),
-                      child: Text(
-                        currentUserState.username,
-                        style: LWTypography.smallNoneBold.copyWith(color: LWColors.inkBase),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              currentUserState.username,
+                              style: LWTypography.smallNoneBold.copyWith(color: LWColors.inkBase),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (currentUserState.isPremium) ...[
+                            const SizedBox(width: 4),
+                            const LwIcon(
+                              'misc_crown',
+                              size: 14,
+                              color: Color(0xFFFFD700),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -154,6 +173,7 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
                       _OngoingTab(
                         future: _ongoingFuture,
                         runsRepository: widget.runsRepository,
+                        username: widget.user.username,
                       ),
                       _CompletedTab(
                         future: _completedFuture,
@@ -174,10 +194,12 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
 class _OngoingTab extends StatelessWidget {
   final Future<List<ActiveRunEntity>> future;
   final RunsRepository runsRepository;
+  final String username;
 
   const _OngoingTab({
     required this.future,
     required this.runsRepository,
+    required this.username,
   });
 
   @override
@@ -202,6 +224,7 @@ class _OngoingTab extends StatelessWidget {
           itemBuilder: (context, i) => _OngoingCard(
             run: runs[i],
             runsRepository: runsRepository,
+            username: username,
           ),
         );
       },
@@ -245,6 +268,7 @@ class _CompletedTab extends StatelessWidget {
               record: g,
               actionLabel: 'Join',
               actionIcon: 'misc_join',
+              iconSize: 21,
               onRetry: () {
                 final first = g.runs.first;
                 runsRepository.joinChallenge(
@@ -272,10 +296,12 @@ class _CompletedTab extends StatelessWidget {
 class _OngoingCard extends StatelessWidget {
   final ActiveRunEntity run;
   final RunsRepository runsRepository;
+  final String username;
 
   const _OngoingCard({
     required this.run,
     required this.runsRepository,
+    required this.username,
   });
 
   @override
@@ -283,7 +309,7 @@ class _OngoingCard extends StatelessWidget {
     final lw = LWThemeExtension.of(context);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: LWSpacing.lg, vertical: LWSpacing.xs),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: LWSpacing.xs),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: lw.backgroundCard,
@@ -292,37 +318,55 @@ class _OngoingCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          PngStreakRing(streak: run.currentStreak, size: 68, numberColor: LWColors.inkBase),
+          PngStreakRing(streak: run.currentStreak, size: 64, numberColor: LWColors.inkBase),
           const SizedBox(width: LWSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start, // Higher positioning
               children: [
-                Text(
-                  run.challengeTitle,
-                  style: LWTypography.regularNoneRegular.copyWith(color: LWColors.inkBase),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4), // Optical nudge
                 Row(
                   children: [
-                    // Bet Button
-                    _PillAction(
-                      icon: 'misc_bet',
-                      label: run.betCount == 0 ? 'Bet' : '${run.betCount}',
-                      textColor: run.betCount == 0 ? LWColors.primaryBase : LWColors.inkLighter,
-                      onTap: () {
-                        // Logic to open Bet sheet could be added here if needed
-                      },
+                    if (!run.isPublic)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: LwIcon(
+                          'misc_incognito',
+                          size: 16,
+                          color: lw.contentSecondary.withOpacity(0.7),
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        run.challengeTitle,
+                        style: LWTypography.regularNoneBold.copyWith(color: LWColors.inkBase),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12), // Increased gap from 6 to 12
+                LWPillAction(
+                  icon: 'misc_bet',
+                  label: run.betCount == 0 ? 'Bet' : '${run.betCount}',
+                  contentColor: run.betCount == 0 ? LWColors.primaryBase : LWColors.inkLighter,
+                  onTap: () => RunBetsSheet.show(
+                    context,
+                    runId: run.runId,
+                    currentStreak: run.currentStreak,
+                    username: username,
+                    isSelfBet: false,
+                    betRepository: getIt<BetRepository>(),
+                  ),
                 ),
               ],
             ),
           ),
-        _JoinIconButton(
+        LWCardAction(
+          icon: 'misc_join',
+          iconSize: 21,
           onTap: () {
             runsRepository.joinChallenge(
               run.challengeId,
@@ -334,83 +378,15 @@ class _OngoingCard extends StatelessWidget {
               const SnackBar(content: Text('Joined challenge!')),
             );
           },
+          semanticLabel: 'Join challenge',
         ),
-        const SizedBox(width: 8),
       ],
     ),
   );
 }
 }
 
-class _JoinIconButton extends StatelessWidget {
-final VoidCallback onTap;
-const _JoinIconButton({required this.onTap});
 
-@override
-Widget build(BuildContext context) {
-  return GestureDetector(
-    onTap: onTap,
-    behavior: HitTestBehavior.opaque,
-    child: Container(
-      width: 32,
-      height: 32,
-      decoration: const BoxDecoration(
-        color: LWColors.skyLightest,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: LwIcon(
-        'misc_join',
-        size: 14,
-        color: LWColors.inkLight,
-      ),
-    ),
-  );
-}
-}
-
-class _PillAction extends StatelessWidget {
-  final String icon;
-  final String label;
-  final Color textColor;
-  final VoidCallback onTap;
-
-  const _PillAction({
-    required this.icon,
-    required this.label,
-    required this.textColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: LWColors.skyLightest,
-          borderRadius: BorderRadius.circular(LWRadius.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LwIcon(icon, size: 14, color: textColor),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: LWTypography.smallNoneBold.copyWith(
-                color: textColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // _CompletedCard removed in favor of RunRecordCard for smart grouping.
 

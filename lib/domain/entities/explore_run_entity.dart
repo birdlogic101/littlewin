@@ -16,6 +16,7 @@ class ExploreRunEntity extends Equatable {
   final String userId;
   final String username;
   final int? avatarId;
+  final bool isPremium;
 
   /// Current streak count for this run.
   final int currentStreak;
@@ -43,6 +44,7 @@ class ExploreRunEntity extends Equatable {
     required this.userId,
     required this.username,
     this.avatarId,
+    this.isPremium = false,
     required this.currentStreak,
     this.imageUrl,
     this.imageAsset,
@@ -60,6 +62,7 @@ class ExploreRunEntity extends Equatable {
         userId,
         username,
         avatarId,
+        isPremium,
         currentStreak,
         imageUrl,
         imageAsset,
@@ -76,6 +79,7 @@ class ExploreRunEntity extends Equatable {
     String? userId,
     String? username,
     int? avatarId,
+    bool? isPremium,
     int? currentStreak,
     String? imageUrl,
     String? imageAsset,
@@ -91,6 +95,7 @@ class ExploreRunEntity extends Equatable {
       userId: userId ?? this.userId,
       username: username ?? this.username,
       avatarId: avatarId ?? this.avatarId,
+      isPremium: isPremium ?? this.isPremium,
       currentStreak: currentStreak ?? this.currentStreak,
       imageUrl: imageUrl ?? this.imageUrl,
       imageAsset: imageAsset ?? this.imageAsset,

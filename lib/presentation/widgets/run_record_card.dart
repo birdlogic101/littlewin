@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/challenge_record.dart';
 import 'png_streak_ring.dart';
 import 'lw_icon.dart';
+import 'lw_card_action.dart';
+import 'lw_pill_action.dart';
 import '../../core/theme/design_system.dart';
 
 /// A card representing a challenge group in the Records screen.
-///
-/// Matches the preview design:
-/// - Circular score ring (best run) on the left
-/// - Challenge title + "N runs" count
-/// - Share arrow + retry icons on the right
 class RunRecordCard extends StatelessWidget {
   final ChallengeRecord record;
   final VoidCallback? onShare;
@@ -17,6 +14,7 @@ class RunRecordCard extends StatelessWidget {
   final VoidCallback? onViewHistory;
   final String? actionLabel;
   final String? actionIcon;
+  final double? iconSize;
 
   const RunRecordCard({
     super.key,
@@ -26,6 +24,7 @@ class RunRecordCard extends StatelessWidget {
     this.onViewHistory,
     this.actionLabel,
     this.actionIcon,
+    this.iconSize,
   });
 
   @override
@@ -37,17 +36,17 @@ class RunRecordCard extends StatelessWidget {
         horizontal: 8,
         vertical: LWSpacing.xs,
       ),
-      padding: const EdgeInsets.all(12), // Aligned with RunActiveCard
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: lw.backgroundCard,
-        borderRadius: BorderRadius.circular(LWRadius.lg), // Matching RunActiveCard
+        borderRadius: BorderRadius.circular(LWRadius.lg),
         border: Border.all(color: lw.borderSubtle, width: 1),
       ),
       child: Row(
         children: [
           PngStreakRing(
             streak: record.bestScore,
-            size: 64, // Updated to Harmonized size
+            size: 64,
             numberColor: LWColors.inkBase,
           ),
           const SizedBox(width: LWSpacing.md),
@@ -59,48 +58,37 @@ class RunRecordCard extends StatelessWidget {
               onTap: onViewHistory,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start, // Higher positioning
                 children: [
-                  Text(
-                    record.challengeTitle,
-                    style: LWTypography.regularNoneBold.copyWith(
-                      color: LWColors.inkBase,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 4), // Optical nudge
+                  Row(
+                    children: [
+                      if (!record.isPublic)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: LwIcon(
+                            'misc_incognito',
+                            size: 16,
+                            color: lw.contentSecondary.withOpacity(0.7),
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          record.challengeTitle,
+                          style: LWTypography.regularNoneBold.copyWith(
+                            color: LWColors.inkBase,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8), // Increased gap
-                  GestureDetector(
+                  const SizedBox(height: 12), // Increased gap to 12
+                  LWPillAction(
+                    icon: 'misc_list_dropdown',
+                    label: '${record.runCount}',
                     onTap: onViewHistory,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: LWColors.skyLightest,
-                        borderRadius: BorderRadius.circular(LWRadius.pill),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          LwIcon(
-                            'misc_list_dropdown',
-                            size: 14,
-                            color: lw.contentSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${record.runCount}',
-                            style: LWTypography.smallNoneBold.copyWith(
-                              color: lw.contentSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -112,15 +100,18 @@ class RunRecordCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (actionLabel != null)
-                actionLabel == 'Join'
-                    ? _JoinButton(onTap: onRetry ?? () {})
-                    : _PillAction(
-                        icon: actionIcon ?? 'misc_plus',
-                        label: actionLabel!,
-                        onTap: onRetry ?? () {},
-                      )
+                LWCardAction(
+                  icon: actionIcon ?? 'misc_plus',
+                  iconSize: iconSize ?? 24,
+                  onTap: onRetry,
+                  semanticLabel: actionLabel,
+                )
               else
-                _RetryButton(onTap: onRetry),
+                LWCardAction(
+                  icon: 'misc_restart',
+                  onTap: onRetry,
+                  semanticLabel: 'Retry challenge',
+                ),
             ],
           ),
         ],
@@ -129,102 +120,3 @@ class RunRecordCard extends StatelessWidget {
   }
 }
 
-class _RetryButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  const _RetryButton({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    return Semantics(
-      label: 'Retry challenge',
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: const BoxDecoration(
-            color: LWColors.skyLighter, // Harmonized Background
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: const LwIcon(
-            'misc_restart', // Using the new custom SVG to match Join icon
-            size: 24,
-            color: LWColors.inkLight,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PillAction extends StatelessWidget {
-  final String icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _PillAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: LWColors.skyLighter,
-          borderRadius: BorderRadius.circular(LWRadius.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LwIcon(icon, size: 14, color: LWColors.primaryBase),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: LWTypography.smallNoneBold.copyWith(
-                color: LWColors.primaryBase,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _JoinButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _JoinButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: const BoxDecoration(
-          color: LWColors.skyLighter,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: const LwIcon(
-          'misc_join',
-          size: 24,
-          color: LWColors.inkLight,
-        ),
-      ),
-    );
-  }
-}

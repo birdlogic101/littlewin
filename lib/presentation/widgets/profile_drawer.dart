@@ -42,6 +42,7 @@ class ProfileDrawer extends StatelessWidget {
                   username: user.username,
                   email: user.email,
                   isAnonymous: user.isAnonymous,
+                  isPremium: user.isPremium,
                   topPadding: topPadding,
                 ),
                 const _SectionDivider(),
@@ -397,12 +398,14 @@ class _Header extends StatelessWidget {
   final String username;
   final String email;
   final bool isAnonymous;
+  final bool isPremium;
   final double topPadding;
 
   const _Header({
     required this.username,
     required this.email,
     required this.isAnonymous,
+    required this.isPremium,
     required this.topPadding,
   });
 
@@ -433,9 +436,25 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(height: LWSpacing.md),
-          Text(
-            username,
-            style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  username,
+                  style: LWTypography.title4.copyWith(color: lw.contentPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isPremium) ...[
+                const SizedBox(width: 6),
+                const LwIcon(
+                  'misc_crown',
+                  size: 20,
+                  color: Color(0xFFFFD700),
+                ),
+              ],
+            ],
           ),
           if (email.isNotEmpty) ...[
             const SizedBox(height: 2),

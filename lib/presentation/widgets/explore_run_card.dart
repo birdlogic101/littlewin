@@ -137,6 +137,7 @@ class _ExploreRunCardState extends State<ExploreRunCard>
                       _UserBadge(
                           username: widget.run.username,
                           avatarId: widget.run.avatarId,
+                          isPremium: widget.run.isPremium,
                           onAvatarTap: widget.onAvatarTap),
                       const Spacer(),
                       PngStreakRing(
@@ -336,8 +337,9 @@ class _BottomGradient extends StatelessWidget {
 class _UserBadge extends StatelessWidget {
   final String username;
   final int? avatarId;
+  final bool isPremium;
   final VoidCallback? onAvatarTap;
-  const _UserBadge({required this.username, this.avatarId, this.onAvatarTap});
+  const _UserBadge({required this.username, this.avatarId, required this.isPremium, this.onAvatarTap});
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +358,14 @@ class _UserBadge extends StatelessWidget {
             color: Colors.white,
           ),
         ),
+        if (isPremium) ...[
+          const SizedBox(width: 4),
+          const LwIcon(
+            'misc_crown',
+            size: 16,
+            color: Color(0xFFFFD700), // Gold color for premium
+          ),
+        ],
       ],
     );
   }

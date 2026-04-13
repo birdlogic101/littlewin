@@ -18,6 +18,9 @@ class NotificationEntity extends Equatable {
   final String userId;
   final String message;
   final NotificationType type;
+  final String? sourceUserId;
+  final int? sourceAvatarId;
+  final Map<String, dynamic>? metadata;
   final String? deepLink;
   final DateTime createdAt;
   final DateTime? readAt;
@@ -28,6 +31,9 @@ class NotificationEntity extends Equatable {
     required this.userId,
     required this.message,
     required this.type,
+    this.sourceUserId,
+    this.sourceAvatarId,
+    this.metadata,
     this.deepLink,
     required this.createdAt,
     this.readAt,
@@ -35,5 +41,17 @@ class NotificationEntity extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, userId, message, type, deepLink, createdAt, readAt, status];
+  List<Object?> get props => [
+        id,
+        userId,
+        message,
+        type,
+        sourceUserId,
+        sourceAvatarId,
+        metadata,
+        deepLink,
+        createdAt,
+        readAt,
+        status
+      ];
 }

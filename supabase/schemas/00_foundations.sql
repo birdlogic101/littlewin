@@ -173,6 +173,9 @@ create table if not exists public.notifications (
   user_id uuid references public.users(id) on delete cascade not null,
   message varchar(255) not null,
   type notif_type not null,
+  source_user_id uuid references public.users(id) on delete set null,
+  source_avatar_id int null check (source_avatar_id between 1 and 10),
+  metadata jsonb default '{}'::jsonb not null,
   deep_link varchar(255) null,
   unique_hash varchar(128) unique null,
   created_at timestamp with time zone default now() not null,
@@ -366,14 +369,18 @@ security definer set search_path = public
 as $$
 declare
   v_follower_name text;
+  v_avatar_id int;
 begin
-  select username into v_follower_name from public.users where id = new.follower_id;
+  select username, avatar_id into v_follower_name, v_avatar_id from public.users where id = new.follower_id;
 
-  insert into public.notifications (user_id, message, type, deep_link, unique_hash)
+  insert into public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
   values (
     new.followed_id,
     coalesce(v_follower_name, 'Someone') || ' followed you!',
     'new_follower',
+    new.follower_id,
+    v_avatar_id,
+    jsonb_build_object('username', v_follower_name),
     '/people',
     'follow_' || new.follower_id || '_' || new.followed_id
   )

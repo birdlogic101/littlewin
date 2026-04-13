@@ -41,6 +41,11 @@ class PeopleRepository {
         .toList();
   }
 
+  Future<PeopleUserEntity?> fetchUser(String userId) async {
+    if (_datasource == null) return null;
+    return await _datasource.fetchUser(userId);
+  }
+
   // ── Writes ─────────────────────────────────────────────────────────────────
 
   Future<void> follow(String userId) async {

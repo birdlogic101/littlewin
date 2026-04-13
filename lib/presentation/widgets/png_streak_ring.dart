@@ -39,8 +39,7 @@ class PngStreakRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
-    final effectiveFontSize = fontSize ??
-        (size == 68 ? 18.0 : (size * 0.36).clamp(12.0, 52.0));
+    final effectiveFontSize = fontSize ?? (size * 0.32).clamp(12.0, 52.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,

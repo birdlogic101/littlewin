@@ -1,24 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/di/injection.dart';
 import '../../core/theme/design_system.dart';
+import '../../data/repositories/bet_repository.dart';
+import '../../data/repositories/people_repository.dart';
+import '../../data/repositories/runs_repository.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../bloc/notifications/notifications_bloc.dart';
 import '../bloc/notifications/notifications_event.dart';
 import '../bloc/notifications/notifications_state.dart';
+import '../pages/people/view_user_screen.dart';
+import 'lw_button.dart';
 import 'lw_icon.dart';
+import 'run_bets_sheet.dart';
+import 'user_card.dart';
 
 class NotificationsBottomSheet extends StatelessWidget {
-  const NotificationsBottomSheet({super.key});
+  final ValueChanged<int> onTabSwitch;
 
-  static Future<void> show(BuildContext context) {
+  const NotificationsBottomSheet({
+    super.key,
+    required this.onTabSwitch,
+  });
+
+  static Future<void> show(BuildContext context, {required ValueChanged<int> onTabSwitch}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
         value: context.read<NotificationsBloc>(),
-        child: const NotificationsBottomSheet(),
+        child: NotificationsBottomSheet(onTabSwitch: onTabSwitch),
       ),
     );
   }
@@ -75,7 +88,10 @@ class NotificationsBottomSheet extends StatelessWidget {
                       itemCount: state.notifications.length,
                       separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.sm),
                       itemBuilder: (context, index) {
-                        return _NotificationTile(notification: state.notifications[index]);
+                        return _NotificationTile(
+                          notification: state.notifications[index],
+                          onTabSwitch: onTabSwitch,
+                        );
                       },
                     );
                   }
@@ -139,8 +155,12 @@ class NotificationsBottomSheet extends StatelessWidget {
 
 class _NotificationTile extends StatelessWidget {
   final NotificationEntity notification;
+  final ValueChanged<int> onTabSwitch;
 
-  const _NotificationTile({required this.notification});
+  const _NotificationTile({
+    required this.notification,
+    required this.onTabSwitch,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -148,50 +168,49 @@ class _NotificationTile extends StatelessWidget {
     final isUnread = notification.status == NotificationStatus.pending;
 
     return InkWell(
-      onTap: () {
-        context.read<NotificationsBloc>().add(NotificationMarkAsReadRequested(notification.id));
-        if (notification.deepLink != null) {
-          context.pop();
-          context.push(notification.deepLink!);
-        }
-      },
-      borderRadius: BorderRadius.circular(LWRadius.md),
+      onTap: () => _handleTileTap(context),
       child: Container(
-        padding: const EdgeInsets.all(LWSpacing.md),
-        decoration: BoxDecoration(
-          color: isUnread ? lw.brandPrimary.withOpacity(0.05) : Colors.transparent,
-          borderRadius: BorderRadius.circular(LWRadius.md),
-          border: Border.all(
-            color: isUnread ? lw.brandPrimary.withOpacity(0.1) : lw.borderSubtle,
-            width: 1,
-          ),
-        ),
+        padding: const EdgeInsets.symmetric(vertical: LWSpacing.md, horizontal: LWSpacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildIcon(lw),
+            GestureDetector(
+              onTap: () => _handleAvatarTap(context),
+              child: UserAvatar(
+                avatarId: notification.sourceAvatarId,
+                size: 40,
+              ),
+            ),
             const SizedBox(width: LWSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    notification.message,
-                    style: LWTypography.regularNormalMedium.copyWith(
-                      color: lw.contentPrimary,
-                      fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
+                  _buildMessageRichText(context),
                   const SizedBox(height: 4),
                   Text(
                     _formatTime(notification.createdAt),
-                    style: LWTypography.tinyNormalRegular.copyWith(color: lw.contentSecondary),
+                    style: LWTypography.tinyNormalRegular.copyWith(
+                      color: lw.contentSecondary.withOpacity(0.5),
+                    ),
                   ),
+                  if (notification.type == NotificationType.betLost &&
+                      notification.metadata?['challenge_id'] != null) ...[
+                    const SizedBox(height: LWSpacing.sm),
+                    LwButton.primary(
+                      label: 'Retry',
+                      size: LWButtonSize.small,
+                      width: 100,
+                      onPressed: () => _handleRetry(context),
+                    ),
+                  ],
                 ],
               ),
             ),
-            if (isUnread)
+            if (isUnread) ...[
+              const SizedBox(width: LWSpacing.sm),
               Container(
+                margin: const EdgeInsets.only(top: 8),
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
@@ -199,29 +218,162 @@ class _NotificationTile extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildIcon(LWThemeExtension lw) {
-    final iconName = switch (notification.type) {
-      NotificationType.betWon => 'nav_scores',
-      NotificationType.betLost => 'nav_scores',
-      NotificationType.betReceived => 'nav_home',
-      NotificationType.newFollower => 'nav_people',
-      NotificationType.checkinReminder => 'nav_checkin',
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(LWSpacing.sm),
-      decoration: BoxDecoration(
-        color: lw.backgroundCard,
-        shape: BoxShape.circle,
-      ),
-      child: LwIcon(iconName, size: 20, color: lw.contentPrimary),
+  Widget _buildMessageRichText(BuildContext context) {
+    final lw = LWThemeExtension.of(context);
+    final baseStyle = LWTypography.smallNormalRegular.copyWith(
+      color: lw.contentSecondary.withOpacity(0.8),
     );
+    final boldStyle = LWTypography.smallNormalBold.copyWith(
+      color: lw.contentPrimary,
+    );
+
+    final meta = notification.metadata ?? {};
+    final username = meta['username'] as String? ?? 'Someone';
+    final target = meta['target_streak']?.toString() ?? 'Goal';
+    final rawRunTitle = meta['run_title'] as String? ?? 'Challenge';
+    final finalStreak = meta['final_streak']?.toString() ?? '0';
+
+    // Helper to avoid "Yoga Run run"
+    final runTitle = rawRunTitle.toLowerCase().contains('run') 
+        ? rawRunTitle 
+        : '$rawRunTitle run';
+
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        children: switch (notification.type) {
+          NotificationType.newFollower => [
+              TextSpan(text: username, style: boldStyle),
+              const TextSpan(text: ' is now following you.'),
+            ],
+          NotificationType.betReceived => [
+              TextSpan(text: username, style: boldStyle),
+              const TextSpan(text: ' placed a bet on your '),
+              TextSpan(text: runTitle, style: boldStyle),
+              const TextSpan(text: '.'),
+            ],
+          NotificationType.betWon => [
+              const TextSpan(text: 'You won! You reached '),
+              TextSpan(text: 'Day $target', style: boldStyle),
+              const TextSpan(text: ' of your '),
+              TextSpan(text: runTitle, style: boldStyle),
+              const TextSpan(text: '.'),
+            ],
+          NotificationType.betLost => [
+              const TextSpan(text: 'Your '),
+              TextSpan(text: runTitle, style: boldStyle),
+              const TextSpan(text: ' ended at '),
+              TextSpan(text: 'Day $finalStreak.', style: boldStyle),
+            ],
+          _ => [
+              const TextSpan(text: 'It\'s time for your '),
+              TextSpan(text: runTitle, style: boldStyle),
+              const TextSpan(text: ' check-in.'),
+            ],
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleRetry(BuildContext context) async {
+    final challengeId = notification.metadata?['challenge_id'] as String?;
+    final runTitle = notification.metadata?['run_title'] as String?;
+    if (challengeId == null) return;
+
+    try {
+      await getIt<RunsRepository>().joinChallenge(
+        challengeId,
+        title: runTitle ?? 'Joining...',
+      );
+      if (context.mounted) {
+        Navigator.pop(context); // Close bottom sheet
+        // The AppShell handles switching to Check-in tab when lastJoinedAt changes
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to retry: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleAvatarTap(BuildContext context) async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    final targetId = notification.sourceUserId;
+    if (targetId == null || targetId == uid) return;
+
+    // Show a loading indicator if fetching takes a second
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Loading user profile...'), duration: Duration(milliseconds: 500)),
+    );
+
+    try {
+      final user = await getIt<PeopleRepository>().fetchUser(targetId);
+      if (user != null && context.mounted) {
+        Navigator.pop(context); // Close drawer
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ViewUserScreen(
+              user: user,
+              runsRepository: getIt<RunsRepository>(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load profile: $e')),
+        );
+      }
+    }
+  }
+
+  void _handleTileTap(BuildContext context) {
+    context.read<NotificationsBloc>().add(NotificationMarkAsReadRequested(notification.id));
+
+    final type = notification.type;
+    final meta = notification.metadata ?? {};
+
+    Navigator.pop(context); // Close drawer first
+
+    switch (type) {
+      case NotificationType.betReceived:
+        final runId = meta['run_id'] as String?;
+        if (runId != null) {
+          RunBetsSheet.show(
+            context,
+            runId: runId,
+            currentStreak: meta['current_streak'] as int? ?? 0,
+            username: meta['username'] as String? ?? 'User',
+            isSelfBet: meta['is_self_bet'] as bool? ?? false,
+            betRepository: getIt<BetRepository>(),
+          );
+        }
+        break;
+      case NotificationType.betWon:
+      case NotificationType.checkinReminder:
+        onTabSwitch(1); // Check-in tab
+        break;
+      case NotificationType.betLost:
+        onTabSwitch(2); // Records tab
+        break;
+      case NotificationType.newFollower:
+        _handleAvatarTap(context);
+        break;
+      default:
+        onTabSwitch(0); // Home tab
+        break;
+    }
   }
 
   String _formatTime(DateTime time) {

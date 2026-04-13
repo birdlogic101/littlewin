@@ -14,12 +14,15 @@ class PeopleUserEntity extends Equatable {
   /// Number of currently ongoing runs this user has.
   final int ongoingRunCount;
 
+  final bool isPremium;
+
   const PeopleUserEntity({
     required this.userId,
     required this.username,
     this.avatarId,
     required this.isFollowing,
     this.ongoingRunCount = 0,
+    this.isPremium = false,
   });
 
   PeopleUserEntity copyWith({
@@ -28,6 +31,7 @@ class PeopleUserEntity extends Equatable {
     int? avatarId,
     bool? isFollowing,
     int? ongoingRunCount,
+    bool? isPremium,
   }) {
     return PeopleUserEntity(
       userId: userId ?? this.userId,
@@ -35,9 +39,11 @@ class PeopleUserEntity extends Equatable {
       avatarId: avatarId ?? this.avatarId,
       isFollowing: isFollowing ?? this.isFollowing,
       ongoingRunCount: ongoingRunCount ?? this.ongoingRunCount,
+      isPremium: isPremium ?? this.isPremium,
     );
   }
 
   @override
-  List<Object?> get props => [userId, username, avatarId, isFollowing, ongoingRunCount];
+  List<Object?> get props =>
+      [userId, username, avatarId, isFollowing, ongoingRunCount, isPremium];
 }

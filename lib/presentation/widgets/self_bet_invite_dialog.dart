@@ -35,7 +35,7 @@ class SelfBetInviteDialog {
         // ── Icon + title
         title: Column(
           children: [
-            Text('🌟', style: const TextStyle(fontSize: 36)),
+            Text('🌟', style: const TextStyle(fontSize: 32)),
             const SizedBox(height: LWSpacing.sm),
             Text(
               'You\'re in!',
@@ -57,7 +57,7 @@ class SelfBetInviteDialog {
             ),
             const SizedBox(height: LWSpacing.md),
             Text(
-              'Want to stay accountable? Place a self-bet to find the extra motivation to keep your streak going.',
+              'Make sure failing is not an option: bet on yourself now!',
               style: LWTypography.regularNormalRegular
                   .copyWith(color: lw.contentSecondary),
               textAlign: TextAlign.center,

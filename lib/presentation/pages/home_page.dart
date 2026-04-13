@@ -251,7 +251,19 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         BlocProvider.value(value: _peopleBloc),
         BlocProvider.value(value: _notificationsBloc),
       ],
-      child: Builder(
+      child: BlocListener<ExploreBloc, ExploreState>(
+        listenWhen: (prev, curr) {
+          if (prev is ExploreLoaded && curr is ExploreLoaded) {
+            return curr.lastJoinedAt != null &&
+                (prev.lastJoinedAt == null ||
+                    curr.lastJoinedAt!.isAfter(prev.lastJoinedAt!));
+          }
+          return false;
+        },
+        listener: (context, state) {
+          _switchTab(1);
+        },
+        child: Builder(
         builder: (innerContext) {
           return PopScope(
             canPop: false,
@@ -285,6 +297,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
                         onOpenNotifications: () => NotificationsBottomSheet.show(
                           innerContext,
+                          onTabSwitch: _switchTab,
                         ),
                       ),
                     ),
@@ -331,7 +344,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           );
         },
       ),
-    );
+    ),
+  );
 }
 }
 
@@ -573,33 +587,6 @@ class _PulseIconState extends State<_PulseIcon>
           ),
         );
       },
-    );
-  }
-}
-
-class _AppBarTitle extends StatelessWidget {
-  final int index;
-  final LWThemeExtension lw;
-
-  const _AppBarTitle({
-    required this.index,
-    required this.lw,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final titleText = switch (index) {
-      1 => 'Check in',
-      2 => 'Records',
-      3 => 'People',
-      _ => '',
-    };
-
-    return Text(
-      titleText,
-      style: LWTypography.largeNoneRegular.copyWith(
-        color: LWColors.inkBase,
-      ),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/active_run_entity.dart';
 import 'png_streak_ring.dart';
 import 'lw_icon.dart';
+import 'lw_card_action.dart';
+import 'lw_pill_action.dart';
 import '../../core/theme/design_system.dart';
 
 /// A list-item card representing one of the user's active runs.
@@ -48,103 +50,54 @@ class RunActiveCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start, // Higher positioning
               children: [
-                Text(
-                  run.challengeTitle,
-                  style: LWTypography.regularNoneBold.copyWith(
-                    color: LWColors.inkBase,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 4), // Optical nudge for "Higher" title
+                Row(
+                  children: [
+                    if (!run.isPublic)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: LwIcon(
+                          'misc_incognito',
+                          size: 16,
+                          color: lw.contentSecondary.withOpacity(0.7),
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        run.challengeTitle,
+                        style: LWTypography.regularNoneBold.copyWith(
+                          color: LWColors.inkBase,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8), // Increased gap
-                GestureDetector(
+                const SizedBox(height: 12), // Increased gap to 12
+                LWPillAction(
+                  icon: Icons.star_rounded,
+                  label: run.betCount == 0 ? 'Bet' : '${run.betCount}',
                   onTap: onBetTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: LWColors.skyLightest,
-                      borderRadius: BorderRadius.circular(LWRadius.pill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          size: 14,
-                          color: run.betCount == 0
-                              ? lw.brandPrimary
-                              : lw.contentSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          run.betCount == 0 ? 'Bet' : '${run.betCount}',
-                          style: LWTypography.smallNoneBold.copyWith(
-                            color: run.betCount == 0
-                                ? lw.brandPrimary
-                                : lw.contentSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  contentColor: run.betCount == 0
+                      ? lw.brandPrimary
+                      : lw.contentSecondary,
                 ),
               ],
             ),
           ),
 
-          // 3. Checkin Status (Replaced older toggle and menu)
-          _CheckinToggle(
+          // 3. Checkin Status
+          LWCardAction(
+            icon: Icons.check_rounded,
             isChecked: run.hasCheckedInToday || forceDone,
-            onChanged: onCheckin == null ? null : (v) => onCheckin!(),
+            isCheckbox: true,
+            onTap: onCheckin,
+            semanticLabel: 'Check in',
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CheckinToggle extends StatelessWidget {
-  final bool isChecked;
-  final ValueChanged<bool?>? onChanged;
-
-  const _CheckinToggle({
-    required this.isChecked,
-    this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-
-    return GestureDetector(
-      onTap: onChanged == null ? null : () => onChanged!(!isChecked),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6), // Rounded Square per mockup
-          color: isChecked ? lw.brandPrimary : LWColors.skyLighter,
-        ),
-        alignment: Alignment.center,
-        child: isChecked
-            ? const Icon(
-                Icons.check_rounded,
-                size: 20,
-                color: Colors.white,
-              )
-            : const Icon(
-                Icons.check_rounded,
-                size: 24,
-                color: LWColors.inkLight,
-              ),
       ),
     );
   }

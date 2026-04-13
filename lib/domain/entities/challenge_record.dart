@@ -11,6 +11,7 @@ class ChallengeRecord extends Equatable {
   final String challengeSlug;
   final String? imageAsset;
   final String? imageUrl;
+  final bool isPublic;
 
   /// All completed runs for this challenge, newest [endDate] first.
   final List<CompletedRunEntity> runs;
@@ -22,6 +23,7 @@ class ChallengeRecord extends Equatable {
     required this.runs,
     this.imageAsset,
     this.imageUrl,
+    this.isPublic = true,
   });
 
   /// The highest [finalScore] across all runs (shown in the score ring).
@@ -51,6 +53,7 @@ class ChallengeRecord extends Equatable {
         challengeSlug: first.challengeSlug,
         imageAsset: first.imageAsset,
         imageUrl: first.imageUrl,
+        isPublic: first.isPublic,
         runs: sorted,
       );
     }).toList();
@@ -60,6 +63,13 @@ class ChallengeRecord extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [challengeId, challengeTitle, challengeSlug, runs, imageAsset, imageUrl];
+  List<Object?> get props => [
+        challengeId,
+        challengeTitle,
+        challengeSlug,
+        runs,
+        imageAsset,
+        imageUrl,
+        isPublic,
+      ];
 }

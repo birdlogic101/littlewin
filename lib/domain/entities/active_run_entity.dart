@@ -17,12 +17,6 @@ class ActiveRunEntity extends Equatable {
   final bool hasCheckedInToday;
 
   /// The UTC date (yyyy-MM-dd) of the most recent successful check-in.
-  ///
-  /// Used by [RunsRepository.processCompletions] to detect a missed day:
-  /// if [lastCheckinDay] ≠ yesterday's UTC date when the app opens on a
-  /// new day, the run is considered completed.
-  ///
-  /// - `null` ← never checked in yet (e.g., just joined today).
   final String? lastCheckinDay;
 
   /// Optional local asset path for background image.
@@ -33,6 +27,9 @@ class ActiveRunEntity extends Equatable {
 
   /// Number of bets currently placed on this run.
   final int betCount;
+
+  /// Whether the challenge associated with this run is public or private.
+  final bool isPublic;
 
   const ActiveRunEntity({
     required this.runId,
@@ -46,6 +43,7 @@ class ActiveRunEntity extends Equatable {
     this.imageAsset,
     this.imageUrl,
     this.betCount = 0,
+    this.isPublic = true,
   });
 
   // Sentinel used by [copyWith] so callers can explicitly pass `null`
@@ -65,6 +63,7 @@ class ActiveRunEntity extends Equatable {
     String? imageAsset,
     String? imageUrl,
     int? betCount,
+    bool? isPublic,
   }) {
     return ActiveRunEntity(
       runId: runId ?? this.runId,
@@ -80,6 +79,7 @@ class ActiveRunEntity extends Equatable {
       imageAsset: imageAsset ?? this.imageAsset,
       imageUrl: imageUrl ?? this.imageUrl,
       betCount: betCount ?? this.betCount,
+      isPublic: isPublic ?? this.isPublic,
     );
   }
 
@@ -96,5 +96,6 @@ class ActiveRunEntity extends Equatable {
         imageAsset,
         imageUrl,
         betCount,
+        isPublic,
       ];
 }

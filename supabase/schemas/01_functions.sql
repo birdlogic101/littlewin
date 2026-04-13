@@ -215,11 +215,19 @@ begin
     -- ── 2b. Notify bettors ───────────────────────────────────────────────────
 
     -- Notify Winners
-    insert into public.notifications (user_id, message, type, deep_link, unique_hash)
+    insert into public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
     select 
       b.bettor_id,
-      'You won a ' || coalesce(b.custom_stake_title, s.title, 'Reward') || '! ' || u_runner.username || ' reached Day ' || b.target_streak || '.',
+      'You won! You reached Day ' || b.target_streak || ' of your ' || c.title || ' run.',
       'bet_won',
+      run.user_id,
+      u_runner.avatar_id,
+      jsonb_build_object(
+        'username', u_runner.username,
+        'stake_title', coalesce(b.custom_stake_title, s.title),
+        'target_streak', b.target_streak,
+        'run_title', c.title
+      ),
       '/records',
       'bet_won_' || b.id
     from public.bets b
@@ -229,26 +237,36 @@ begin
     left join public.stakes s on s.id = b.stake_id
     where b.run_id = r.run_id 
       and b.status = 'won' 
-      and b.won_at >= now() - interval '1 minute' -- only just resolved
-    on conflict (unique_hash) do nothing;
+      and b.won_at >= now() - interval '1 minute'
+    on conflict (unique_hash) DO NOTHING;
 
     -- Notify Losers
-    insert into public.notifications (user_id, message, type, deep_link, unique_hash)
+    insert into public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
     select 
       b.bettor_id,
-      'Bet lost: ' || u_runner.username || ' ended at Day ' || r.current_streak || '.',
+      'Your ' || c.title || ' run ended at Day ' || r.current_streak || '.',
       'bet_lost',
+      run.user_id,
+      u_runner.avatar_id,
+      jsonb_build_object(
+        'username', u_runner.username,
+        'stake_title', coalesce(b.custom_stake_title, s.title),
+        'target_streak', b.target_streak,
+        'final_streak', r.current_streak,
+        'run_title', c.title,
+        'challenge_id', run.challenge_id
+      ),
       '/records',
       'bet_lost_' || b.id
     from public.bets b
     join public.runs run on b.run_id = run.id
     join public.challenges c on run.challenge_id = c.id
     join public.users u_runner on u_runner.id = run.user_id
+    left join public.stakes s on s.id = b.stake_id
     where b.run_id = r.run_id 
       and b.status = 'lost' 
       and b.lost_at >= now() - interval '1 minute'
-    on conflict (unique_hash) do nothing;
-
+    on conflict (unique_hash) DO NOTHING;
     -- ── 3. Decrement challenge participant count ───────────────────────────────
 
     update public.challenges
@@ -396,15 +414,24 @@ BEGIN
   LEFT JOIN public.users u ON sb.bettor_id = u.id;
 
   -- 3b. Create notifications for won bets (Bettor Impact)
-  INSERT INTO public.notifications (user_id, message, type, deep_link, unique_hash)
+  INSERT INTO public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
   SELECT 
     b.bettor_id,
-    'You won a ' || coalesce(b.custom_stake_title, s.title, 'Reward') || '! ' || u_runner.username || ' reached Day ' || b.target_streak || '.',
+    'Congratulations! You won ' || coalesce(b.custom_stake_title, s.title, 'Reward') || ' by reaching Day ' || b.target_streak || ' in your ' || c.title || ' run.',
     'bet_won',
+    r.user_id,
+    u_runner.avatar_id,
+    jsonb_build_object(
+      'username', u_runner.username,
+      'stake_title', coalesce(b.custom_stake_title, s.title),
+      'target_streak', b.target_streak,
+      'run_title', c.title
+    ),
     '/records',
     'bet_won_' || b.id
   FROM public.bets b
   JOIN public.runs r ON r.id = p_run_id
+  JOIN public.challenges c on r.challenge_id = c.id
   JOIN public.users u_runner ON u_runner.id = r.user_id
   LEFT JOIN public.stakes s ON s.id = b.stake_id
   WHERE b.run_id = p_run_id 
@@ -680,19 +707,44 @@ begin
 
   -- 7. Notify Runner (Social Awareness)
   if v_runner_id != auth.uid() then
-    select username into v_bettor_name from public.users where id = auth.uid();
-    -- Use custom title if provided, otherwise fetch stake title
-    v_stake_title := coalesce(p_custom_stake_title, (select title from public.stakes where id = p_stake_id));
-    
-    insert into public.notifications (user_id, message, type, deep_link, unique_hash)
-    values (
-      v_runner_id,
-      coalesce(v_bettor_name, 'Someone') || ' bet a ' || coalesce(v_stake_title, 'Reward') || ' that you''ll reach Day ' || p_target_streak || '!',
-      'bet_received',
-      '/runs/' || p_run_id,
-      'bet_received_' || v_bet_id
-    )
-    on conflict (unique_hash) do nothing;
+    declare
+      v_bettor_avatar_id int;
+      v_run_title text;
+      v_is_self_bet boolean;
+    begin
+      select username, avatar_id into v_bettor_name, v_bettor_avatar_id from public.users where id = auth.uid();
+      
+      -- Use custom title if provided, otherwise fetch stake title
+      v_stake_title := coalesce(p_custom_stake_title, (select title from public.stakes where id = p_stake_id));
+
+      -- Fetch challenge title for metadata
+      select c.title, r.current_streak, b.is_self_bet into v_run_title, v_current_streak, v_is_self_bet
+      from public.runs r 
+      join public.challenges c on r.challenge_id = c.id 
+      join public.bets b on b.id = v_bet_id
+      where r.id = p_run_id;
+      
+      insert into public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
+      values (
+        v_runner_id,
+        coalesce(v_bettor_name, 'Someone') || ' has placed a bet on Day ' || p_target_streak || ' of your ' || v_run_title || ' run.',
+        'bet_received',
+        auth.uid(),
+        v_bettor_avatar_id,
+        jsonb_build_object(
+          'username', v_bettor_name,
+          'stake_title', v_stake_title,
+          'target_streak', p_target_streak,
+          'run_title', v_run_title,
+          'run_id', p_run_id,
+          'current_streak', v_current_streak,
+          'is_self_bet', v_is_self_bet
+        ),
+        '/runs/' || p_run_id,
+        'bet_received_' || v_bet_id
+      )
+      on conflict (unique_hash) do nothing;
+    end;
   end if;
 
   return v_result;

@@ -25,6 +25,9 @@ class CompletedRunEntity extends Equatable {
   /// Optional remote URL for background image.
   final String? imageUrl;
 
+  /// Whether the challenge associated with this run is public or private.
+  final bool isPublic;
+
   const CompletedRunEntity({
     required this.runId,
     required this.challengeId,
@@ -35,6 +38,7 @@ class CompletedRunEntity extends Equatable {
     required this.endDate,
     this.imageAsset,
     this.imageUrl,
+    this.isPublic = true,
   });
 
   @override
@@ -48,6 +52,7 @@ class CompletedRunEntity extends Equatable {
         endDate,
         imageAsset,
         imageUrl,
+        isPublic,
       ];
 
   CompletedRunEntity copyWith({
@@ -60,6 +65,7 @@ class CompletedRunEntity extends Equatable {
     String? endDate,
     String? imageAsset,
     String? imageUrl,
+    bool? isPublic,
   }) {
     return CompletedRunEntity(
       runId: runId ?? this.runId,
@@ -71,6 +77,7 @@ class CompletedRunEntity extends Equatable {
       endDate: endDate ?? this.endDate,
       imageAsset: imageAsset ?? this.imageAsset,
       imageUrl: imageUrl ?? this.imageUrl,
+      isPublic: isPublic ?? this.isPublic,
     );
   }
 }

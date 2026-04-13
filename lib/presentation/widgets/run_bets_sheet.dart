@@ -67,6 +67,7 @@ class RunBetsSheet extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       useSafeArea: false,
       backgroundColor: Colors.transparent,
       // Let the sheet size itself to its content when showing the list;
@@ -202,18 +203,11 @@ class _BetExperienceContentState extends State<_BetExperienceContent> {
             : Material(
                 key: const ValueKey('place'),
                 color: lw.backgroundApp,
-                child: SizedBox(
-                  height: MediaQuery.sizeOf(context).height * 0.90,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                        top: MediaQuery.viewPaddingOf(context).top + 8),
-                    child: _PlaceBetView(
-                      username: widget.username,
-                      isSelfBet: widget.isSelfBet,
-                      isPremium: widget.isPremium,
-                      onBackTap: _toggleView,
-                    ),
-                  ),
+                child: _PlaceBetView(
+                  username: widget.username,
+                  isSelfBet: widget.isSelfBet,
+                  isPremium: widget.isPremium,
+                  onBackTap: _toggleView,
                 ),
               ),
       ),
@@ -398,7 +392,7 @@ class _PlaceBetView extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(
                 left: LWSpacing.md,
-                top: MediaQuery.viewPaddingOf(context).top + LWSpacing.md,
+                top: MediaQuery.viewPaddingOf(context).top + LWSpacing.sm,
               ),
               child: Align(
                 alignment: Alignment.topLeft,
@@ -408,7 +402,7 @@ class _PlaceBetView extends StatelessWidget {
                     Icons.close_rounded,
                     size: 32,
                     color: LWColors.skyDark,
-                    weight: 300, // lighter optical weight ≈ stroke 1.5
+                    weight: 300,
                   ),
                 ),
               ),
@@ -481,8 +475,7 @@ class _StreakSelector extends StatelessWidget {
             ),
             const SizedBox(width: LWSpacing.xs),
             Tooltip(
-              message: 'Pick the streak day you think\n'
-                  'this person will reach to win their reward.',
+              message: 'Pick the Day Streak to reach in order to win this bet\'s reward.',
               triggerMode: TooltipTriggerMode.tap,
               preferBelow: true,
               showDuration: const Duration(seconds: 4),
@@ -637,9 +630,7 @@ class _StakeSectionState extends State<_StakeSection> {
             ),
             const SizedBox(width: LWSpacing.xs),
             Tooltip(
-              message: 'A friendly bet with a symbolic stake — \n'
-                  'like a coffee or a dinner. Tap + to add\n'
-                  'your own custom reward.',
+              message: 'Pick the reward at stake for this friendly bet. Tap the + icon to customize.',
               triggerMode: TooltipTriggerMode.tap,
               preferBelow: true,
               showDuration: const Duration(seconds: 4),
@@ -869,15 +860,9 @@ class _BetRow extends StatelessWidget {
       BetStatus.pending => LWColors.skyBase,
     };
 
-    final statusText = switch (bet.status) {
-      BetStatus.won => Colors.white,
-      BetStatus.lost => Colors.white,
-      BetStatus.pending => LWColors.inkLight,
-    };
-
     final statusLabel = switch (bet.status) {
-      BetStatus.won => 'Won',
-      BetStatus.lost => 'Lost',
+      BetStatus.won => bet.isSelfBet ? 'You Won!' : 'Goal Reached',
+      BetStatus.lost => 'Missed',
       BetStatus.pending => 'Pending',
     };
 
@@ -925,20 +910,51 @@ class _BetRow extends StatelessWidget {
           ),
           const SizedBox(width: LWSpacing.md),
 
-          // 3. Stake title — Small/None/Thin (14/14) with Ink/Lighter
+          // 3. Stake title & Bettor Name
           Expanded(
-            child: Text(
-              bet.stakeTitle ?? bet.customStakeTitle ?? 'No reward',
-              style: LWTypography.smallNoneRegular.copyWith(
-                color: LWColors.inkLighter,
-                fontWeight: FontWeight.w300, // Thin
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  bet.stakeTitle ?? bet.customStakeTitle ?? 'No reward',
+                  style: LWTypography.regularNoneMedium.copyWith(
+                    color: LWColors.inkBase,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  bet.isSelfBet ? 'You' : (bet.bettorUsername ?? 'Anonymous'),
+                  style: LWTypography.smallNoneRegular.copyWith(
+                    color: LWColors.inkLighter,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
 
-          // 4. Three-dots icon — 24×24, Ink/Base
+          // 4. Status Chip
+          if (bet.status != BetStatus.pending) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusBg.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(LWRadius.md),
+                border: Border.all(color: statusBg.withOpacity(0.3)),
+              ),
+              child: Text(
+                statusLabel,
+                style: LWTypography.tinyNormalBold.copyWith(color: statusBg),
+              ),
+            ),
+            const SizedBox(width: LWSpacing.xs),
+          ],
+
+          // 5. Three-dots icon — 24×24, Ink/Base
           GestureDetector(
             onTap: () {}, // TODO(bet-actions)
             child: Padding(

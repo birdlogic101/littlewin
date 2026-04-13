@@ -45,7 +45,7 @@ class UserCard extends StatelessWidget {
         child: Row(
           children: [
             // ── Avatar ───────────────────────────────────────────────────
-            _UserAvatar(avatarId: user.avatarId),
+            UserAvatar(avatarId: user.avatarId),
             const SizedBox(width: LWSpacing.md),
     
             // ── Username + sub-label ─────────────────────────────────────
@@ -54,14 +54,28 @@ class UserCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    user.username,
-                    style: LWTypography.smallNoneBold
-                        .copyWith(color: LWColors.inkBase),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          user.username,
+                          style: LWTypography.smallNoneBold
+                              .copyWith(color: LWColors.inkBase),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (user.isPremium) ...[
+                        const SizedBox(width: 4),
+                        const LwIcon(
+                          'misc_crown',
+                          size: 14,
+                          color: Color(0xFFFFD700),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 6), // Increased spacing
+                  const SizedBox(height: 10), // Increased spacing for better breathing
                   // Ongoing runs pill: always visible, 20px height
                   Container(
                     height: 20,
@@ -95,11 +109,10 @@ class UserCard extends StatelessWidget {
             if (mode == UserCardMode.searchResult)
               _FollowButton(isFollowing: user.isFollowing, onTap: onFollowToggle)
             else
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: LWColors.skyDark,
+              const LwIcon(
+                'arrows_next',
                 size: 24,
-                weight: 300,
+                color: LWColors.skyDark,
               ),
           ],
         ),
@@ -110,13 +123,13 @@ class UserCard extends StatelessWidget {
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
-class _UserAvatar extends StatelessWidget {
+class UserAvatar extends StatelessWidget {
   final int? avatarId;
-  const _UserAvatar({this.avatarId});
+  final double size;
+  const UserAvatar({this.avatarId, this.size = 48.0});
 
   @override
   Widget build(BuildContext context) {
-    const size = 48.0;
     return Container(
       width: size,
       height: size,
@@ -129,15 +142,15 @@ class _UserAvatar extends StatelessWidget {
           ? Image.asset(
               'assets/avatars/avatar_$avatarId.png',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const _AvatarPlaceholder(),
+              errorBuilder: (_, __, ___) => const AvatarPlaceholder(),
             )
-          : const _AvatarPlaceholder(),
+          : const AvatarPlaceholder(),
     );
   }
 }
 
-class _AvatarPlaceholder extends StatelessWidget {
-  const _AvatarPlaceholder();
+class AvatarPlaceholder extends StatelessWidget {
+  const AvatarPlaceholder();
 
   @override
   Widget build(BuildContext context) {

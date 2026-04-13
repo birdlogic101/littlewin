@@ -134,9 +134,13 @@ class _BetWonModalState extends State<BetWonModal>
 
                 const SizedBox(height: LWSpacing.xl),
 
-                // "DAYS COMPLETED!" (or YOU WON!)
+                // "DAYS COMPLETED!" (or [RUNNER] WON!)
                 Text(
-                  widget.isBettorView ? 'YOU WON!' : 'DAYS COMPLETED !',
+                  widget.isBettorView
+                      ? (res.wonBets.isNotEmpty && res.wonBets.first.bettorUsername != null
+                          ? '${res.wonBets.first.bettorUsername!.toUpperCase()} WON!'
+                          : 'RUNNER WON!')
+                      : 'DAYS COMPLETED !',
                   style: LWTypography.smallNoneBold.copyWith(
                     color: lw.contentSecondary,
                     letterSpacing: 0.5,
@@ -235,29 +239,37 @@ class _RewardRow extends StatelessWidget {
             username: displayName,
             isSelf: entry.isSelfBet,
           ),
-          const SizedBox(width: LWSpacing.lg),
+          const SizedBox(width: LWSpacing.md), // tighter spacing like mockup
 
-          // Stake icon
-          SvgPicture.asset(
-            svgAsset,
-            height: 20,
-            width: 20,
-            colorFilter: ColorFilter.mode(lw.contentSecondary, BlendMode.srcIn),
-          ),
-          const SizedBox(width: LWSpacing.md),
-
-          // Stake name
+          // Stake title and username
           Expanded(
-            child: Text(
-              entry.stakeTitle ?? 'No stake',
-              style: LWTypography.regularNormalRegular.copyWith(
-                color: lw.contentSecondary,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  entry.stakeTitle ?? 'No stake',
+                  style: LWTypography.regularNoneMedium.copyWith(
+                    color: lw.contentPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  displayName,
+                  style: LWTypography.smallNoneRegular.copyWith(
+                    color: lw.contentSecondary.withOpacity(0.6),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
 
           // ⋮ placeholder (no action for MLP)
-          Icon(Icons.more_vert_rounded, size: 20, color: lw.contentSecondary.withOpacity(0.5)),
+          Icon(Icons.more_vert_rounded, size: 24, color: lw.contentPrimary.withOpacity(0.5)),
         ],
       ),
     );

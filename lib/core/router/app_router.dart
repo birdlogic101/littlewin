@@ -40,5 +40,13 @@ final GoRouter router = GoRouter(
       path: '/auth',
       builder: (context, state) => const AuthScreen(),
     ),
+    GoRoute(
+      path: '/records',
+      redirect: (context, state) => '/',
+    ),
+    GoRoute(
+      path: '/runs/:id',
+      redirect: (context, state) => '/',
+    ),
   ],
 );

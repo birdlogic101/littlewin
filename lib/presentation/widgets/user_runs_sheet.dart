@@ -10,6 +10,7 @@ import '../bloc/checkin/checkin_state.dart';
 import 'run_bets_sheet.dart';
 import 'png_streak_ring.dart';
 import 'lw_icon.dart';
+import 'lw_card_action.dart';
 
 /// A bottom sheet that displays a user's profile info (ongoing and completed runs).
 class UserRunsSheet extends StatefulWidget {
@@ -550,23 +551,11 @@ class _JoinCircleButtonState extends State<_JoinCircleButton> {
       );
     }
 
-    return GestureDetector(
+    return LWCardAction(
+      icon: 'misc_join',
+      iconSize: 21,
       onTap: _join,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: const BoxDecoration(
-          color: LWColors.skyLighter,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: const LwIcon(
-          'misc_join',
-          size: 24,
-          color: LWColors.inkLight,
-        ),
-      ),
+      semanticLabel: 'Join challenge',
     );
   }
 }
