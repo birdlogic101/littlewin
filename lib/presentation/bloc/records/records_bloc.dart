@@ -6,6 +6,7 @@ import 'records_state.dart';
 import '../../../data/repositories/completed_runs_repository.dart';
 import '../../../data/repositories/runs_repository.dart';
 import '../../../domain/entities/active_run_entity.dart';
+import '../../../domain/entities/completed_run_entity.dart';
 
 @injectable
 class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
@@ -31,7 +32,7 @@ class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
     emit(const RecordsState.loading());
     try {
       await Future.delayed(const Duration(milliseconds: 400));
-      emit(RecordsState.loaded(runs: _completedRunsRepository.allRuns));
+      emit(RecordsState.loaded(runs: _sortRuns(_completedRunsRepository.allRuns)));
 
       // Subscribe to new completions (day rollover → processCompletions)
       await _sub?.cancel();
@@ -47,7 +48,7 @@ class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
     RecordsRunsUpdated event,
     Emitter<RecordsState> emit,
   ) async {
-    emit(RecordsState.loaded(runs: event.runs));
+    emit(RecordsState.loaded(runs: _sortRuns(event.runs)));
   }
 
   Future<void> _onRestartChallenge(
@@ -88,12 +89,19 @@ class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
     }
 
     // Switch back to loaded state so the UI doesn't stay in success forever
-    emit(RecordsState.loaded(runs: _completedRunsRepository.allRuns));
+    emit(RecordsState.loaded(runs: _sortRuns(_completedRunsRepository.allRuns)));
   }
 
   @override
   Future<void> close() {
     _sub?.cancel();
     return super.close();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  List<CompletedRunEntity> _sortRuns(List<CompletedRunEntity> runs) {
+    return List<CompletedRunEntity>.from(runs)
+      ..sort((a, b) => b.finalScore.compareTo(a.finalScore));
   }
 }

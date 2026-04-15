@@ -155,6 +155,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     context.read<ExploreBloc>().add(ExploreRunJoined(
                           runId: run.runId,
                           challengeId: run.challengeId,
+                          challengeTitle: run.challengeTitle,
+                          challengeDescription: run.challengeDescription,
+                          challengeSlug: run.challengeSlug,
                         ));
                     _nextCard();
                   },

@@ -10,6 +10,7 @@ sealed class CheckinState extends Equatable {
   const factory CheckinState.loaded({
     required List<ActiveRunEntity> runs,
     BetResolutionEntity? pendingResolution,
+    String? pendingBetListRunId,
   }) = CheckinLoaded;
   const factory CheckinState.failure({required String message}) =
       CheckinFailure;
@@ -34,13 +35,17 @@ class CheckinLoaded extends CheckinState {
   /// Reset to null after the modal is displayed by emitting a cleared state.
   final BetResolutionEntity? pendingResolution;
 
+  /// Non-null when a notification deep-link triggers opening the bet list for a run.
+  final String? pendingBetListRunId;
+
   const CheckinLoaded({
     required this.runs,
     this.pendingResolution,
+    this.pendingBetListRunId,
   });
 
   @override
-  List<Object?> get props => [runs, pendingResolution];
+  List<Object?> get props => [runs, pendingResolution, pendingBetListRunId];
 }
 
 class CheckinFailure extends CheckinState {

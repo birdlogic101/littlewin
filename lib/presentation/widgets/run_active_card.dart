@@ -4,6 +4,7 @@ import 'png_streak_ring.dart';
 import 'lw_icon.dart';
 import 'lw_card_action.dart';
 import 'lw_pill_action.dart';
+import 'challenge_description_sheet.dart';
 import '../../core/theme/design_system.dart';
 
 /// A list-item card representing one of the user's active runs.
@@ -55,25 +56,34 @@ class RunActiveCard extends StatelessWidget {
                 const SizedBox(height: 4), // Optical nudge for "Higher" title
                 Row(
                   children: [
-                    if (!run.isPublic)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: LwIcon(
-                          'misc_incognito',
-                          size: 16,
-                          color: lw.contentSecondary.withOpacity(0.7),
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: () => ChallengeDescriptionSheet.show(
+                          context,
+                          title: run.challengeTitle,
+                          description: run.challengeDescription,
+                          challengeId: run.challengeId,
                         ),
-                      ),
-                    Expanded(
-                      child: Text(
-                        run.challengeTitle,
-                        style: LWTypography.regularNoneBold.copyWith(
-                          color: LWColors.inkBase,
+                        behavior: HitTestBehavior.opaque,
+                        child: Text(
+                          run.challengeTitle,
+                          style: LWTypography.regularNoneBold.copyWith(
+                            color: LWColors.inkBase,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (!run.isPublic)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: const LwIcon(
+                          'misc_incognito',
+                          size: 16,
+                          color: LWColors.skyDark,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12), // Increased gap to 12

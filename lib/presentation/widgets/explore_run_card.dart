@@ -3,6 +3,7 @@ import '../../domain/entities/explore_run_entity.dart';
 import '../widgets/png_streak_ring.dart';
 import '../widgets/lw_icon.dart';
 import '../widgets/lw_button.dart';
+import '../widgets/challenge_description_sheet.dart';
 import '../../core/theme/design_system.dart';
 
 /// Full-bleed, full-screen swipeable card showing a single public run.
@@ -265,14 +266,14 @@ class _CardBackground extends StatelessWidget {
     if (imageAsset != null && imageAsset!.isNotEmpty) {
       return Image.asset(
         imageAsset!,
-        fit: BoxFit.cover,
+        fit: BoxFit.fitHeight,
         errorBuilder: (_, __, ___) => _FallbackBackground(title: title),
       );
     }
     if (imageUrl != null && imageUrl!.isNotEmpty) {
       return Image.network(
         imageUrl!,
-        fit: BoxFit.cover,
+        fit: BoxFit.fitHeight,
         errorBuilder: (_, __, ___) => _FallbackBackground(title: title),
       );
     }
@@ -356,6 +357,7 @@ class _UserBadge extends StatelessWidget {
           username,
           style: LWTypography.regularNormalBold.copyWith(
             color: Colors.white,
+            shadows: _kCardShadow,
           ),
         ),
         if (isPremium) ...[
@@ -384,7 +386,7 @@ class _Avatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: LWColors.skyBase,
-        border: Border.all(color: Colors.white, width: 2),
+        border: Border.all(color: Colors.white, width: 1.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: avatarId != null
@@ -451,15 +453,19 @@ class _BottomContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: LWTypography.title3.copyWith(
-                    color: Colors.white,
-                    fontSize: 28,
-                    shadows: _kCardShadow,
+                child: GestureDetector(
+                  onTap: () => _showDescription(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    title,
+                    style: LWTypography.title3.copyWith(
+                      color: Colors.white,
+                      fontSize: 28,
+                      shadows: _kCardShadow,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               GestureDetector(
@@ -517,73 +523,10 @@ class _BottomContent extends StatelessWidget {
   }
 
   void _showDescription(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => Material(
-        color: lw.backgroundApp,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(LWRadius.lg),
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Drag handle
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: LWSpacing.md),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: LWColors.skyBase,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-
-              // ── Header: title only (no close button — drag-to-dismiss)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    LWSpacing.xl, LWSpacing.lg, LWSpacing.xl, LWSpacing.lg),
-                child: Text(
-                  title,
-                  style: LWTypography.largeNoneBold.copyWith(
-                    color: LWColors.inkBase,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              // ── Description body
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    LWSpacing.xl,
-                    LWSpacing.lg,
-                    LWSpacing.xl,
-                    LWSpacing.xxl,
-                  ),
-                  child: Text(
-                    description ?? 'No description available.',
-                    style: LWTypography.smallNoneRegular.copyWith(
-                      color: LWColors.inkLighter,
-                      fontWeight: FontWeight.w300,
-                      height: 1.75, // open line-height for natural breathing room
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    ChallengeDescriptionSheet.show(
+      context,
+      title: title,
+      description: description,
     );
   }
 

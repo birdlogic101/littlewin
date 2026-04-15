@@ -25,10 +25,21 @@ class ExploreRunDismissed extends ExploreEvent {
 class ExploreRunJoined extends ExploreEvent {
   final String runId;
   final String challengeId;
-  const ExploreRunJoined({required this.runId, required this.challengeId});
+  final String? challengeTitle;
+  final String? challengeDescription;
+  final String? challengeSlug;
+
+  const ExploreRunJoined({
+    required this.runId,
+    required this.challengeId,
+    this.challengeTitle,
+    this.challengeDescription,
+    this.challengeSlug,
+  });
 
   @override
-  List<Object?> get props => [runId, challengeId];
+  List<Object?> get props =>
+      [runId, challengeId, challengeTitle, challengeDescription, challengeSlug];
 }
 /// User scrolled near the end — fetch the next batch.
 class ExploreLoadMoreRequested extends ExploreEvent {

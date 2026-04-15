@@ -127,7 +127,7 @@ class _PeopleScreenState extends State<PeopleScreen>
               ),
 
               // ── Search bar ─────────────────────────────────────────────
-              if (state is PeopleLoaded)
+              if (state is PeopleLoaded && (state.activeTab == PeopleTab.followed ? state.followedUsers.isNotEmpty : state.followersUsers.isNotEmpty))
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: LWSpacing.lg,
@@ -299,6 +299,7 @@ class _EmptyView extends StatelessWidget {
         ),
         LWEmptyStateAction(
           label: 'Find user',
+          backgroundColor: LWColors.primaryLightest,
           onPressed: onFind,
         ),
       ],

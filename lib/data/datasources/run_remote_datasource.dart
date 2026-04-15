@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive/hive.dart';
 import '../../domain/entities/explore_run_entity.dart';
 import '../../domain/entities/active_run_entity.dart';
 import '../../domain/entities/completed_run_entity.dart';
@@ -50,7 +51,7 @@ class RunRemoteDataSource {
             challenge_id,
             current_streak,
             start_date,
-            challenges!inner(title, slug, image_asset, visibility),
+            challenges!inner(title, slug, image_asset, visibility, description),
             checkins(check_in_day_utc),
             bets(id)
           ''')
@@ -106,10 +107,16 @@ class RunRemoteDataSource {
     final lastCheckinDay = checkinDays.isNotEmpty ? checkinDays.last : null;
     final hasCheckedInToday = lastCheckinDay == today;
 
+    final description = challenge['description'] as String?;
+    if (description != null) {
+      Hive.box('challenge_descriptions').put(row['challenge_id'], description);
+    }
+
     return ActiveRunEntity(
       runId: row['id'] as String,
       challengeId: row['challenge_id'] as String? ?? '',
       challengeTitle: challenge['title']?.toString() ?? 'Unknown Challenge',
+      challengeDescription: description,
       challengeSlug: challenge['slug']?.toString() ?? 'unknown-slug',
       currentStreak: row['current_streak'] as int? ?? 0,
       startDate: startDate,
@@ -147,7 +154,7 @@ class RunRemoteDataSource {
             final_score,
             start_date,
             updated_at,
-            challenges!inner(title, slug, image_asset, visibility)
+            challenges!inner(title, slug, image_asset, visibility, description)
           ''')
           .eq('user_id', userId)
           .eq('status', 'completed');
@@ -185,10 +192,16 @@ class RunRemoteDataSource {
     final rawStart = row['start_date']?.toString() ?? _todayUtc();
     final startDate = rawStart.length >= 10 ? rawStart.substring(0, 10) : rawStart;
 
+    final description = challenge['description'] as String?;
+    if (description != null) {
+      Hive.box('challenge_descriptions').put(row['challenge_id'], description);
+    }
+
     return CompletedRunEntity(
       runId: 'completed-${row['id']}',
       challengeId: row['challenge_id'] as String,
       challengeTitle: challenge['title'] as String,
+      challengeDescription: description,
       challengeSlug: challenge['slug'] as String,
       finalScore: (row['final_score'] as int?) ?? 0,
       startDate: startDate,

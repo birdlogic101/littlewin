@@ -45,6 +45,7 @@ class DayRolloverDetected extends CheckinEvent {
 class CheckinResolutionCleared extends CheckinEvent {
   const CheckinResolutionCleared();
 }
+
 /// Fired when a bet is successfully placed on a run (from the Checkin screen's
 /// bet sheet). Allows the UI to increment the count optimisti-cally.
 class CheckinRunBetPlaced extends CheckinEvent {
@@ -53,4 +54,19 @@ class CheckinRunBetPlaced extends CheckinEvent {
 
   @override
   List<Object?> get props => [runId];
+}
+
+/// Fired to signal that the UI should open the bet list sheet for a specific run.
+/// Used for deep-linking from notifications.
+class CheckinRunBetsOpened extends CheckinEvent {
+  final String runId;
+  const CheckinRunBetsOpened({required this.runId});
+
+  @override
+  List<Object?> get props => [runId];
+}
+
+/// Clears any pending deep-link or automatic UI actions.
+class CheckinPendingActionCleared extends CheckinEvent {
+  const CheckinPendingActionCleared();
 }

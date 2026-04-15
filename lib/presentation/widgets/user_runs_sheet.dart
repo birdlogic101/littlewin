@@ -11,6 +11,7 @@ import 'run_bets_sheet.dart';
 import 'png_streak_ring.dart';
 import 'lw_icon.dart';
 import 'lw_card_action.dart';
+import 'challenge_description_sheet.dart';
 
 /// A bottom sheet that displays a user's profile info (ongoing and completed runs).
 class UserRunsSheet extends StatefulWidget {
@@ -313,6 +314,7 @@ class _OngoingTab extends StatelessWidget {
             final isJoined = joinedChallengeIds.contains(run.challengeId);
             return _ProfileRunCard(
               title: run.challengeTitle,
+              description: run.challengeDescription,
               subtitle: 'Current streak: ${run.currentStreak} days',
               slug: run.challengeSlug,
               streak: run.currentStreak,
@@ -380,6 +382,7 @@ class _CompletedTab extends StatelessWidget {
             final run = runs[index];
             return _ProfileRunCard(
               title: run.challengeTitle,
+              description: run.challengeDescription,
               subtitle: 'Final streak: ${run.finalScore} days',
               slug: run.challengeSlug,
               streak: run.finalScore,
@@ -405,6 +408,7 @@ class _CompletedTab extends StatelessWidget {
 
 class _ProfileRunCard extends StatelessWidget {
   final String title;
+  final String? description;
   final String subtitle;
   final String? slug;
   final int streak;
@@ -416,6 +420,7 @@ class _ProfileRunCard extends StatelessWidget {
 
   const _ProfileRunCard({
     required this.title,
+    this.description,
     required this.subtitle,
     this.slug,
     required this.streak,
@@ -451,12 +456,21 @@ class _ProfileRunCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: LWTypography.regularNoneBold
-                      .copyWith(color: lw.contentPrimary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                GestureDetector(
+                  onTap: () => ChallengeDescriptionSheet.show(
+                    context,
+                    title: title,
+                    description: description,
+                    challengeId: challengeId,
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    title,
+                    style: LWTypography.regularNoneBold
+                        .copyWith(color: lw.contentPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const SizedBox(height: 8), // Increased gap
                 Text(

@@ -7,6 +7,8 @@ import '../../data/repositories/bet_repository.dart';
 import '../../data/repositories/people_repository.dart';
 import '../../data/repositories/runs_repository.dart';
 import '../../domain/entities/notification_entity.dart';
+import '../bloc/checkin/checkin_bloc.dart';
+import '../bloc/checkin/checkin_event.dart';
 import '../bloc/notifications/notifications_bloc.dart';
 import '../bloc/notifications/notifications_event.dart';
 import '../bloc/notifications/notifications_state.dart';
@@ -255,26 +257,30 @@ class _NotificationTile extends StatelessWidget {
             ],
           NotificationType.betReceived => [
               TextSpan(text: username, style: boldStyle),
-              const TextSpan(text: ' placed a bet on your '),
-              TextSpan(text: runTitle, style: boldStyle),
-              const TextSpan(text: '.'),
-            ],
-          NotificationType.betWon => [
-              const TextSpan(text: 'You won! You reached '),
+              const TextSpan(text: ' has placed a bet on '),
               TextSpan(text: 'Day $target', style: boldStyle),
               const TextSpan(text: ' of your '),
-              TextSpan(text: runTitle, style: boldStyle),
-              const TextSpan(text: '.'),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' run.'),
+            ],
+          NotificationType.betWon => [
+              const TextSpan(text: 'Congratulations! You won '),
+              TextSpan(text: meta['stake_title'] ?? 'your bet', style: boldStyle),
+              const TextSpan(text: ' by reaching '),
+              TextSpan(text: 'Day $target', style: boldStyle),
+              const TextSpan(text: ' in your '),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' run.'),
             ],
           NotificationType.betLost => [
               const TextSpan(text: 'Your '),
-              TextSpan(text: runTitle, style: boldStyle),
-              const TextSpan(text: ' ended at '),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' run ended at '),
               TextSpan(text: 'Day $finalStreak.', style: boldStyle),
             ],
           _ => [
               const TextSpan(text: 'It\'s time for your '),
-              TextSpan(text: runTitle, style: boldStyle),
+              TextSpan(text: rawRunTitle, style: boldStyle),
               const TextSpan(text: ' check-in.'),
             ],
         },
@@ -339,28 +345,32 @@ class _NotificationTile extends StatelessWidget {
   }
 
   void _handleTileTap(BuildContext context) {
-    context.read<NotificationsBloc>().add(NotificationMarkAsReadRequested(notification.id));
+    if (notification.status == NotificationStatus.pending) {
+      // First tap: Mark as read
+      context.read<NotificationsBloc>().add(NotificationMarkAsReadRequested(notification.id));
+    } else {
+      // Second tap (or already read): Execute navigation/action
+      _executeNotificationAction(context);
+    }
+  }
 
+  void _executeNotificationAction(BuildContext context) {
     final type = notification.type;
     final meta = notification.metadata ?? {};
 
-    Navigator.pop(context); // Close drawer first
+    Navigator.pop(context); // Close notification sheet
 
     switch (type) {
       case NotificationType.betReceived:
+      case NotificationType.betWon:
         final runId = meta['run_id'] as String?;
         if (runId != null) {
-          RunBetsSheet.show(
-            context,
-            runId: runId,
-            currentStreak: meta['current_streak'] as int? ?? 0,
-            username: meta['username'] as String? ?? 'User',
-            isSelfBet: meta['is_self_bet'] as bool? ?? false,
-            betRepository: getIt<BetRepository>(),
-          );
+          // Switch to Check-in tab
+          onTabSwitch(1);
+          // Signal CheckinBloc to open the sheet
+          context.read<CheckinBloc>().add(CheckinRunBetsOpened(runId: runId));
         }
         break;
-      case NotificationType.betWon:
       case NotificationType.checkinReminder:
         onTabSwitch(1); // Check-in tab
         break;

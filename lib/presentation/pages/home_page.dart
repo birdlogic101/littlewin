@@ -251,19 +251,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         BlocProvider.value(value: _peopleBloc),
         BlocProvider.value(value: _notificationsBloc),
       ],
-      child: BlocListener<ExploreBloc, ExploreState>(
-        listenWhen: (prev, curr) {
-          if (prev is ExploreLoaded && curr is ExploreLoaded) {
-            return curr.lastJoinedAt != null &&
-                (prev.lastJoinedAt == null ||
-                    curr.lastJoinedAt!.isAfter(prev.lastJoinedAt!));
-          }
-          return false;
-        },
-        listener: (context, state) {
-          _switchTab(1);
-        },
-        child: Builder(
+      child: Builder(
         builder: (innerContext) {
           return PopScope(
             canPop: false,
@@ -307,7 +295,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     onGenerateRoute: (_) => MaterialPageRoute(
                       builder: (_) => CheckinScreen(
                         betRepository: _betRepository,
-                        utcTimeLeft: _utcTimeLeft,
+                        utcTimeLeft: _utcTimeLeft, onExploreExploreIdeas: () => _switchTab(0),
                       ),
                     ),
                   ),
@@ -316,7 +304,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     onGenerateRoute: (_) => MaterialPageRoute(
                       builder: (_) => RecordsScreen(
                         betRepository: _betRepository,
-                        onChallengeRestarted: () => _switchTab(1),
+                        onChallengeRestarted: () => _switchTab(1), onExploreExploreIdeas: () => _switchTab(0),
                       ),
                     ),
                   ),
@@ -344,9 +332,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           );
         },
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 // ── Bottom nav ────────────────────────────────────────────────────────────────

@@ -38,7 +38,8 @@ class BetBloc extends Bloc<BetEvent, BetState> {
       ]);
 
       final stakes = results[0] as List<StakeEntity>;
-      final bets = results[1] as List<BetEntity>;
+      final bets = List<BetEntity>.from(results[1] as List<BetEntity>)
+        ..sort((a, b) => b.targetStreak.compareTo(a.targetStreak));
 
       // Dynamic preselection logic:
       // - Self-bet: Find "Spa Access" (Gift)
@@ -132,8 +133,10 @@ class BetBloc extends Bloc<BetEvent, BetState> {
         isSelfBet: current.isSelfBet,
       );
 
-      // Optimistically prepend the new bet to the existing list.
-      final updatedBets = [newBet, ...current.existingBets];
+      // Optimistically prepend and re-sort
+      final updatedBets = [newBet, ...current.existingBets]
+        ..sort((a, b) => b.targetStreak.compareTo(a.targetStreak));
+      
       emit(current.copyWith(
         existingBets: updatedBets,
         submitStatus: BetSubmitStatus.success,
@@ -182,7 +185,9 @@ class BetBloc extends Bloc<BetEvent, BetState> {
         isSelfBet: current.isSelfBet,
       );
 
-      final updatedBets = [newBet, ...current.existingBets];
+      final updatedBets = [newBet, ...current.existingBets]
+        ..sort((a, b) => b.targetStreak.compareTo(a.targetStreak));
+      
       emit(current.copyWith(
         existingBets: updatedBets,
         submitStatus: BetSubmitStatus.success,

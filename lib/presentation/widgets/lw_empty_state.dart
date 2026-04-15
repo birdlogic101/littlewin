@@ -10,12 +10,16 @@ class LWEmptyStateAction {
   final VoidCallback? onPressed;
   final bool isPrimary;
   final bool isPremium; // If true, shows the crown icon
+  final Color? backgroundColor;
+  final Color? foregroundColor;
 
   const LWEmptyStateAction({
     required this.label,
     this.onPressed,
     this.isPrimary = false,
     this.isPremium = false,
+    this.backgroundColor,
+    this.foregroundColor,
   });
 }
 
@@ -49,7 +53,7 @@ class LWEmptyState extends StatelessWidget {
               symbolPath ?? 'assets/misc/misc_logo512.svg',
               width: 80,
               height: 80,
-              colorFilter: ColorFilter.mode(lw.borderStrong, BlendMode.srcIn),
+              colorFilter: const ColorFilter.mode(LWColors.skyBase, BlendMode.srcIn),
             ),
             const SizedBox(height: LWSpacing.xxl),
 
@@ -83,11 +87,16 @@ class LWEmptyState extends StatelessWidget {
                           label: action.label,
                           onPressed: action.onPressed,
                           width: double.infinity,
+                          backgroundColor: action.backgroundColor,
+                          foregroundColor: action.foregroundColor,
                         )
-                      : LwButton.secondary(
+                      : LwButton(
                           label: action.label,
+                          variant: LWButtonVariant.action,
                           onPressed: action.onPressed,
                           width: double.infinity,
+                          backgroundColor: action.backgroundColor,
+                          foregroundColor: action.foregroundColor ?? LWColors.primaryBase,
                         ),
                 );
               }),

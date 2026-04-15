@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/design_system.dart';
 import '../../data/repositories/bet_repository.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../bloc/checkin/checkin_bloc.dart';
 import '../bloc/checkin/checkin_event.dart';
 import 'run_bets_sheet.dart';
@@ -35,12 +36,15 @@ class SelfBetInviteDialog {
         // ── Icon + title
         title: Column(
           children: [
-            Text('🌟', style: const TextStyle(fontSize: 32)),
-            const SizedBox(height: LWSpacing.sm),
+            SvgPicture.asset(
+              'assets/misc/misc_logo512.svg',
+              height: 48,
+              colorFilter: const ColorFilter.mode(LWColors.accentBase, BlendMode.srcIn),
+            ),
+            const SizedBox(height: LWSpacing.lg),
             Text(
-              'You\'re in!',
-              style:
-                  LWTypography.title4.copyWith(color: lw.contentPrimary),
+              'You\'re in !',
+              style: LWTypography.title4.copyWith(color: LWColors.inkBase),
               textAlign: TextAlign.center,
             ),
           ],
@@ -50,16 +54,9 @@ class SelfBetInviteDialog {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '"$challengeTitle"',
-              style: LWTypography.regularNormalBold
-                  .copyWith(color: lw.brandPrimary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: LWSpacing.md),
-            Text(
-              'Make sure failing is not an option: bet on yourself now!',
+              'How far will it go? Pick a streak goal and a reward you can\'t miss. Bet on yourself now!',
               style: LWTypography.regularNormalRegular
-                  .copyWith(color: lw.contentSecondary),
+                  .copyWith(color: LWColors.skyDark),
               textAlign: TextAlign.center,
             ),
           ],
@@ -67,7 +64,7 @@ class SelfBetInviteDialog {
         // ── Actions
         actionsAlignment: MainAxisAlignment.center,
         actionsPadding: const EdgeInsets.fromLTRB(
-            LWSpacing.lg, 0, LWSpacing.lg, LWSpacing.lg),
+            LWSpacing.xl, 0, LWSpacing.xl, LWSpacing.xl),
         actions: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,12 +85,9 @@ class SelfBetInviteDialog {
                       try {
                         context.read<CheckinBloc>().add(
                             CheckinRunBetPlaced(runId: runId));
-                      } catch (_) {
-                        // context may have changed or bloc not present
-                      }
+                      } catch (_) {}
                     },
                   );
-                  // Full refresh when sheet/dialog closes
                   try {
                     context.read<CheckinBloc>().add(
                         const CheckinFetchRequested());
@@ -101,6 +95,7 @@ class SelfBetInviteDialog {
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: lw.brandPrimary,
+                  elevation: 0,
                   padding: const EdgeInsets.symmetric(
                       vertical: LWSpacing.md),
                   shape: RoundedRectangleBorder(
@@ -110,19 +105,18 @@ class SelfBetInviteDialog {
                 icon: const Icon(Icons.star_rounded,
                     size: 18, color: Colors.white),
                 label: Text(
-                  'Place a self-bet',
-                  style: LWTypography.regularNormalMedium
+                  'Place bet',
+                  style: LWTypography.regularNoneBold
                       .copyWith(color: Colors.white),
                 ),
               ),
-              const SizedBox(height: LWSpacing.sm),
-              // Secondary dismiss
+              const SizedBox(height: LWSpacing.md),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 child: Text(
                   'Maybe later',
                   style: LWTypography.regularNormalRegular
-                      .copyWith(color: lw.contentSecondary),
+                      .copyWith(color: LWColors.skyDark.withOpacity(0.5)),
                 ),
               ),
             ],

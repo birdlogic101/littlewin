@@ -218,7 +218,7 @@ begin
     insert into public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
     select 
       b.bettor_id,
-      'You won! You reached Day ' || b.target_streak || ' of your ' || c.title || ' run.',
+      'Congratulations! You won ' || coalesce(b.custom_stake_title, s.title, 'Reward') || ' by reaching Day ' || b.target_streak || ' in your ' || c.title || ' run.',
       'bet_won',
       run.user_id,
       u_runner.avatar_id,
@@ -578,6 +578,7 @@ returns table (
   user_id uuid,
   username text,
   avatar_id int,
+  roles public.app_role[],
   ongoing_count bigint
 )
 language plpgsql
@@ -590,12 +591,13 @@ begin
     u.id as user_id,
     u.username::text,
     u.avatar_id,
+    u.roles,
     count(r.id) as ongoing_count
   from public.follows f
   join public.users u on f.followed_id = u.id
   left join public.runs r on r.user_id = u.id and r.status = 'ongoing'
   where f.follower_id = auth.uid()
-  group by u.id, u.username, u.avatar_id;
+  group by u.id, u.username, u.avatar_id, u.roles;
 end;
 $$;
 
@@ -608,86 +610,78 @@ grant execute on function public.get_followed_users() to authenticated;
 -- -----------------------------------------------------------------------------
 drop function if exists public.place_bet(uuid, int, uuid, boolean);
 drop function if exists public.place_bet(uuid, int, uuid, boolean, text);
-create or replace function public.place_bet(
+CREATE OR REPLACE FUNCTION public.place_bet(
   p_run_id uuid,
   p_target_streak int,
   p_stake_id uuid default null,
   p_is_self_bet boolean default false,
   p_custom_stake_title text default null
 )
-returns json
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
   v_bet_id uuid;
   v_current_streak int;
   v_run_status public.run_status;
+  v_runner_id uuid;
+  v_run_title text;
   v_result json;
   v_bet_count_run int;
   v_bet_count_day int;
-  v_runner_id uuid;
   v_bettor_name text;
+  v_bettor_avatar_id int;
   v_stake_title text;
-begin
-  -- 1. Validation: Run existence and status
-  select user_id, current_streak, status 
-  into v_runner_id, v_current_streak, v_run_status
-  from public.runs 
-  where id = p_run_id;
+BEGIN
+  -- 1. Fetch Metadata (Run + Challenge + Bettor)
+  SELECT r.user_id, r.current_streak, r.status, c.title
+  INTO v_runner_id, v_current_streak, v_run_status, v_run_title
+  FROM public.runs r
+  JOIN public.challenges c ON r.challenge_id = c.id
+  WHERE r.id = p_run_id;
 
-  if v_run_status is null then
-    raise exception 'RUN_NOT_FOUND';
-  end if;
+  IF v_run_status IS NULL THEN
+    RAISE EXCEPTION 'RUN_NOT_FOUND';
+  END IF;
 
-  if v_run_status != 'ongoing' then
-    raise exception 'RUN_NOT_ACTIVE';
-  end if;
+  IF v_run_status != 'ongoing' THEN
+    RAISE EXCEPTION 'RUN_NOT_ACTIVE';
+  END IF;
 
-  -- 2. Validation: Streak logic
-  if p_target_streak <= v_current_streak then
-    raise exception 'STREAK_TOO_LOW';
-  end if;
+  -- 2. Validation Logic
+  IF p_target_streak <= v_current_streak THEN
+    RAISE EXCEPTION 'STREAK_TOO_LOW';
+  END IF;
 
-  if p_target_streak > v_current_streak + 90 then
-    raise exception 'STREAK_TOO_HIGH';
-  end if;
+  IF p_target_streak > v_current_streak + 90 THEN
+    RAISE EXCEPTION 'STREAK_TOO_HIGH';
+  END IF;
 
-  -- 3. Validation: Limits (Anti-spam/Business rules)
-  
-  -- Max bets per run (e.g., 50)
-  select count(*) into v_bet_count_run
-  from public.bets
-  where run_id = p_run_id;
+  -- 3. Business Limits
+  SELECT COUNT(*) INTO v_bet_count_run FROM public.bets WHERE run_id = p_run_id;
+  IF v_bet_count_run >= 50 THEN
+    RAISE EXCEPTION 'MAX_BETS_PER_RUN';
+  END IF;
 
-  if v_bet_count_run >= 50 then
-    raise exception 'MAX_BETS_PER_RUN';
-  end if;
+  SELECT COUNT(*) INTO v_bet_count_day 
+  FROM public.bets 
+  WHERE bettor_id = auth.uid() AND created_at >= (NOW() AT TIME ZONE 'UTC')::DATE;
+  IF v_bet_count_day >= 20 THEN
+    RAISE EXCEPTION 'MAX_BETS_PER_DAY';
+  END IF;
 
-  -- Max bets per user per day (e.g., 20)
-  select count(*) into v_bet_count_day
-  from public.bets
-  where bettor_id = auth.uid()
-    and created_at >= (now() at time zone 'UTC')::date;
+  -- 4. Insert Bet
+  INSERT INTO public.bets (run_id, bettor_id, target_streak, stake_id, is_self_bet, custom_stake_title)
+  VALUES (p_run_id, auth.uid(), p_target_streak, p_stake_id, p_is_self_bet, p_custom_stake_title)
+  RETURNING id INTO v_bet_id;
 
-  if v_bet_count_day >= 20 then
-    raise exception 'MAX_BETS_PER_DAY';
-  end if;
+  -- 5. Update Run Stats
+  UPDATE public.runs SET recent_bet_count = recent_bet_count + 1, updated_at = NOW() WHERE id = p_run_id;
 
-  -- 4. Insert
-  insert into public.bets (run_id, bettor_id, target_streak, stake_id, is_self_bet, custom_stake_title)
-  values (p_run_id, auth.uid(), p_target_streak, p_stake_id, p_is_self_bet, p_custom_stake_title)
-  returning id into v_bet_id;
-
-  -- 5. Update run's recent_bet_count for feed priority
-  update public.runs
-  set recent_bet_count = recent_bet_count + 1,
-      updated_at = now()
-  where id = p_run_id;
-
-  -- 6. Return joined record for BetModel.fromJson
-  select json_build_object(
+  -- 6. Construct Result JSON
+  SELECT json_build_object(
     'id', b.id,
     'run_id', b.run_id,
     'bettor_id', b.bettor_id,
@@ -698,57 +692,51 @@ begin
     'created_at', b.created_at,
     'custom_stake_title', b.custom_stake_title,
     'users', json_build_object('username', u.username),
-    'stakes', case when s.id is not null then json_build_object('title', s.title) else null end
-  ) into v_result
-  from public.bets b
-  left join public.users u on b.bettor_id = u.id
-  left join public.stakes s on b.stake_id = s.id
-  where b.id = v_bet_id;
+    'stakes', CASE WHEN s.id IS NOT NULL THEN json_build_object('title', s.title) ELSE NULL END
+  ) INTO v_result
+  FROM public.bets b
+  LEFT JOIN public.users u ON b.bettor_id = u.id
+  LEFT JOIN public.stakes s ON b.stake_id = s.id
+  WHERE b.id = v_bet_id;
 
   -- 7. Notify Runner (Social Awareness)
-  if v_runner_id != auth.uid() then
-    declare
-      v_bettor_avatar_id int;
-      v_run_title text;
-      v_is_self_bet boolean;
-    begin
-      select username, avatar_id into v_bettor_name, v_bettor_avatar_id from public.users where id = auth.uid();
-      
-      -- Use custom title if provided, otherwise fetch stake title
-      v_stake_title := coalesce(p_custom_stake_title, (select title from public.stakes where id = p_stake_id));
+  IF v_runner_id != auth.uid() THEN
+    -- Fetch bettor info for notification message
+    SELECT username, avatar_id INTO v_bettor_name, v_bettor_avatar_id FROM public.users WHERE id = auth.uid();
+    
+    -- Resolve stake title (custom message or stake table)
+    IF p_custom_stake_title IS NOT NULL THEN
+      v_stake_title := p_custom_stake_title;
+    ELSE
+      SELECT title INTO v_stake_title FROM public.stakes WHERE id = p_stake_id;
+    END IF;
 
-      -- Fetch challenge title for metadata
-      select c.title, r.current_streak, b.is_self_bet into v_run_title, v_current_streak, v_is_self_bet
-      from public.runs r 
-      join public.challenges c on r.challenge_id = c.id 
-      join public.bets b on b.id = v_bet_id
-      where r.id = p_run_id;
-      
-      insert into public.notifications (user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash)
-      values (
-        v_runner_id,
-        coalesce(v_bettor_name, 'Someone') || ' has placed a bet on Day ' || p_target_streak || ' of your ' || v_run_title || ' run.',
-        'bet_received',
-        auth.uid(),
-        v_bettor_avatar_id,
-        jsonb_build_object(
-          'username', v_bettor_name,
-          'stake_title', v_stake_title,
-          'target_streak', p_target_streak,
-          'run_title', v_run_title,
-          'run_id', p_run_id,
-          'current_streak', v_current_streak,
-          'is_self_bet', v_is_self_bet
-        ),
-        '/runs/' || p_run_id,
-        'bet_received_' || v_bet_id
-      )
-      on conflict (unique_hash) do nothing;
-    end;
-  end if;
+    INSERT INTO public.notifications (
+      user_id, message, type, source_user_id, source_avatar_id, metadata, deep_link, unique_hash
+    )
+    VALUES (
+      v_runner_id,
+      coalesce(v_bettor_name, 'Someone') || ' has placed a bet on Day ' || p_target_streak || ' of your ' || coalesce(v_run_title, 'challenge') || ' run.',
+      'bet_received',
+      auth.uid(),
+      v_bettor_avatar_id,
+      jsonb_build_object(
+        'username', v_bettor_name,
+        'stake_title', v_stake_title,
+        'target_streak', p_target_streak,
+        'run_title', v_run_title,
+        'run_id', p_run_id,
+        'current_streak', v_current_streak,
+        'is_self_bet', p_is_self_bet
+      ),
+      '/runs/' || p_run_id,
+      'bet_received_' || v_bet_id
+    )
+    ON CONFLICT (unique_hash) DO NOTHING;
+  END IF;
 
-  return v_result;
-end;
+  RETURN v_result;
+END;
 $$;
 
 grant execute on function public.place_bet(uuid, int, uuid, boolean, text) to authenticated;
@@ -1057,13 +1045,24 @@ begin
 
   -- 2. Wipe Bets and Checkins (dependencies)
   if p_keep_challenger0 then
-    delete from public.bets where bettor_id != v_sys_id;
-    delete from public.checkins where run_id in (select id from public.runs where user_id != v_sys_id);
-    delete from public.runs where user_id != v_sys_id;
+    DELETE FROM public.bets WHERE bettor_id != v_sys_id;
+    DELETE FROM public.checkins WHERE run_id IN (SELECT id FROM public.runs WHERE user_id != v_sys_id);
+    DELETE FROM public.runs WHERE user_id != v_sys_id;
+
+    -- Wipe ANY challenge that isn't one of the 19 seeded ones (Slug-Aware)
+    -- This handles "orphaned" challenges where the user was deleted but the challenge remained.
+    delete from public.challenges 
+    where slug not in (
+      '5am-club', '6am-breakfast', '10pm-bedtime', '6pm-dinner', 'skip-dinner', 
+      'cold-shower', 'zero-scroll', 'zero-gluten', 'zero-alcohol', 'full-keto', 
+      'stretch-10', 'read-20', 'workout-30', 'create-20', 'learn-20', 
+      'walk-30', 'hydrate-2', 'shake-10', 'bounce-10'
+    );
   else
     delete from public.bets;
     delete from public.checkins;
     delete from public.runs;
+    delete from public.challenges;
   end if;
 
   -- 3. [Optional] Reset Challenge counts

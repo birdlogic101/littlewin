@@ -23,10 +23,10 @@ DO $$ BEGIN
         CREATE TYPE public.stake_category AS ENUM ('plan', 'gift', 'custom');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bet_status') THEN
-        CREATE TYPE public.bet_status AS ENUM ('pending', 'won', 'lost');
+        CREATE TYPE public.bet_status AS ENUM ('pending', 'won', 'lost', 'cancelled');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notif_type') THEN
-        CREATE TYPE public.notif_type AS ENUM ('bet_won', 'bet_lost', 'bet_received', 'checkin_reminder', 'new_follower');
+        CREATE TYPE public.notif_type AS ENUM ('bet_won', 'bet_lost', 'bet_received', 'checkin_reminder', 'new_follower', 'run_failed');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notif_status') THEN
         CREATE TYPE public.notif_status AS ENUM ('pending', 'read');

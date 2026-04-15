@@ -21,6 +21,8 @@ class LwButton extends StatelessWidget {
   final bool isLoading;
   final Widget? icon;
   final double? width;
+  final Color? foregroundColor;
+  final Color? backgroundColor;
 
   const LwButton({
     super.key,
@@ -31,6 +33,8 @@ class LwButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
+    this.foregroundColor,
+    this.backgroundColor,
   });
 
   /// Shorthand for a primary button.
@@ -41,6 +45,8 @@ class LwButton extends StatelessWidget {
     bool isLoading = false,
     Widget? icon,
     double? width,
+    Color? foregroundColor,
+    Color? backgroundColor,
   }) =>
       LwButton(
         label: label,
@@ -50,6 +56,8 @@ class LwButton extends StatelessWidget {
         isLoading: isLoading,
         icon: icon,
         width: width,
+        foregroundColor: foregroundColor,
+        backgroundColor: backgroundColor,
       );
 
   /// Shorthand for a secondary button.
@@ -60,6 +68,8 @@ class LwButton extends StatelessWidget {
     bool isLoading = false,
     Widget? icon,
     double? width,
+    Color? foregroundColor,
+    Color? backgroundColor,
   }) =>
       LwButton(
         label: label,
@@ -69,6 +79,8 @@ class LwButton extends StatelessWidget {
         isLoading: isLoading,
         icon: icon,
         width: width,
+        foregroundColor: foregroundColor,
+        backgroundColor: backgroundColor,
       );
 
   /// Shorthand for a ghost button.
@@ -79,6 +91,8 @@ class LwButton extends StatelessWidget {
     bool isLoading = false,
     Widget? icon,
     double? width,
+    Color? foregroundColor,
+    Color? backgroundColor,
   }) =>
       LwButton(
         label: label,
@@ -88,6 +102,8 @@ class LwButton extends StatelessWidget {
         isLoading: isLoading,
         icon: icon,
         width: width,
+        foregroundColor: foregroundColor,
+        backgroundColor: backgroundColor,
       );
 
   @override
@@ -96,7 +112,7 @@ class LwButton extends StatelessWidget {
     final themeButton = LWComponents.button;
 
     final backgroundColor = _getBackgroundColor(lw);
-    final foregroundColor = _getForegroundColor(lw);
+    final effectiveForegroundColor = foregroundColor ?? _getForegroundColor(lw);
     final side = _getBorderSide(lw);
 
     return SizedBox(
@@ -106,9 +122,9 @@ class LwButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
+          foregroundColor: effectiveForegroundColor,
           disabledBackgroundColor: backgroundColor?.withOpacity(0.6),
-          disabledForegroundColor: foregroundColor?.withOpacity(0.6),
+          disabledForegroundColor: effectiveForegroundColor?.withOpacity(0.6),
           elevation: 0,
           shadowColor: Colors.transparent,
           padding: themeButton.padding(size),
@@ -120,7 +136,7 @@ class LwButton extends StatelessWidget {
         ).copyWith(
           overlayColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.pressed)) {
-              return foregroundColor?.withOpacity(0.1);
+              return effectiveForegroundColor?.withOpacity(0.1);
             }
             return null;
           }),
@@ -131,7 +147,7 @@ class LwButton extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: foregroundColor,
+                  color: effectiveForegroundColor,
                 ),
               )
             : Row(
@@ -150,6 +166,7 @@ class LwButton extends StatelessWidget {
   }
 
   Color? _getBackgroundColor(LWThemeExtension lw) {
+    if (backgroundColor != null) return backgroundColor;
     return switch (variant) {
       LWButtonVariant.primary => lw.brandPrimary,
       LWButtonVariant.secondary => lw.brandSubtle,

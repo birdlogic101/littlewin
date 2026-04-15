@@ -135,6 +135,7 @@ class ExploreBloc extends Bloc<ExploreEvent, ExploreState> {
         await _runsRepository.joinChallenge(
           exploreRun.challengeId,
           title: exploreRun.challengeTitle,
+          description: exploreRun.challengeDescription ?? '',
           slug: exploreRun.challengeSlug,
           imageAsset: exploreRun.imageAsset,
         );

@@ -8,6 +8,7 @@ import '../bloc/bet/bet_state.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
 import '../../core/theme/design_system.dart';
+import '../bloc/people/people_bloc.dart';
 import 'png_streak_ring.dart';
 import 'lw_icon.dart';
 import '../../data/repositories/bet_repository.dart';
@@ -64,6 +65,8 @@ class RunBetsSheet extends StatelessWidget {
     final isPremium =
         authState is AuthAuthenticated ? authState.user.isPremium : false;
 
+    final peopleBloc = context.read<PeopleBloc>();
+
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -72,15 +75,18 @@ class RunBetsSheet extends StatelessWidget {
       backgroundColor: Colors.transparent,
       // Let the sheet size itself to its content when showing the list;
       // the place-bet view still occupies more height via internal layout.
-      builder: (_) => RunBetsSheet._(
-        runId: runId,
-        currentStreak: currentStreak,
-        username: username,
-        isSelfBet: isSelfBet,
-        startInPlaceMode: startInPlaceMode,
-        betRepository: betRepository,
-        isPremium: isPremium,
-        onBetPlaced: onBetPlaced,
+      builder: (_) => BlocProvider.value(
+        value: peopleBloc,
+        child: RunBetsSheet._(
+          runId: runId,
+          currentStreak: currentStreak,
+          username: username,
+          isSelfBet: isSelfBet,
+          startInPlaceMode: startInPlaceMode,
+          betRepository: betRepository,
+          isPremium: isPremium,
+          onBetPlaced: onBetPlaced,
+        ),
       ),
     );
   }
@@ -271,19 +277,6 @@ class _BetsListView extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Close icon: 24×24, Sky/Dark, stroke weight 1.5
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Padding(
-                    padding: const EdgeInsets.all(LWSpacing.sm),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 24,
-                      color: LWColors.skyDark,
-                      weight: 300, // lighter optical weight ≈ stroke 1.5
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -384,67 +377,70 @@ class _PlaceBetView extends StatelessWidget {
       builder: (context, state) {
         if (state is! BetReady) return const SizedBox.shrink();
 
-        return Column(
-          children: [
-
-            // ── Header (Close button)
-            // Top padding clears the phone status bar so the icon doesn't overlap it.
-            Padding(
-              padding: EdgeInsets.only(
-                left: LWSpacing.md,
-                top: MediaQuery.viewPaddingOf(context).top + LWSpacing.sm,
-              ),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 32,
+        return SafeArea(
+          top: true,
+          bottom: false,
+          child: Scaffold(
+            backgroundColor: lw.backgroundApp,
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(64),
+              child: AppBar(
+                backgroundColor: lw.backgroundApp,
+                elevation: 0,
+                toolbarHeight: 64,
+                leadingWidth: 48,
+                leading: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const LwIcon(
+                    'misc_cross',
+                    size: 24,
                     color: LWColors.skyDark,
-                    weight: 300,
                   ),
                 ),
+                centerTitle: true,
               ),
             ),
+            body: Column(
+              children: [
+                const Spacer(),
 
-            const Spacer(),
+                // ── Streak selector (fixed at top, compact)
+                _StreakSelector(state: state),
 
-            // ── Streak selector (fixed at top, compact)
-            _StreakSelector(state: state),
+                const Spacer(),
 
-            const Spacer(),
+                // ── Reward / stake section
+                _StakeSection(state: state, isPremium: isPremium),
 
-            // ── Reward / stake section
-            _StakeSection(state: state, isPremium: isPremium),
+                const Spacer(),
 
-            const Spacer(),
+                // ── Error message
+                if (state.submitStatus == BetSubmitStatus.error &&
+                    state.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: LWSpacing.xl, vertical: LWSpacing.xs),
+                    child: Text(
+                      state.errorMessage!,
+                      style: LWTypography.smallTightRegular
+                          .copyWith(color: LWColors.energyBase),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
 
-            // ── Error message
-            if (state.submitStatus == BetSubmitStatus.error &&
-                state.errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: LWSpacing.xl, vertical: LWSpacing.xs),
-                child: Text(
-                  state.errorMessage!,
-                  style: LWTypography.smallTightRegular
-                      .copyWith(color: LWColors.energyBase),
-                  textAlign: TextAlign.center,
+                // ── Place bet button
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    LWSpacing.xl,
+                    LWSpacing.sm,
+                    LWSpacing.xl,
+                    MediaQuery.paddingOf(context).bottom + LWSpacing.lg,
+                  ),
+                  child: _PlaceBetButton(state: state),
                 ),
-              ),
-
-            // ── Place bet button
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                LWSpacing.xl,
-                LWSpacing.sm,
-                LWSpacing.xl,
-                MediaQuery.paddingOf(context).bottom + LWSpacing.lg,
-              ),
-              child: _PlaceBetButton(state: state),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -479,6 +475,15 @@ class _StreakSelector extends StatelessWidget {
               triggerMode: TooltipTriggerMode.tap,
               preferBelow: true,
               showDuration: const Duration(seconds: 4),
+              margin: const EdgeInsets.symmetric(horizontal: LWSpacing.xl),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: LWSpacing.md, vertical: LWSpacing.sm),
+              decoration: BoxDecoration(
+                color: LWColors.inkDarkest.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(LWRadius.md),
+              ),
+              textStyle:
+                  LWTypography.smallTightRegular.copyWith(color: Colors.white),
               child: const Icon(Icons.info_outline_rounded,
                   size: 20, color: LWColors.skyDark),
             ),
@@ -630,10 +635,20 @@ class _StakeSectionState extends State<_StakeSection> {
             ),
             const SizedBox(width: LWSpacing.xs),
             Tooltip(
-              message: 'Pick the reward at stake for this friendly bet. Tap the + icon to customize.',
+              message:
+                  'Pick the reward at stake for this friendly bet. Tap the + icon to customize.',
               triggerMode: TooltipTriggerMode.tap,
               preferBelow: true,
               showDuration: const Duration(seconds: 4),
+              margin: const EdgeInsets.symmetric(horizontal: LWSpacing.xl),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: LWSpacing.md, vertical: LWSpacing.sm),
+              decoration: BoxDecoration(
+                color: LWColors.inkDarkest.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(LWRadius.md),
+              ),
+              textStyle:
+                  LWTypography.smallTightRegular.copyWith(color: Colors.white),
               child: const Icon(Icons.info_outline_rounded,
                   size: 20, color: LWColors.skyDark),
             ),
@@ -852,68 +867,62 @@ class _BetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lw = LWThemeExtension.of(context);
-
-    final statusBg = switch (bet.status) {
-      BetStatus.won => LWColors.positiveBase,
-      BetStatus.lost => LWColors.negativeBase,
-      BetStatus.pending => LWColors.skyBase,
-    };
-
-    final statusLabel = switch (bet.status) {
-      BetStatus.won => bet.isSelfBet ? 'You Won!' : 'Goal Reached',
-      BetStatus.lost => 'Missed',
-      BetStatus.pending => 'Pending',
-    };
+    final authState = context.read<AuthBloc>().state;
+    final currentUserId = authState is AuthAuthenticated ? authState.user.id : null;
+    final isMe = bet.bettorId == currentUserId;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: LWSpacing.xl, vertical: LWSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+          LWSpacing.lg, LWSpacing.sm, LWSpacing.md, LWSpacing.sm),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 1. Streak Ring — 48×48 frame, Small/None/Thick (14px bold, Ink/Base)
+          // 1. Streak Ring — 40×40 frame, Small/None/Thick (14px bold, Ink/Base)
           SizedBox(
-            width: 48,
-            height: 48,
+            width: 40,
+            height: 40,
             child: PngStreakRing(
               streak: bet.targetStreak,
-              size: 48,
+              size: 40,
               numberColor: LWColors.inkBase,
               fontSize: 14,
             ),
           ),
-          const SizedBox(width: LWSpacing.md),
+          const SizedBox(width: LWSpacing.sm),
 
           // 2. Avatar — 32×32
           GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ViewUserScreen(
-                    user: PeopleUserEntity(
-                      userId: bet.bettorId,
-                      username: bet.bettorUsername ?? 'Anonymous',
-                      avatarId: null, // Custom avatars later
-                      isFollowing: false,
-                      ongoingRunCount: 0,
-                    ),
-                    runsRepository: getIt<RunsRepository>(),
-                  ),
-                ),
-              );
-            },
+            onTap: (bet.isSelfBet || isMe)
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ViewUserScreen(
+                          user: PeopleUserEntity(
+                            userId: bet.bettorId,
+                            username: bet.bettorUsername ?? 'Anonymous',
+                            avatarId: null, // Custom avatars later
+                            isFollowing: false,
+                            ongoingRunCount: 0,
+                          ),
+                          runsRepository: getIt<RunsRepository>(),
+                        ),
+                      ),
+                    );
+                  },
             child: const CircleAvatar(
               radius: 16, // 32×32
               // TODO(profile-picture): Support custom avatars here once implemented.
               backgroundImage: AssetImage('assets/avatars/avatar_blank.jpg'),
             ),
           ),
-          const SizedBox(width: LWSpacing.md),
+          const SizedBox(width: LWSpacing.sm),
 
           // 3. Stake title & Bettor Name
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
@@ -937,24 +946,9 @@ class _BetRow extends StatelessWidget {
             ),
           ),
 
-          // 4. Status Chip
-          if (bet.status != BetStatus.pending) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusBg.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(LWRadius.md),
-                border: Border.all(color: statusBg.withOpacity(0.3)),
-              ),
-              child: Text(
-                statusLabel,
-                style: LWTypography.tinyNormalBold.copyWith(color: statusBg),
-              ),
-            ),
-            const SizedBox(width: LWSpacing.xs),
-          ],
 
-          // 5. Three-dots icon — 24×24, Ink/Base
+
+          // 5. Three-dots icon — 24×24, Ink/Light
           GestureDetector(
             onTap: () {}, // TODO(bet-actions)
             child: Padding(
@@ -962,7 +956,7 @@ class _BetRow extends StatelessWidget {
               child: Icon(
                 Icons.more_vert_rounded,
                 size: 24,
-                color: LWColors.inkBase,
+                color: LWColors.inkLight,
               ),
             ),
           ),

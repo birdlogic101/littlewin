@@ -44,7 +44,7 @@ class LWCardAction extends StatelessWidget {
     // ── Style Logic ────────────────────────────────────────────────────────
     
     final Color bgColor = isCheckbox && isChecked 
-        ? lw.brandPrimary 
+        ? LWColors.skyLightest 
         : LWColors.skyLightest;
         
     final Color? borderColor = isCheckbox && !isChecked 
@@ -52,7 +52,7 @@ class LWCardAction extends StatelessWidget {
         : null;
         
     final Color contentColor = isCheckbox 
-        ? (isChecked ? Colors.white : Colors.transparent)
+        ? (isChecked ? LWColors.positiveBase : Colors.transparent)
         : lw.brandPrimary;
 
     return Semantics(

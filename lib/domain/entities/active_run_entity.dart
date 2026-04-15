@@ -5,6 +5,7 @@ class ActiveRunEntity extends Equatable {
   final String runId;
   final String challengeId;
   final String challengeTitle;
+  final String? challengeDescription;
   final String challengeSlug;
 
   /// How many consecutive days the user has checked in.
@@ -35,6 +36,7 @@ class ActiveRunEntity extends Equatable {
     required this.runId,
     required this.challengeId,
     required this.challengeTitle,
+    this.challengeDescription,
     required this.challengeSlug,
     required this.currentStreak,
     required this.startDate,
@@ -54,11 +56,11 @@ class ActiveRunEntity extends Equatable {
     String? runId,
     String? challengeId,
     String? challengeTitle,
+    String? challengeDescription,
     String? challengeSlug,
     int? currentStreak,
     String? startDate,
     bool? hasCheckedInToday,
-    // Use [_unset] as default so we can distinguish "not provided" from null.
     Object? lastCheckinDay = _unset,
     String? imageAsset,
     String? imageUrl,
@@ -69,6 +71,7 @@ class ActiveRunEntity extends Equatable {
       runId: runId ?? this.runId,
       challengeId: challengeId ?? this.challengeId,
       challengeTitle: challengeTitle ?? this.challengeTitle,
+      challengeDescription: challengeDescription ?? this.challengeDescription,
       challengeSlug: challengeSlug ?? this.challengeSlug,
       currentStreak: currentStreak ?? this.currentStreak,
       startDate: startDate ?? this.startDate,
@@ -88,6 +91,7 @@ class ActiveRunEntity extends Equatable {
         runId,
         challengeId,
         challengeTitle,
+        challengeDescription,
         challengeSlug,
         currentStreak,
         startDate,

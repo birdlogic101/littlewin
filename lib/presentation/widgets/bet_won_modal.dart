@@ -96,8 +96,11 @@ class _BetWonModalState extends State<BetWonModal>
                       horizontal: LWSpacing.xl),
                   child: Text(
                     res.challengeTitle,
-                    style: LWTypography.title3.copyWith(
-                      color: lw.contentPrimary,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w600,
+                      color: LWColors.inkBase,
+                      height: 1.2,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 2,
@@ -109,22 +112,23 @@ class _BetWonModalState extends State<BetWonModal>
 
                 // Streak ring (PNG asset + number overlay)
                 SizedBox(
-                  width: 160,
-                  height: 160,
+                  width: 140,
+                  height: 140,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Image.asset(
                         'assets/misc/streak_ring_218x128.png',
-                        width: 160,
-                        height: 160,
+                        width: 140,
+                        height: 140,
                         fit: BoxFit.contain,
                       ),
                       Text(
                         '${res.newStreak}',
-                        style: LWTypography.title1.copyWith(
-                          color: lw.contentPrimary,
-                          fontSize: 64,
+                        style: const TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w700,
+                          color: LWColors.inkBase,
                           height: 1.0,
                         ),
                       ),
@@ -141,8 +145,10 @@ class _BetWonModalState extends State<BetWonModal>
                           ? '${res.wonBets.first.bettorUsername!.toUpperCase()} WON!'
                           : 'RUNNER WON!')
                       : 'DAYS COMPLETED !',
-                  style: LWTypography.smallNoneBold.copyWith(
-                    color: lw.contentSecondary,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: LWColors.skyDark,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -161,8 +167,8 @@ class _BetWonModalState extends State<BetWonModal>
                               horizontal: LWSpacing.md),
                           child: Text(
                             'REWARDS',
-                            style: LWTypography.tinyNormalMedium.copyWith(
-                              color: lw.contentSecondary,
+                            style: LWTypography.tinyNormalRegular.copyWith(
+                              color: LWColors.skyDark,
                               letterSpacing: 1.0,
                             ),
                           ),
@@ -249,8 +255,11 @@ class _RewardRow extends StatelessWidget {
               children: [
                 Text(
                   entry.stakeTitle ?? 'No stake',
-                  style: LWTypography.regularNoneMedium.copyWith(
-                    color: lw.contentPrimary,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: LWColors.inkLighter,
+                    height: 1.0,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -258,8 +267,11 @@ class _RewardRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   displayName,
-                  style: LWTypography.smallNoneRegular.copyWith(
-                    color: lw.contentSecondary.withOpacity(0.6),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: LWColors.skyBase,
+                    height: 1.0,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

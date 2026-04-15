@@ -46,6 +46,7 @@ void main() async {
   
   await Hive.initFlutter();
   await Hive.openBox('settings');
+  await Hive.openBox('challenge_descriptions');
 
   // Load username components from JSON
   await UsernameGenerator.load();

@@ -57,7 +57,7 @@ class PngStreakRing extends StatelessWidget {
                 fit: BoxFit.contain,
               ),
               Transform.translate(
-                offset: const Offset(0, 1), // Optical nudge for centering
+                offset: const Offset(0, -1), // Optical nudge for centering
                 child: Text(
                   '$streak',
                   style: LWTypography.largeNoneBold.copyWith(
@@ -78,6 +78,7 @@ class PngStreakRing extends StatelessWidget {
               color: (numberColor ?? lw.contentPrimary).withValues(alpha: 0.85),
               fontSize: (size * 0.11).clamp(9.0, 12.0),
               letterSpacing: 1.0,
+              shadows: numberShadows,
             ),
           ),
         ],

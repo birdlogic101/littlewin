@@ -6,6 +6,7 @@ import '../../domain/entities/bet_resolution_entity.dart';
 import '../datasources/run_remote_datasource.dart';
 import 'completed_runs_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive/hive.dart';
 
 import 'package:injectable/injectable.dart';
 
@@ -127,16 +128,22 @@ class RunsRepository {
   Future<void> joinChallenge(
     String challengeId, {
     String title = 'Joining...',
+    String description = '',
     String slug = '',
     String? imageAsset,
   }) async {
     final now = DateTime.now().toUtc();
     final today = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
+    if (description.isNotEmpty) {
+      Hive.box('challenge_descriptions').put(challengeId, description);
+    }
+
     final tempRun = ActiveRunEntity(
       runId: 'temp-$challengeId-${now.millisecondsSinceEpoch}',
       challengeId: challengeId,
       challengeTitle: title,
+      challengeDescription: description.isNotEmpty ? description : null,
       challengeSlug: slug.isNotEmpty ? slug : 'joining-$challengeId',
       currentStreak: 0,
       startDate: today,
@@ -351,6 +358,7 @@ class RunsRepository {
           runId: 'completed-${run.runId}-$yesterday',
           challengeId: run.challengeId,
           challengeTitle: run.challengeTitle,
+          challengeDescription: run.challengeDescription,
           challengeSlug: run.challengeSlug,
           finalScore: run.currentStreak,
           startDate: run.startDate,

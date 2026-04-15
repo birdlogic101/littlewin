@@ -18,10 +18,12 @@ import '../../widgets/profile_drawer.dart';
 class RecordsScreen extends StatefulWidget {
   final BetRepository betRepository;
   final VoidCallback? onChallengeRestarted;
+  final VoidCallback? onExploreExploreIdeas;
   const RecordsScreen({
     super.key,
     required this.betRepository,
     this.onChallengeRestarted,
+    this.onExploreExploreIdeas,
   });
 
   @override
@@ -122,6 +124,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
                                 context,
                                 betRepository: widget.betRepository,
                               ),
+                            ),
+                            LWEmptyStateAction(
+                              label: 'Explore ideas',
+                              onPressed: widget.onExploreExploreIdeas,
                             ),
                           ],
                         ),

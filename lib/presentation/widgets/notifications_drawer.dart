@@ -7,9 +7,16 @@ import '../bloc/notifications/notifications_bloc.dart';
 import '../bloc/notifications/notifications_event.dart';
 import '../bloc/notifications/notifications_state.dart';
 import 'lw_icon.dart';
+import 'user_card.dart';
+import '../../data/repositories/runs_repository.dart';
+import '../../core/di/injection.dart';
+import 'run_bets_sheet.dart';
+import '../bloc/checkin/checkin_bloc.dart';
+import '../bloc/checkin/checkin_event.dart';
 
 class NotificationsDrawer extends StatelessWidget {
-  const NotificationsDrawer({super.key});
+  final ValueChanged<int>? onTabSwitch;
+  const NotificationsDrawer({super.key, this.onTabSwitch});
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +55,10 @@ class NotificationsDrawer extends StatelessWidget {
                     itemCount: state.notifications.length,
                     separatorBuilder: (_, __) => const SizedBox(height: LWSpacing.sm),
                     itemBuilder: (context, index) {
-                      return _NotificationTile(notification: state.notifications[index]);
+                      return _NotificationTile(
+                        notification: state.notifications[index],
+                        onTabSwitch: onTabSwitch,
+                      );
                     },
                   );
                 }
@@ -69,13 +79,13 @@ class NotificationsDrawer extends StatelessWidget {
         children: [
           Text(
             'Notifications',
-            style: LWTypography.largeNoneBold.copyWith(
+            style: LWTypography.title4.copyWith(
               color: LWColors.inkBase,
             ),
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: LwIcon('misc_cross', size: 24, color: lw.contentPrimary),
+            icon: const LwIcon('misc_cross', size: 24, color: LWColors.skyDark),
           ),
         ],
       ),
@@ -101,8 +111,9 @@ class NotificationsDrawer extends StatelessWidget {
 
 class _NotificationTile extends StatelessWidget {
   final NotificationEntity notification;
+  final ValueChanged<int>? onTabSwitch;
 
-  const _NotificationTile({required this.notification});
+  const _NotificationTile({required this.notification, this.onTabSwitch});
 
   @override
   Widget build(BuildContext context) {
@@ -110,50 +121,37 @@ class _NotificationTile extends StatelessWidget {
     final isUnread = notification.status == NotificationStatus.pending;
 
     return InkWell(
-      onTap: () {
-        context.read<NotificationsBloc>().add(NotificationMarkAsReadRequested(notification.id));
-        if (notification.deepLink != null) {
-          Navigator.of(context).pop(); // Close drawer
-          context.push(notification.deepLink!);
-        }
-      },
+      onTap: () => _handleTileTap(context),
       borderRadius: BorderRadius.circular(LWRadius.md),
       child: Container(
-        padding: const EdgeInsets.all(LWSpacing.md),
-        decoration: BoxDecoration(
-          color: isUnread ? lw.brandPrimary.withOpacity(0.05) : Colors.transparent,
-          borderRadius: BorderRadius.circular(LWRadius.md),
-          border: Border.all(
-            color: isUnread ? lw.brandPrimary.withOpacity(0.1) : lw.borderSubtle,
-            width: 1,
-          ),
-        ),
+        padding: const EdgeInsets.symmetric(vertical: LWSpacing.md, horizontal: LWSpacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildIcon(lw),
+            UserAvatar(
+              avatarId: notification.sourceAvatarId,
+              size: 40,
+            ),
             const SizedBox(width: LWSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    notification.message,
-                    style: LWTypography.regularNormalMedium.copyWith(
-                      color: lw.contentPrimary,
-                      fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
+                  _buildMessageRichText(context),
                   const SizedBox(height: 4),
                   Text(
                     _formatTime(notification.createdAt),
-                    style: LWTypography.tinyNormalRegular.copyWith(color: lw.contentSecondary),
+                    style: LWTypography.tinyNormalRegular.copyWith(
+                      color: lw.contentSecondary.withOpacity(0.5),
+                    ),
                   ),
                 ],
               ),
             ),
-            if (isUnread)
+            if (isUnread) ...[
+              const SizedBox(width: LWSpacing.sm),
               Container(
+                margin: const EdgeInsets.only(top: 8),
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
@@ -161,29 +159,110 @@ class _NotificationTile extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildIcon(LWThemeExtension lw) {
-    final iconName = switch (notification.type) {
-      NotificationType.betWon => 'nav_scores',
-      NotificationType.betLost => 'nav_scores',
-      NotificationType.betReceived => 'nav_home',
-      NotificationType.newFollower => 'nav_people',
-      NotificationType.checkinReminder => 'nav_checkin',
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(LWSpacing.sm),
-      decoration: BoxDecoration(
-        color: lw.backgroundCard,
-        shape: BoxShape.circle,
-      ),
-      child: LwIcon(iconName, size: 20, color: lw.contentPrimary),
+  Widget _buildMessageRichText(BuildContext context) {
+    final lw = LWThemeExtension.of(context);
+    final baseStyle = LWTypography.smallNormalRegular.copyWith(
+      color: LWColors.skyDark,
     );
+    final boldStyle = LWTypography.smallNormalBold.copyWith(
+      color: LWColors.inkBase,
+    );
+
+    final meta = notification.metadata ?? {};
+    final username = meta['username'] as String? ?? 'Someone';
+    final target = meta['target_streak']?.toString() ?? 'Goal';
+    final rawRunTitle = meta['run_title'] as String? ?? 'Challenge';
+    final finalStreak = meta['final_streak']?.toString() ?? '0';
+
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        children: switch (notification.type) {
+          NotificationType.newFollower => [
+              TextSpan(text: username, style: boldStyle),
+              const TextSpan(text: ' is now following you.'),
+            ],
+          NotificationType.betReceived => [
+              TextSpan(text: username, style: boldStyle),
+              const TextSpan(text: ' has placed a bet on '),
+              TextSpan(text: 'Day $target', style: boldStyle),
+              const TextSpan(text: ' of your '),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' run.'),
+            ],
+          NotificationType.betWon => [
+              const TextSpan(text: 'Congratulations! You won '),
+              TextSpan(text: meta['stake_title'] ?? 'your bet', style: boldStyle),
+              const TextSpan(text: ' by reaching '),
+              TextSpan(text: 'Day $target', style: boldStyle),
+              const TextSpan(text: ' in your '),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' run.'),
+            ],
+          NotificationType.betLost => [
+              const TextSpan(text: 'Your '),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' run ended at '),
+              TextSpan(text: 'Day $finalStreak.', style: boldStyle),
+            ],
+          _ => [
+              const TextSpan(text: 'It\'s time for your '),
+              TextSpan(text: rawRunTitle, style: boldStyle),
+              const TextSpan(text: ' check-in.'),
+            ],
+        },
+      ),
+    );
+  }
+
+  void _handleTileTap(BuildContext context) {
+    if (notification.status == NotificationStatus.pending) {
+      // First tap: Mark as read
+      context.read<NotificationsBloc>().add(NotificationMarkAsReadRequested(notification.id));
+    } else {
+      // Second tap: Execute navigation/action
+      _executeNotificationAction(context);
+    }
+  }
+
+  void _executeNotificationAction(BuildContext context) {
+    final type = notification.type;
+    final meta = notification.metadata ?? {};
+
+    Navigator.pop(context); // Close drawer
+
+    switch (type) {
+      case NotificationType.betReceived:
+      case NotificationType.betWon:
+        final runId = meta['run_id'] as String?;
+        if (runId != null) {
+          onTabSwitch?.call(1); // Check-in tab
+          context.read<CheckinBloc>().add(CheckinRunBetsOpened(runId: runId));
+        }
+        break;
+      case NotificationType.newFollower:
+        // Handle nav to profile...
+        break;
+      case NotificationType.checkinReminder:
+        onTabSwitch?.call(1);
+        break;
+      case NotificationType.betLost:
+        onTabSwitch?.call(2);
+        break;
+      default:
+        // Navigate based on deepLink if available
+        if (notification.deepLink != null) {
+          context.push(notification.deepLink!);
+        }
+        break;
+    }
   }
 
   String _formatTime(DateTime time) {

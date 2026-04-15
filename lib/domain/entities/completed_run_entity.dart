@@ -8,6 +8,7 @@ class CompletedRunEntity extends Equatable {
   final String runId;
   final String challengeId;
   final String challengeTitle;
+  final String? challengeDescription;
   final String challengeSlug;
 
   /// The final streak reached when the run ended.
@@ -32,6 +33,7 @@ class CompletedRunEntity extends Equatable {
     required this.runId,
     required this.challengeId,
     required this.challengeTitle,
+    this.challengeDescription,
     required this.challengeSlug,
     required this.finalScore,
     required this.startDate,
@@ -46,6 +48,7 @@ class CompletedRunEntity extends Equatable {
         runId,
         challengeId,
         challengeTitle,
+        challengeDescription,
         challengeSlug,
         finalScore,
         startDate,
@@ -59,6 +62,7 @@ class CompletedRunEntity extends Equatable {
     String? runId,
     String? challengeId,
     String? challengeTitle,
+    String? challengeDescription,
     String? challengeSlug,
     int? finalScore,
     String? startDate,
@@ -71,6 +75,7 @@ class CompletedRunEntity extends Equatable {
       runId: runId ?? this.runId,
       challengeId: challengeId ?? this.challengeId,
       challengeTitle: challengeTitle ?? this.challengeTitle,
+      challengeDescription: challengeDescription ?? this.challengeDescription,
       challengeSlug: challengeSlug ?? this.challengeSlug,
       finalScore: finalScore ?? this.finalScore,
       startDate: startDate ?? this.startDate,

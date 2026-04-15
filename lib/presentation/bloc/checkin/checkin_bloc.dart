@@ -20,6 +20,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     on<DayRolloverDetected>(_onDayRollover);
     on<CheckinResolutionCleared>(_onResolutionCleared);
     on<CheckinRunBetPlaced>(_onRunBetPlaced);
+    on<CheckinRunBetsOpened>(_onRunBetsOpened);
+    on<CheckinPendingActionCleared>(_onPendingActionCleared);
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       final runs = _runsRepository.activeRuns;
       // ignore: avoid_print
       print('[CheckinBloc] emitting loaded with ${runs.length} runs');
-      emit(CheckinState.loaded(runs: runs));
+      emit(CheckinState.loaded(runs: _sortRuns(runs)));
 
       // Only (re-)subscribe if we don't already have an active subscription.
       // This prevents tearing down and rebuilding the stream on every re-fetch,
@@ -69,7 +71,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     CheckinRunsUpdated event,
     Emitter<CheckinState> emit,
   ) async {
-    emit(CheckinState.loaded(runs: event.runs));
+    emit(CheckinState.loaded(runs: _sortRuns(event.runs)));
   }
 
   /// Called by [AppShell] after it runs [RunsRepository.processCompletions].
@@ -79,7 +81,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     DayRolloverDetected event,
     Emitter<CheckinState> emit,
   ) async {
-    emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
+    emit(CheckinState.loaded(runs: _sortRuns(_runsRepository.activeRuns)));
   }
 
   Future<void> _onCheckin(
@@ -101,7 +103,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     final checkinFuture = _runsRepository.checkin(event.runId);
     
     // 2. Emit the now-updated state immediately
-    emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
+    emit(CheckinState.loaded(runs: _sortRuns(_runsRepository.activeRuns)));
 
     try {
       // 3. Await the long-running RPC resolution
@@ -111,7 +113,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         // Emit with pendingResolution so CheckinScreen BlocListener can
         // show the BetWonModal. The run list comes from the stream update.
         emit(CheckinState.loaded(
-          runs: _runsRepository.activeRuns,
+          runs: _sortRuns(_runsRepository.activeRuns),
           pendingResolution: resolution,
         ));
       }
@@ -122,7 +124,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       if (!isClosed) {
         emit(CheckinState.failure(message: e.toString()));
         // After showing the error, we should return to showing the current runs.
-        emit(CheckinState.loaded(runs: _runsRepository.activeRuns));
+        emit(CheckinState.loaded(runs: _sortRuns(_runsRepository.activeRuns)));
       }
     }
   }
@@ -156,7 +158,35 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     if (idx != -1) {
       newRuns[idx] = updatedRun;
     }
-    emit(CheckinState.loaded(runs: newRuns));
+    emit(CheckinState.loaded(runs: _sortRuns(newRuns)));
+  }
+
+  void _onRunBetsOpened(
+    CheckinRunBetsOpened event,
+    Emitter<CheckinState> emit,
+  ) {
+    final current = state;
+    if (current is! CheckinLoaded) return;
+
+    emit(CheckinState.loaded(
+      runs: current.runs,
+      pendingResolution: current.pendingResolution,
+      pendingBetListRunId: event.runId,
+    ));
+  }
+
+  void _onPendingActionCleared(
+    CheckinPendingActionCleared event,
+    Emitter<CheckinState> emit,
+  ) {
+    final current = state;
+    if (current is! CheckinLoaded) return;
+
+    emit(CheckinState.loaded(
+      runs: current.runs,
+      pendingResolution: current.pendingResolution,
+      pendingBetListRunId: null,
+    ));
   }
 
   @override
@@ -166,6 +196,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  List<ActiveRunEntity> _sortRuns(List<ActiveRunEntity> runs) {
+    return List<ActiveRunEntity>.from(runs)
+      ..sort((a, b) => b.currentStreak.compareTo(a.currentStreak));
+  }
 
   static String _todayUtc() {
     final now = DateTime.now().toUtc();

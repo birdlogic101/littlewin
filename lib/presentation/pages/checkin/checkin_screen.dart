@@ -29,7 +29,13 @@ import '../../widgets/profile_drawer.dart';
 class CheckinScreen extends StatefulWidget {
   final BetRepository betRepository;
   final String utcTimeLeft;
-  const CheckinScreen({super.key, required this.betRepository, required this.utcTimeLeft});
+  final VoidCallback? onExploreExploreIdeas;
+  const CheckinScreen({
+    super.key,
+    required this.betRepository,
+    required this.utcTimeLeft,
+    this.onExploreExploreIdeas,
+  });
 
   @override
   State<CheckinScreen> createState() => _CheckinScreenState();
@@ -100,8 +106,9 @@ class _CheckinScreenState extends State<CheckinScreen>
       );
 
     // If it's the FIRST check-in ever (streak becomes 1 and lastCheckinDay was null),
-    // show the self-bet invite after a short delay.
-    if (run.lastCheckinDay == null) {
+    // AND the user hasn't placed any bets yet, show the self-bet invite after 
+    // a short delay.
+    if (run.lastCheckinDay == null && run.betCount == 0) {
       final authState = ctx.read<AuthBloc>().state;
       final username = authState is AuthAuthenticated 
           ? authState.user.username 
@@ -131,7 +138,7 @@ class _CheckinScreenState extends State<CheckinScreen>
       // Also clear any in-progress exit animation if the RPC fails (so the
       // card is not stuck in the exiting state after a network rollback).
       listenWhen: (prev, curr) =>
-          (curr is CheckinLoaded && curr.pendingResolution != null) ||
+          (curr is CheckinLoaded && (curr.pendingResolution != null || curr.pendingBetListRunId != null)) ||
           (curr is CheckinFailure),
       listener: (ctx, state) async {
         if (state is CheckinFailure) {
@@ -149,11 +156,39 @@ class _CheckinScreenState extends State<CheckinScreen>
             );
           return;
         }
-        if (state is! CheckinLoaded || state.pendingResolution == null) return;
-        final resolution = state.pendingResolution!;
-        // Clear the resolution flag before awaiting so it won't re-trigger.
-        ctx.read<CheckinBloc>().add(const CheckinResolutionCleared());
-        await BetWonModal.show(ctx, resolution: resolution);
+        if (state is! CheckinLoaded) return;
+
+        // 1. Handle Won Bet Modal
+        if (state.pendingResolution != null) {
+          final resolution = state.pendingResolution!;
+          // Clear the resolution flag before awaiting so it won't re-trigger.
+          ctx.read<CheckinBloc>().add(const CheckinResolutionCleared());
+          await BetWonModal.show(ctx, resolution: resolution);
+        }
+
+        // 2. Handle Deep Link to Bet List
+        if (state.pendingBetListRunId != null) {
+          final runId = state.pendingBetListRunId!;
+          final run = state.runs.where((r) => r.runId == runId).firstOrNull;
+          
+          // Clear the pending action first
+          ctx.read<CheckinBloc>().add(const CheckinPendingActionCleared());
+
+          if (run != null && mounted) {
+            await RunBetsSheet.show(
+              ctx,
+              runId: run.runId,
+              currentStreak: run.currentStreak,
+              username: 'you',
+              isSelfBet: true,
+              betRepository: widget.betRepository,
+            );
+            // Refresh after sheet closes to stay in sync
+            if (mounted) {
+              ctx.read<CheckinBloc>().add(const CheckinFetchRequested());
+            }
+          }
+        }
       },
       builder: (context, state) {
         final authState = context.read<AuthBloc>().state;
@@ -203,6 +238,7 @@ class _CheckinScreenState extends State<CheckinScreen>
                   exiting: _exiting,
                   onCheckin: (run) => _handleCheckin(context, run),
                   betRepository: widget.betRepository,
+                  onExploreExploreIdeas: widget.onExploreExploreIdeas,
                 ),
             },
           ),
@@ -234,6 +270,7 @@ class _LoadedView extends StatelessWidget {
   final Set<String> exiting;
   final ValueChanged<ActiveRunEntity> onCheckin;
   final BetRepository betRepository;
+  final VoidCallback? onExploreExploreIdeas;
 
   const _LoadedView({
     required this.runs,
@@ -241,6 +278,7 @@ class _LoadedView extends StatelessWidget {
     required this.exiting,
     required this.onCheckin,
     required this.betRepository,
+    this.onExploreExploreIdeas,
   });
 
   @override
@@ -303,6 +341,7 @@ class _LoadedView extends StatelessWidget {
               ? _EmptySegmentView(
                   pending: isPending,
                   betRepository: betRepository,
+                  onExploreExploreIdeas: onExploreExploreIdeas,
                 )
               : ListView.builder(
                   padding: const EdgeInsets.only(
@@ -432,9 +471,11 @@ class _LoadingView extends StatelessWidget {
 class _EmptySegmentView extends StatelessWidget {
   final bool pending;
   final BetRepository betRepository;
+  final VoidCallback? onExploreExploreIdeas;
   const _EmptySegmentView({
     required this.pending,
     required this.betRepository,
+    this.onExploreExploreIdeas,
   });
 
   @override
@@ -453,6 +494,10 @@ class _EmptySegmentView extends StatelessWidget {
               betRepository: betRepository,
             ),
           ),
+          LWEmptyStateAction(
+            label: 'Explore ideas',
+            onPressed: onExploreExploreIdeas,
+          ),
         ],
       );
     } else {
@@ -468,6 +513,10 @@ class _EmptySegmentView extends StatelessWidget {
               context,
               betRepository: betRepository,
             ),
+          ),
+          LWEmptyStateAction(
+            label: 'Explore ideas',
+            onPressed: onExploreExploreIdeas,
           ),
         ],
       );

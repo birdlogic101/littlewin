@@ -47,6 +47,12 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
     _completedFuture = widget.runsRepository.fetchUserCompletedRuns(widget.user.userId);
   }
 
+  void _refreshOngoing() {
+    setState(() {
+      _ongoingFuture = widget.runsRepository.fetchUserRuns(widget.user.userId);
+    });
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -174,6 +180,7 @@ class _ViewUserScreenState extends State<ViewUserScreen> with SingleTickerProvid
                         future: _ongoingFuture,
                         runsRepository: widget.runsRepository,
                         username: widget.user.username,
+                        onRefresh: _refreshOngoing,
                       ),
                       _CompletedTab(
                         future: _completedFuture,
@@ -195,11 +202,13 @@ class _OngoingTab extends StatelessWidget {
   final Future<List<ActiveRunEntity>> future;
   final RunsRepository runsRepository;
   final String username;
+  final VoidCallback onRefresh;
 
   const _OngoingTab({
     required this.future,
     required this.runsRepository,
     required this.username,
+    required this.onRefresh,
   });
 
   @override
@@ -213,7 +222,8 @@ class _OngoingTab extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(child: Text('Failed to load runs: ${snapshot.error}'));
         }
-        final runs = snapshot.data ?? [];
+        final runs = (snapshot.data ?? [])
+          ..sort((a, b) => b.currentStreak.compareTo(a.currentStreak));
         if (runs.isEmpty) {
           return const LWEmptyState(title: 'No ongoing runs', subtitle: 'This user is taking a break.');
         }
@@ -225,6 +235,7 @@ class _OngoingTab extends StatelessWidget {
             run: runs[i],
             runsRepository: runsRepository,
             username: username,
+            onRefresh: onRefresh,
           ),
         );
       },
@@ -252,7 +263,8 @@ class _CompletedTab extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(child: Text('Failed to load records: ${snapshot.error}'));
         }
-        final runs = snapshot.data ?? [];
+        final runs = (snapshot.data ?? [])
+          ..sort((a, b) => b.finalScore.compareTo(a.finalScore));
         if (runs.isEmpty) {
           return const LWEmptyState(title: 'No completed runs', subtitle: 'Nothing completed yet.');
         }
@@ -297,11 +309,13 @@ class _OngoingCard extends StatelessWidget {
   final ActiveRunEntity run;
   final RunsRepository runsRepository;
   final String username;
+  final VoidCallback onRefresh;
 
   const _OngoingCard({
     required this.run,
     required this.runsRepository,
     required this.username,
+    required this.onRefresh,
   });
 
   @override
@@ -328,15 +342,6 @@ class _OngoingCard extends StatelessWidget {
                 const SizedBox(height: 4), // Optical nudge
                 Row(
                   children: [
-                    if (!run.isPublic)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: LwIcon(
-                          'misc_incognito',
-                          size: 16,
-                          color: lw.contentSecondary.withOpacity(0.7),
-                        ),
-                      ),
                     Expanded(
                       child: Text(
                         run.challengeTitle,
@@ -345,6 +350,15 @@ class _OngoingCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (!run.isPublic)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 6),
+                        child: LwIcon(
+                          'misc_incognito',
+                          size: 16,
+                          color: LWColors.skyDark,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12), // Increased gap from 6 to 12
@@ -358,7 +372,9 @@ class _OngoingCard extends StatelessWidget {
                     currentStreak: run.currentStreak,
                     username: username,
                     isSelfBet: false,
+                    startInPlaceMode: run.betCount == 0,
                     betRepository: getIt<BetRepository>(),
+                    onBetPlaced: onRefresh,
                   ),
                 ),
               ],

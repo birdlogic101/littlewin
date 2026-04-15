@@ -3,6 +3,7 @@ import '../../core/theme/design_system.dart';
 import '../../domain/entities/challenge_record.dart';
 import '../../domain/entities/completed_run_entity.dart';
 import 'png_streak_ring.dart';
+import 'challenge_description_sheet.dart';
 
 /// A bottom sheet that displays the full history of runs for a single challenge.
 class ChallengeHistorySheet extends StatelessWidget {
@@ -53,6 +54,7 @@ class ChallengeHistorySheet extends StatelessWidget {
 
             _Header(
               title: record.challengeTitle,
+              record: record,
               onClose: () => Navigator.pop(context),
             ),
 
@@ -79,10 +81,12 @@ class ChallengeHistorySheet extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final String title;
+  final ChallengeRecord record;
   final VoidCallback onClose;
 
   const _Header({
     required this.title,
+    required this.record,
     required this.onClose,
   });
 
@@ -97,13 +101,22 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: LWTypography.largeNoneBold.copyWith(
-                    color: LWColors.inkBase,
+                GestureDetector(
+                  onTap: () => ChallengeDescriptionSheet.show(
+                    context,
+                    title: title,
+                    description: record.challengeDescription,
+                    challengeId: record.challengeId,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    title,
+                    style: LWTypography.largeNoneBold.copyWith(
+                      color: LWColors.inkBase,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Text(
                   'Challenge History',
@@ -113,19 +126,6 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-          // Close icon: 24×24, skyDark, weight ≈ stroke 1.5
-          GestureDetector(
-            onTap: onClose,
-            child: Padding(
-              padding: const EdgeInsets.all(LWSpacing.sm),
-              child: const Icon(
-                Icons.close_rounded,
-                size: 24,
-                color: LWColors.skyDark,
-                weight: 300,
-              ),
             ),
           ),
         ],

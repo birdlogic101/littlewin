@@ -8,6 +8,7 @@ import '../../domain/entities/completed_run_entity.dart';
 class ChallengeRecord extends Equatable {
   final String challengeId;
   final String challengeTitle;
+  final String? challengeDescription;
   final String challengeSlug;
   final String? imageAsset;
   final String? imageUrl;
@@ -19,6 +20,7 @@ class ChallengeRecord extends Equatable {
   const ChallengeRecord({
     required this.challengeId,
     required this.challengeTitle,
+    this.challengeDescription,
     required this.challengeSlug,
     required this.runs,
     this.imageAsset,
@@ -50,6 +52,7 @@ class ChallengeRecord extends Equatable {
       return ChallengeRecord(
         challengeId: e.key,
         challengeTitle: first.challengeTitle,
+        challengeDescription: first.challengeDescription,
         challengeSlug: first.challengeSlug,
         imageAsset: first.imageAsset,
         imageUrl: first.imageUrl,
@@ -66,6 +69,7 @@ class ChallengeRecord extends Equatable {
   List<Object?> get props => [
         challengeId,
         challengeTitle,
+        challengeDescription,
         challengeSlug,
         runs,
         imageAsset,
