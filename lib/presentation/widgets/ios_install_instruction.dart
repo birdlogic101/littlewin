@@ -1,8 +1,8 @@
-import 'dart:html' as html;
+import 'dart:html' if (dart.library.io) 'html_stub.dart' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../lw_icon.dart';
+import 'lw_icon.dart';
 import '../../core/theme/design_system.dart';
 
 /// A widget that provides instructions on how to install the PWA on iOS.
@@ -31,21 +31,25 @@ class _IosInstallInstructionState extends State<IosInstallInstruction> {
   void _checkVisibility() {
     if (!kIsWeb || _sessionDismissed) return;
 
-    final userAgent = html.window.navigator.userAgent.toLowerCase();
-    final isIos = userAgent.contains('iphone') || 
-                  userAgent.contains('ipad') || 
-                  userAgent.contains('ipod');
-    
-    // Check if running in standalone mode (already installed)
-    // On iOS Safari, window.navigator.standalone is the way.
-    // On other browsers, we check the display-mode media query.
-    final isStandalone = html.window.matchMedia('(display-mode: standalone)').matches || 
-                         (html.window.navigator as dynamic).standalone == true;
+    try {
+      final userAgent = html.window.navigator.userAgent.toLowerCase();
+      final isIos = userAgent.contains('iphone') || 
+                    userAgent.contains('ipad') || 
+                    userAgent.contains('ipod');
+      
+      // Check if running in standalone mode (already installed)
+      // On iOS Safari, window.navigator.standalone is the way.
+      // On other browsers, we check the display-mode media query.
+      final isStandalone = html.window.matchMedia('(display-mode: standalone)').matches || 
+                           (html.window.navigator as dynamic).standalone == true;
 
-    if (isIos && !isStandalone) {
-      setState(() {
-        _isVisible = true;
-      });
+      if (isIos && !isStandalone) {
+        setState(() {
+          _isVisible = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking PWA visibility: $e');
     }
   }
 
@@ -91,12 +95,12 @@ class _IosInstallInstructionState extends State<IosInstallInstruction> {
                     children: [
                       Text(
                         'Install Littlewin',
-                        style: LWTypography.h3.copyWith(color: lw.contentPrimary),
+                        style: LWTypography.title3.copyWith(color: lw.contentPrimary),
                       ),
                       const SizedBox(height: 4),
                       RichText(
                         text: TextSpan(
-                          style: LWTypography.bodySmall.copyWith(color: lw.contentSecondary),
+                          style: LWTypography.smallNormalRegular.copyWith(color: lw.contentSecondary),
                           children: [
                             const TextSpan(text: 'Tap the '),
                             WidgetSpan(
