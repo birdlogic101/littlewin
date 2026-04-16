@@ -71,7 +71,7 @@ class RunBetsSheet extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
-      useSafeArea: false,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       // Let the sheet size itself to its content when showing the list;
       // the place-bet view still occupies more height via internal layout.
@@ -377,31 +377,27 @@ class _PlaceBetView extends StatelessWidget {
       builder: (context, state) {
         if (state is! BetReady) return const SizedBox.shrink();
 
-        return SafeArea(
-          top: true,
-          bottom: false,
-          child: Scaffold(
-            backgroundColor: lw.backgroundApp,
-            appBar: PreferredSize(
-              preferredSize: const Size.fromHeight(64),
-              child: AppBar(
-                backgroundColor: lw.backgroundApp,
-                elevation: 0,
-                toolbarHeight: 64,
-                leadingWidth: 48,
-                leading: IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const LwIcon(
-                    'misc_cross',
-                    size: 24,
-                    color: LWColors.skyDark,
-                  ),
+        return Scaffold(
+          backgroundColor: lw.backgroundApp,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(64),
+            child: AppBar(
+              backgroundColor: lw.backgroundApp,
+              elevation: 0,
+              leadingWidth: 48,
+              leading: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const LwIcon(
+                  'misc_cross',
+                  size: 24,
+                  color: LWColors.inkLighter, // Matches LwAppBar icon color
                 ),
-                centerTitle: true,
               ),
+              centerTitle: true,
             ),
-            body: Column(
-              children: [
+          ),
+          body: Column(
+            children: [
                 const Spacer(),
 
                 // ── Streak selector (fixed at top, compact)
@@ -440,7 +436,6 @@ class _PlaceBetView extends StatelessWidget {
                 ),
               ],
             ),
-          ),
         );
       },
     );
