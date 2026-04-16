@@ -98,7 +98,7 @@ class _IosInstallInstructionState extends State<IosInstallInstruction> {
                         text: TextSpan(
                           style: LWTypography.bodySmall.copyWith(color: lw.contentSecondary),
                           children: [
-                            const TextSpan(text: 'Tap '),
+                            const TextSpan(text: 'Tap the '),
                             WidgetSpan(
                               alignment: PlaceholderAlignment.middle,
                               child: Padding(
@@ -110,7 +110,7 @@ class _IosInstallInstructionState extends State<IosInstallInstruction> {
                                 ),
                               ),
                             ),
-                            const TextSpan(text: ' then '),
+                            const TextSpan(text: ' Share button then select '),
                             TextSpan(
                               text: '"Add to Home Screen"',
                               style: TextStyle(
@@ -118,7 +118,7 @@ class _IosInstallInstructionState extends State<IosInstallInstruction> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const TextSpan(text: ' for the full app experience.'),
+                            const TextSpan(text: '.'),
                           ],
                         ),
                       ),
