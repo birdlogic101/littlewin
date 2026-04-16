@@ -34,6 +34,7 @@ import '../widgets/create_challenge_sheet.dart';
 import '../widgets/add_person_sheet.dart';
 import '../widgets/bet_won_modal.dart';
 import '../widgets/notifications_bottom_sheet.dart';
+import '../widgets/ios_install_instruction.dart';
 import '../../core/di/injection.dart';
 
 /// Root shell of the app.
@@ -273,50 +274,60 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               backgroundColor: lw.backgroundApp,
               extendBodyBehindAppBar: false,
               drawer: const ProfileDrawer(),
-              body: IndexedStack(
-                index: _currentIndex,
+              body: Stack(
                 children: [
-                  Navigator(
-                    key: _navigatorKeys[0],
-                    onGenerateRoute: (_) => MaterialPageRoute(
-                      builder: (_) => ExploreScreen(
-                        betRepository: _betRepository,
-                        runsRepository: _runsRepository,
-                        onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
-                        onOpenNotifications: () => NotificationsBottomSheet.show(
-                          innerContext,
-                          onTabSwitch: _switchTab,
+                  IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      Navigator(
+                        key: _navigatorKeys[0],
+                        onGenerateRoute: (_) => MaterialPageRoute(
+                          builder: (_) => ExploreScreen(
+                            betRepository: _betRepository,
+                            runsRepository: _runsRepository,
+                            onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                            onOpenNotifications: () => NotificationsBottomSheet.show(
+                              innerContext,
+                              onTabSwitch: _switchTab,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  Navigator(
-                    key: _navigatorKeys[1],
-                    onGenerateRoute: (_) => MaterialPageRoute(
-                      builder: (_) => CheckinScreen(
-                        betRepository: _betRepository,
-                        utcTimeLeft: _utcTimeLeft, onExploreExploreIdeas: () => _switchTab(0),
+                      Navigator(
+                        key: _navigatorKeys[1],
+                        onGenerateRoute: (_) => MaterialPageRoute(
+                          builder: (_) => CheckinScreen(
+                            betRepository: _betRepository,
+                            utcTimeLeft: _utcTimeLeft, onExploreExploreIdeas: () => _switchTab(0),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  Navigator(
-                    key: _navigatorKeys[2],
-                    onGenerateRoute: (_) => MaterialPageRoute(
-                      builder: (_) => RecordsScreen(
-                        betRepository: _betRepository,
-                        onChallengeRestarted: () => _switchTab(1), onExploreExploreIdeas: () => _switchTab(0),
+                      Navigator(
+                        key: _navigatorKeys[2],
+                        onGenerateRoute: (_) => MaterialPageRoute(
+                          builder: (_) => RecordsScreen(
+                            betRepository: _betRepository,
+                            onChallengeRestarted: () => _switchTab(1), onExploreExploreIdeas: () => _switchTab(0),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  Navigator(
-                    key: _navigatorKeys[3],
-                    onGenerateRoute: (_) => MaterialPageRoute(
-                      builder: (_) => PeopleScreen(
-                        peopleRepository: _peopleRepository,
-                        runsRepository: _runsRepository,
-                        betRepository: _betRepository,
+                      Navigator(
+                        key: _navigatorKeys[3],
+                        onGenerateRoute: (_) => MaterialPageRoute(
+                          builder: (_) => PeopleScreen(
+                            peopleRepository: _peopleRepository,
+                            runsRepository: _runsRepository,
+                            betRepository: _betRepository,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
+                  ),
+                  const Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: IosInstallInstruction(),
                   ),
                 ],
               ),

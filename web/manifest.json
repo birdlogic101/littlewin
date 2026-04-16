@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0F1113",
-    "theme_color": "#61B4EE",
+    "theme_color": "#0F1113",
     "description": "Win the day, one bet at a time.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
