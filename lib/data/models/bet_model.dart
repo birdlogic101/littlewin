@@ -26,8 +26,7 @@ class BetModel {
     if (stakeRow is Map<String, dynamic>) {
       stakeTitle = stakeRow['title'] as String?;
       if (stakeTitle != null) {
-        final slug = stakeTitle.toLowerCase().replaceAll(' ', '_');
-        imageAsset = 'assets/icons/stake-$slug.png';
+        imageAsset = _getAssetForTitle(stakeTitle);
       }
     }
 
@@ -78,9 +77,8 @@ class BetModel {
 
     // Hardcoded mapping for official stakes
     String? imageAsset;
-    final slug = title.toLowerCase().replaceAll(' ', '_');
     if (category != StakeCategory.custom) {
-      imageAsset = 'assets/icons/stake-$slug.png';
+      imageAsset = _getAssetForTitle(title);
     }
 
     return StakeEntity(
@@ -90,5 +88,12 @@ class BetModel {
       emoji: json['emoji'] as String?,
       imageAsset: imageAsset,
     );
+  }
+
+  static String _getAssetForTitle(String title) {
+    var slug = title.toLowerCase().replaceAll(' ', '_');
+    // Special case for consistency between brand names and file names
+    if (slug == 'surprise_box') slug = 'gift_box';
+    return 'assets/icons/stake-$slug.png';
   }
 }

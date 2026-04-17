@@ -17,28 +17,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingData> _slides = [
     const _OnboardingData(
-      icon: 'nav_home',
-      title: 'Explore',
-      description: 'Discover challenges from the community and see how others are doing.',
-      color: Color(0xFF264653),
-    ),
-    const _OnboardingData(
-      icon: 'nav_checkin',
-      title: 'Join & Habit',
-      description: 'Join a challenge to start your own run. Consistency is key!',
-      color: Color(0xFF2A9D8F),
-    ),
-    const _OnboardingData(
-      icon: 'nav_scores',
-      title: 'Streak & Records',
-      description: 'Check in every day to grow your streak. Miss a day, and you start over.',
-      color: Color(0xFFE9C46A),
-    ),
-    const _OnboardingData(
       icon: 'misc_bet',
-      title: 'Bet on Success',
-      description: 'Place symbolic bets on yourself or others to stay motivated.',
-      color: Color(0xFFE76F51),
+      title: 'Gamify your routine.',
+      description: 'Make good habits hard to quit — with streak-building and friendly bets.',
+      color: LWColors.primaryBase,
+    ),
+    const _OnboardingData(
+      icon: 'nav_home',
+      title: 'Pick a challenge',
+      description: 'Swipe to join or create.',
+      color: LWColors.primaryBase,
+    ),
+    const _OnboardingData(
+      icon: 'misc_streak',
+      title: 'Check in daily',
+      description: 'Keep your streak alive.',
+      color: LWColors.primaryBase,
+    ),
+    const _OnboardingData(
+      icon: 'tag_stake_gift',
+      title: 'Add stakes',
+      description: 'Bet on yourself or friends.',
+      color: LWColors.primaryBase,
     ),
   ];
 
@@ -54,9 +54,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finish() {
-    // Persist completion state
     Hive.box('settings').put('onboarding_completed', true);
-    // Navigate to home and replace
     context.go('/');
   }
 
@@ -73,8 +71,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemCount: _slides.length,
             itemBuilder: (context, index) {
-              final data = _slides[index];
-              return _OnboardingSlide(data: data);
+              return _OnboardingSlide(data: _slides[index]);
             },
           ),
           
@@ -82,7 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Positioned(
             left: LWSpacing.xl,
             right: LWSpacing.xl,
-            bottom: MediaQuery.of(context).padding.bottom + LWSpacing.xl,
+            bottom: MediaQuery.paddingOf(context).bottom + LWSpacing.xl,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -98,7 +95,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       decoration: BoxDecoration(
                         color: _currentPage == index 
                           ? lw.brandPrimary 
-                          : lw.contentSecondary.withOpacity(0.3),
+                          : lw.brandPrimary.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     );
@@ -115,6 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: lw.brandPrimary,
                       foregroundColor: Colors.white,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(LWRadius.pill),
                       ),
@@ -132,14 +130,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           // Skip button
           if (_currentPage < _slides.length - 1)
             Positioned(
-              top: MediaQuery.of(context).padding.top + LWSpacing.md,
+              top: MediaQuery.paddingOf(context).top + LWSpacing.md,
               right: LWSpacing.md,
               child: TextButton(
                 onPressed: _finish,
                 child: Text(
                   'Skip',
                   style: LWTypography.smallNormalMedium.copyWith(
-                    color: lw.contentSecondary,
+                    color: LWColors.inkLighter,
                   ),
                 ),
               ),
@@ -158,14 +156,16 @@ class _OnboardingSlide extends StatelessWidget {
   Widget build(BuildContext context) {
     final lw = LWThemeExtension.of(context);
     
-    return Padding(
-      padding: const EdgeInsets.all(LWSpacing.xxl),
+    return Container(
+      width: double.infinity,
+      color: lw.backgroundApp,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const Spacer(flex: 2),
+          // Visual Area
           Container(
-            width: 120,
-            height: 120,
+            width: 160,
+            height: 160,
             decoration: BoxDecoration(
               color: data.color.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -173,25 +173,39 @@ class _OnboardingSlide extends StatelessWidget {
             child: Center(
               child: LwIcon(
                 data.icon,
-                size: 64,
+                size: 80,
                 color: data.color,
               ),
             ),
           ),
-          const SizedBox(height: LWSpacing.xxl),
-          Text(
-            data.title,
-            style: LWTypography.title3.copyWith(color: lw.contentPrimary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: LWSpacing.lg),
-          Text(
-            data.description,
-            style: LWTypography.regularNormalRegular.copyWith(
-              color: lw.contentSecondary,
+          const Spacer(flex: 2),
+          
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: LWSpacing.xxl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  data.title,
+                  style: LWTypography.title3.copyWith(
+                    color: LWColors.inkBase,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: LWSpacing.md),
+                Text(
+                  data.description,
+                  style: LWTypography.regularNormalRegular.copyWith(
+                    color: LWColors.inkLight,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            textAlign: TextAlign.center,
           ),
+          const Spacer(flex: 4),
         ],
       ),
     );

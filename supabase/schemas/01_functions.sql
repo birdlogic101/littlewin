@@ -44,7 +44,7 @@ begin
   -- P3: Community Challenges (Hide if already joined).
   return query
   with followed_ongoing as (
-    select r.id, r.challenge_id, c.title, c.slug, r.user_id, u.username, u.avatar_id, r.current_streak, r.recent_bet_count, false as is_completed, r.created_at as recency, 1 as priority, c.image_asset, c.description
+    select r.id, r.challenge_id, c.title, c.slug, r.user_id, u.username, u.avatar_id, r.current_streak, r.recent_bet_count, false as is_completed, r.created_at as recency, 1 as priority, c.image_asset, c.description, c.sort_order, c.current_participant_count
     from public.runs r
     join public.challenges c on r.challenge_id = c.id
     join public.users u on r.user_id = u.id
@@ -59,7 +59,7 @@ begin
       and not exists (select 1 from public.runs r2 where r2.user_id = p_user_id and r2.challenge_id = r.challenge_id)
   ),
   unfollowed_ongoing as (
-    select r.id, r.challenge_id, c.title, c.slug, r.user_id, u.username, u.avatar_id, r.current_streak, r.recent_bet_count, false as is_completed, r.created_at as recency, 2 as priority, c.image_asset, c.description
+    select r.id, r.challenge_id, c.title, c.slug, r.user_id, u.username, u.avatar_id, r.current_streak, r.recent_bet_count, false as is_completed, r.created_at as recency, 2 as priority, c.image_asset, c.description, c.sort_order, c.current_participant_count
     from public.runs r
     join public.challenges c on r.challenge_id = c.id
     join public.users u on r.user_id = u.id
@@ -76,7 +76,7 @@ begin
   ),
   -- P3: challenger0 runs (Community Challenges)
   c0_runs as (
-    select r.id, r.challenge_id, c.title, c.slug, r.user_id, u.username, u.avatar_id, 1 as current_streak, r.recent_bet_count, true as is_completed, r.created_at as recency, 3 as priority, c.image_asset, c.description
+    select r.id, r.challenge_id, c.title, c.slug, r.user_id, u.username, u.avatar_id, 1 as current_streak, r.recent_bet_count, true as is_completed, r.created_at as recency, 3 as priority, c.image_asset, c.description, c.sort_order, c.current_participant_count
     from public.runs r
     join public.challenges c on r.challenge_id = c.id
     join public.users u on r.user_id = u.id
@@ -114,7 +114,14 @@ begin
     coalesce(d.image_asset, 'assets/pictures/challenge_default_1080.jpg')::text as image_url,
     d.description::text as challenge_description
   from distinct_challenges d
-  order by d.priority asc, d.recency desc
+  order by 
+    d.priority asc,
+    -- P2 (Strangers): Most popular first
+    (case when d.priority = 2 then d.current_participant_count else 0 end) desc,
+    -- P3 (Seeded): Curated sort order
+    (case when d.priority = 3 then d.sort_order else 999999 end) asc,
+    -- Global: Newest first (tie-breaker for P2/P3, primary for P1)
+    d.recency desc
   limit p_limit offset p_offset;
 end;
 $$;

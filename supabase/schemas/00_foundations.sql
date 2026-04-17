@@ -60,7 +60,8 @@ create table if not exists public.challenges (
   current_participant_count int default 0 not null,
   total_runs_count int default 0 not null,
   top_streak int default 0 not null,
-  image_asset varchar(255) null
+  image_asset varchar(255) null,
+  sort_order int default 0 not null
 );
 
 -- Maintenance: Ensure challenges.image_asset column exists.
@@ -74,6 +75,13 @@ begin
     update public.challenges set image_asset = 'assets/pictures/challenge_default_1080.jpg' where image_asset is null;
     alter table public.challenges alter column image_asset set not null;
   -- If it exists but is just varchar(255), we're good.
+  end if;
+end $$;
+-- Maintenance: Ensure challenges.sort_order column exists.
+do $$ 
+begin
+  if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='challenges' and column_name='sort_order') then
+    alter table public.challenges add column sort_order int default 0 not null;
   end if;
 end $$;
 alter table public.challenges enable row level security;

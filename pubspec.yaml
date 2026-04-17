@@ -57,11 +57,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
   build_runner:
   freezed:
   json_serializable:
   injectable_generator:
   mocktail:
+  flutter_native_splash: ^2.4.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -88,3 +90,15 @@ flutter:
         - asset: assets/fonts/Rubik-VariableFont_wght.ttf
         - asset: assets/fonts/Rubik-Italic-VariableFont_wght.ttf
           style: italic
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/misc/misc_appLogo.png"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  android_12:
+    color: "#FFFFFF"
+    icon_background_color: "#FFFFFF"

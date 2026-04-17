@@ -149,7 +149,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             
                             // Copy
                             Text(
-                              _isLogin ? 'Ready to win the day?' : 'Join the community',
+                              _isLogin ? 'Keep winning' : 'Join us',
                               style: LWTypography.title3.copyWith(color: lw.contentPrimary),
                               textAlign: TextAlign.center,
                             ),
