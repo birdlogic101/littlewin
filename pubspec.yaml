@@ -95,10 +95,17 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/misc/misc_appLogo.png"
+  image_path: "assets/misc/misc_appLogo1024.png"
+  adaptive_icon_background: "#CFE1F8"
+  adaptive_icon_foreground: "assets/misc/misc_appLogo1024.png"
+  web:
+    generate: true
+    image_path: "assets/misc/misc_appLogo1024.png"
 
 flutter_native_splash:
   color: "#FFFFFF"
+  image: "assets/misc/misc_appLogo1024.png"
   android_12:
     color: "#FFFFFF"
     icon_background_color: "#FFFFFF"
+    image: "assets/misc/misc_appLogo1024.png"
